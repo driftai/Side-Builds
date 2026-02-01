@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Search via API</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Configure Tailwind CSS
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // Use Inter font
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Basic body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style for the search results container */
+        #results-container {
+            min-height: 300px; /* Start with some height */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            margin-top: 1.5rem;
+            background-color: #f9fafb;
+        }
+        /* Styling for individual result items */
+        .result-item {
+            border-bottom: 1px solid #e5e7eb;
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+        }
+        .result-item:last-child {
+            border-bottom: none; /* No border for the last item */
+        }
+        .result-title a {
+            color: #1a0dab; /* Google blue for links */
+            text-decoration: none;
+        }
+        .result-title a:hover {
+            text-decoration: underline;
+        }
+        .result-url {
+            color: #006837; /* Google green for URLs */
+            font-size: 0.875rem; /* Smaller text for URL */
+        }
+        .result-snippet {
+            color: #545454; /* Standard text color for snippets */
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        /* Loading indicator style */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto; /* Center the loader */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-semibold mb-6 text-center text-gray-800">Search via Custom API</h1>
+
+        <div class="mb-6 space-y-4">
+            <div>
+                <label for="api-key" class="block text-sm font-medium text-gray-700 mb-1">Google API Key:</label>
+                <input type="password" id="api-key" name="api-key" placeholder="Enter your Google API Key" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <p class="mt-1 text-xs text-gray-500">Your API key is treated like a password. Keep it secure.</p>
+            </div>
+            <div>
+                <label for="search-engine-id" class="block text-sm font-medium text-gray-700 mb-1">Programmable Search Engine ID (CX):</label>
+                <input type="text" id="search-engine-id" name="search-engine-id" placeholder="Enter your Search Engine ID" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+        </div>
+
+        <div class="flex items-center border border-gray-300 rounded-md p-1 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 mb-4">
+            <input type="text" id="search-query" placeholder="Enter search query..." class="flex-grow px-3 py-2 border-none focus:outline-none rounded-l-md">
+            <button id="search-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-r-md transition duration-150 ease-in-out">
+                Search
+            </button>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4 mt-4">
+            <div class="flex-1">
+                <label for="sort-order" class="block text-sm font-medium text-gray-700 mb-1">Sort by:</label>
+                <select id="sort-order" name="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Relevance (Default)</option>
+                    <option value="date">Date</option>
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="site-restrict" class="block text-sm font-medium text-gray-700 mb-1">Search within site (e.g., example.com):</label>
+                <input type="text" id="site-restrict" name="site-restrict" placeholder="Leave blank to search all sites" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div>
+                <label for="language-restrict" class="block text-sm font-medium text-gray-700 mb-1">Language:</label>
+                <select id="language-restrict" name="language-restrict" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Any Language</option>
+                    <option value="lang_en">English</option>
+                    <option value="lang_es">Spanish</option>
+                    <option value="lang_fr">French</option>
+                    <option value="lang_de">German</option>
+                    <option value="lang_ja">Japanese</option>
+                    <option value="lang_ko">Korean</option>
+                    <option value="lang_zh-CN">Chinese (Simplified)</option>
+                    <option value="lang_zh-TW">Chinese (Traditional)</option>
+                    {/* Add more common languages as needed */} 
+                </select>
+            </div>
+            <div>
+                <label for="country-restrict" class="block text-sm font-medium text-gray-700 mb-1">Country:</label>
+                <select id="country-restrict" name="country-restrict" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Any Country</option>
+                    <option value="countryUS">United States</option>
+                    <option value="countryCA">Canada</option>
+                    <option value="countryGB">United Kingdom</option>
+                    <option value="countryAU">Australia</option>
+                    <option value="countryDE">Germany</option>
+                    <option value="countryFR">France</option>
+                    <option value="countryJP">Japan</option>
+                     {/* Add more common countries as needed */} 
+               </select>
+            </div>
+            <div>
+                <label for="file-type" class="block text-sm font-medium text-gray-700 mb-1">File Type:</label>
+                <select id="file-type" name="file-type" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Any File Type</option>
+                    <option value="pdf">PDF</option>
+                    <option value="doc">DOC</option>
+                    <option value="docx">DOCX</option>
+                    <option value="xls">XLS</option>
+                    <option value="xlsx">XLSX</option>
+                    <option value="ppt">PPT</option>
+                    <option value="pptx">PPTX</option>
+                    <option value="txt">TXT</option>
+                    <option value="jpg">JPG</option>
+                    <option value="png">PNG</option>
+                    <option value="gif">GIF</option>
+                 </select>
+            </div>
+            <div>
+                <label for="date-restrict" class="block text-sm font-medium text-gray-700 mb-1">Date Range:</label>
+                <select id="date-restrict" name="date-restrict" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Any Time</option>
+                    <option value="d[1]">Past 24 hours</option>
+                    <option value="w[1]">Past week</option>
+                    <option value="m[1]">Past month</option>
+                    <option value="m[6]">Past 6 months</option>
+                    <option value="y[1]">Past year</option>
+                </select>
+            </div>
+             <div>
+                <label for="safe-search" class="block text-sm font-medium text-gray-700 mb-1">SafeSearch:</label>
+                <select id="safe-search" name="safe-search" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Default (Moderate)</option>
+                    <option value="active">Strict (On)</option> 
+                    <option value="off">Off</option> 
+                 </select>
+            </div>
+            <div>
+                 <label for="rights-filter" class="block text-sm font-medium text-gray-700 mb-1">Usage Rights:</label>
+                <select id="rights-filter" name="rights-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">Any License</option>
+                    <option value="cc_publicdomain">Creative Commons: Public Domain</option>
+                    <option value="cc_attribute">Creative Commons: Attribution</option>
+                    <option value="cc_sharealike">Creative Commons: Share Alike</option>
+                    <option value="cc_noncommercial">Creative Commons: Non-Commercial</option>
+                    <option value="cc_nonderived">Creative Commons: No Derivative Works</option>
+                 </select>
+            </div>
+             <div>
+                <label for="num-results" class="block text-sm font-medium text-gray-700 mb-1">Results per Page:</label>
+                <select id="num-results" name="num-results" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="10">10 (Default/Max)</option>
+                    <option value="5">5</option>
+                    <option value="3">3</option>
+                 </select>
+            </div>
+             <div>
+                 <label for="exact-phrase" class="block text-sm font-medium text-gray-700 mb-1">Exact Phrase:</label>
+                 <input type="text" id="exact-phrase" name="exact-phrase" placeholder="e.g., hello world" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+             </div>
+             <div>
+                 <label for="exclude-words" class="block text-sm font-medium text-gray-700 mb-1">Exclude Words:</label>
+                 <input type="text" id="exclude-words" name="exclude-words" placeholder="e.g., goodbye moon" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+             </div>
+       </div>
+
+        <div id="results-container">
+            <p class="text-gray-500 text-center pt-4">Enter your API Key, Search Engine ID, and a query, then click Search.</p>
+        </div>
+
+        <details class="mt-8 bg-gray-50 p-4 rounded border border-gray-200">
+            <summary class="font-semibold text-gray-700 cursor-pointer">How to get your API Key and Search Engine ID</summary>
+            <div class="mt-3 text-sm text-gray-600 space-y-3">
+                <p>
+                    To use this search tool, you need credentials from Google Cloud and Programmable Search Engine:
+                </p>
+                <ol class="list-decimal list-inside space-y-2">
+                    <li>
+                        <strong>API Key:</strong>
+                        <ul class="list-disc list-inside pl-4 mt-1 space-y-1">
+                            <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Google Cloud Console</a>.</li>
+                            <li>Create a new project or select an existing one.</li>
+                            <li>Navigate to "APIs & Services" > "Credentials".</li>
+                            <li>Click "Create Credentials" and select "API key".</li>
+                            <li><strong>Important:</strong> Secure your API key! Restrict its usage to specific IP addresses or HTTP referrers in the Cloud Console if deploying this publicly.</li>
+                            <li>Enable the "Custom Search API" for your project under "APIs & Services" > "Library". You can check its status or enable it here: <a href="https://console.cloud.google.com/apis/api/customsearch.googleapis.com/metrics" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Custom Search API Metrics</a>.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>Search Engine ID (CX):</strong>
+                        <ul class="list-disc list-inside pl-4 mt-1 space-y-1">
+                            <li>Go to the <a href="https://programmablesearchengine.google.com/controlpanel/all" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Programmable Search Engine</a> control panel.</li>
+                            <li>Click "Add" to create a new search engine.</li>
+                            <li>Configure its settings (e.g., sites to search, look and feel).</li>
+                            <li>Once created, find the "Search engine ID" in the "Basics" tab of the setup page.</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p>
+                    Enter the generated API Key and Search Engine ID into the fields above.
+                </p>
+            </div>
+        </details>
+
+    </div>
+
+    <script>
+        // --- Configuration Removed - Now read from input fields ---
+
+        const searchButton = document.getElementById('search-button');
+        const searchQueryInput = document.getElementById('search-query');
+        const resultsContainer = document.getElementById('results-container');
+        const sortOrderSelect = document.getElementById('sort-order');
+        const siteRestrictInput = document.getElementById('site-restrict');
+        const apiKeyInput = document.getElementById('api-key'); // Added
+        const searchEngineIdInput = document.getElementById('search-engine-id'); // Added
+
+        // --- Added New Filter Element References ---
+        const languageRestrictSelect = document.getElementById('language-restrict');
+        const countryRestrictSelect = document.getElementById('country-restrict');
+        const fileTypeSelect = document.getElementById('file-type');
+        const dateRestrictSelect = document.getElementById('date-restrict');
+        const safeSearchSelect = document.getElementById('safe-search');
+        const rightsFilterSelect = document.getElementById('rights-filter');
+        const numResultsSelect = document.getElementById('num-results');
+        const exactPhraseInput = document.getElementById('exact-phrase'); // Added
+        const excludeWordsInput = document.getElementById('exclude-words'); // Added
+        // --- End New Filter Element References ---
+
+        // Function to display loading indicator
+        function showLoading() {
+            resultsContainer.innerHTML = '<div class="loader"></div>';
+        }
+
+        // Function to display error messages
+        function displayError(message) {
+             resultsContainer.innerHTML = `<p class="text-red-600 text-center p-4">${message}</p>`;
+        }
+
+        // Function to display search results
+        function displayResults(data) {
+            // Clear previous results or loading indicator
+            resultsContainer.innerHTML = '';
+
+            if (!data.items || data.items.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-gray-600 text-center p-4">No results found.</p>';
+                return;
+            }
+
+            // Loop through each result item and create HTML elements
+            data.items.forEach(item => {
+                const resultDiv = document.createElement('div');
+                resultDiv.classList.add('result-item');
+
+                const titleElement = document.createElement('h3');
+                titleElement.classList.add('result-title', 'text-lg', 'mb-1');
+                const linkElement = document.createElement('a');
+                linkElement.href = item.link;
+                linkElement.textContent = item.title;
+                linkElement.target = '_blank'; // Open link in new tab
+                linkElement.rel = 'noopener noreferrer';
+                titleElement.appendChild(linkElement);
+
+                const urlElement = document.createElement('div');
+                urlElement.classList.add('result-url', 'mb-1');
+                urlElement.textContent = item.formattedUrl;
+
+                const snippetElement = document.createElement('p');
+                snippetElement.classList.add('result-snippet');
+                snippetElement.innerHTML = item.htmlSnippet; // Use htmlSnippet for rich text formatting
+
+                resultDiv.appendChild(titleElement);
+                resultDiv.appendChild(urlElement);
+                resultDiv.appendChild(snippetElement);
+
+                resultsContainer.appendChild(resultDiv);
+            });
+        }
+
+        // Function to perform the search
+        async function performSearch() {
+            const query = searchQueryInput.value.trim();
+            const apiKey = apiKeyInput.value.trim(); // Read from input
+            const searchEngineId = searchEngineIdInput.value.trim(); // Read from input
+
+            // --- Validation Added ---
+            if (!apiKey) {
+                displayError('Please enter your Google API Key.');
+                return;
+            }
+            if (!searchEngineId) {
+                displayError('Please enter your Programmable Search Engine ID.');
+                return;
+            }
+            if (!query) {
+                displayError('Please enter a search query.');
+                return;
+            }
+            // --- End Validation ---
+
+            showLoading(); // Show loading indicator
+
+            // Get sorting and site restriction values
+            const sortValue = sortOrderSelect.value;
+            const siteValue = siteRestrictInput.value.trim();
+
+            // --- Read New Filter Values ---
+            const languageValue = languageRestrictSelect.value;
+            const countryValue = countryRestrictSelect.value;
+            const fileTypeValue = fileTypeSelect.value;
+            const dateRestrictValue = dateRestrictSelect.value;
+            const safeSearchValue = safeSearchSelect.value;
+            const rightsValue = rightsFilterSelect.value;
+            const numResultsValue = numResultsSelect.value;
+            const exactPhraseValue = exactPhraseInput.value.trim(); // Added
+            const excludeWordsValue = excludeWordsInput.value.trim(); // Added
+             // --- End Read New Filter Values ---
+
+            // Construct the API request URL using values from input fields
+            let apiUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}`;
+
+            // Append sort parameter if selected
+            if (sortValue) {
+                apiUrl += `&sort=${sortValue}`;
+            }
+
+            // Append siteSearch parameter if provided
+            if (siteValue) {
+                apiUrl += `&siteSearch=${encodeURIComponent(siteValue)}`;
+            }
+
+            // --- Append New Filter Parameters ---
+            if (languageValue) {
+                apiUrl += `&lr=${languageValue}`;
+            }
+            if (countryValue) {
+                apiUrl += `&cr=${countryValue}`;
+            }
+            if (fileTypeValue) {
+                apiUrl += `&fileType=${fileTypeValue}`;
+            }
+            if (dateRestrictValue) {
+                apiUrl += `&dateRestrict=${dateRestrictValue}`;
+            }
+             if (safeSearchValue) {
+                 apiUrl += `&safe=${safeSearchValue}`; // Corrected parameter name and value usage
+            }
+             if (rightsValue) {
+                apiUrl += `&rights=${encodeURIComponent(rightsValue)}`; // Encode rights value just in case
+            }
+             if (numResultsValue && numResultsValue !== '10') { // Only add if not default
+                apiUrl += `&num=${numResultsValue}`;
+            }
+            if (exactPhraseValue) { // Added
+                apiUrl += `&exactTerms=${encodeURIComponent(exactPhraseValue)}`;
+            }
+            if (excludeWordsValue) { // Added
+                apiUrl += `&excludeTerms=${encodeURIComponent(excludeWordsValue)}`;
+            }
+             // --- End Append New Filter Parameters ---
+
+            console.log("Requesting URL:", apiUrl); // Log the final URL for debugging
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    // Handle HTTP errors (like 4xx, 5xx)
+                    const errorData = await response.json();
+                    console.error('API Error Response:', errorData);
+                    // Check for specific API key related errors - message updated slightly
+                    if (response.status === 400 && errorData.error?.message.toLowerCase().includes('api key not valid')) {
+                         throw new Error(`The provided API Key is not valid. Please check the key or ensure the Custom Search API is enabled in Google Cloud Console.`); // Updated error
+                    }
+                     if (response.status === 403 && errorData.error?.message.toLowerCase().includes('permission denied')) {
+                         throw new Error(`Permission denied. Ensure the API key is correctly configured, has access to the Custom Search API, and the Search Engine ID is correct.`); // Updated error
+                    }
+                    throw new Error(`API Error: ${errorData.error?.message || response.statusText} (Status: ${response.status})`);
+                }
+                const data = await response.json();
+                console.log('API Response Data:', data); // Log data for debugging
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error fetching search results:', error);
+                displayError(`Failed to fetch results: ${error.message}`);
+            }
+        }
+
+        // Add event listener for the search button click
+        searchButton.addEventListener('click', performSearch);
+
+        // Add event listener for pressing Enter in the input field
+        searchQueryInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent default form submission if it were in a form
+                performSearch();
+            }
+        });
+
+    </script>
+
+</body>
+</html>
