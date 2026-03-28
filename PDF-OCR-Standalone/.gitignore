@@ -6,3 +6,6 @@ full_output.txt
 images/
 *.log
 .env
+__pycache__/
+*.pyc
+last_pdf.txt
