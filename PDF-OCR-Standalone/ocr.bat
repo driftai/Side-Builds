@@ -12,15 +12,22 @@ rem If a PDF path is passed (drag-drop or command line), run directly without me
 if not "%~1"=="" (
     set "PDFIN=%~1"
     call :normalize_path PDFIN PDFPATH
-    if exist "!PDFPATH!" (
-        call :start_ocr
-        goto :eof
-    ) else (
-        echo File not found: "%~1"
-        pause
-        goto :menu
-    )
+    goto :direct_run
 )
+:direct_run
+cls
+echo ========================================
+echo       PDF OCR - Drag and Drop Mode
+echo ========================================
+echo.
+echo Received: "!PDFPATH!"
+echo.
+if not exist "!PDFPATH!" (
+    echo File not found.
+    pause
+    goto :eof
+)
+goto :start_ocr
 
 :menu
 cls
@@ -77,7 +84,7 @@ if not exist "!PDFPATH!" (
     pause
     goto :menu
 )
-rem Save this as last PDF (raw, non‑quoted)
+rem Save this as last PDF (raw, non???quoted)
 > "%LASTPDF%" echo(!PDFPATH!
 goto :start_ocr
 
@@ -159,6 +166,11 @@ if %OCR_EXIT% neq 0 (
     echo Output: %SCRIPT_DIR%full_output.txt
 )
 echo.
+if not "%~1"=="" (
+    echo Drag-drop run finished. Press any key to close.
+    pause >nul
+    exit /b %OCR_EXIT%
+)
 choice /c RN /n /m "Return to menu (R) or exit (N)? "
 if errorlevel 2 exit /b %OCR_EXIT%
 goto :menu
@@ -185,3 +197,4 @@ if %TEST_EXIT% neq 0 (
 echo.
 pause
 goto :menu
+
