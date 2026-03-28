@@ -9,3 +9,5 @@ images/
 __pycache__/
 *.pyc
 last_pdf.txt
+full_output.txt
+last_pdf.txt
