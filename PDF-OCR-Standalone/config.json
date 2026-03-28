@@ -1,0 +1,66 @@
+{
+  "providers": [
+    {
+      "name": "nvidia",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKey": "***",
+      "auth": "api-key",
+      "api": "openai-completions",
+      "headers": {},
+      "models": [
+        {
+          "id": "qwen/qwen3.5-122b-a10b",
+          "name": "Qwen 3.5 122B (multimodal)",
+          "input": ["text", "image"],
+          "maxTokens": 4096,
+          "contextWindow": 131072
+        }
+      ]
+    },
+    {
+      "name": "nvidia-backup-1",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKey": "***",
+      "auth": "api-key",
+      "api": "openai-completions",
+      "headers": {},
+      "models": [
+        {
+          "id": "nvidia/neva-22b",
+          "name": "NeVA 22B",
+          "input": ["text", "image"],
+          "maxTokens": 4096,
+          "contextWindow": 4096
+        }
+      ]
+    },
+    {
+      "name": "microsoft-phi",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKey": "***",
+      "auth": "api-key",
+      "api": "openai-completions",
+      "headers": {},
+      "models": [
+        {
+          "id": "microsoft/phi-3-vision-128k-instruct",
+          "name": "Phi-3 Vision 128K",
+          "input": ["text", "image"],
+          "maxTokens": 4096,
+          "contextWindow": 128000
+        },
+        {
+          "id": "microsoft/phi-3.5-vision-instruct",
+          "name": "Phi-3.5 Vision",
+          "input": ["text", "image"],
+          "maxTokens": 4096,
+          "contextWindow": 128000
+        }
+      ]
+    }
+  ],
+  "selected": {
+    "provider": "nvidia",
+    "model": "qwen/qwen3.5-122b-a10b"
+  }
+}

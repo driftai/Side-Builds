@@ -1,0 +1,8 @@
+PDF-OCR-Standalone/full_output.txt
+PDF-OCR-Standalone/images/
+PDF-OCR-Standalone/*.log
+PDF-OCR-Standalone/.env
+full_output.txt
+images/
+*.log
+.env
