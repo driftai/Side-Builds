@@ -4,16 +4,16 @@
 
 # Agentic Scribe Notetaker
 
-This started from an AI Studio app export, but this copy has been substantially edited for local development, richer configuration, and more reliable local runs.
+This is a local-first Gemini notetaking project that has been substantially edited for local development, richer configuration, and more reliable local runs.
 
-AI Studio reference: https://ai.studio/apps/bundled/scribe
+To create a similar starting point, make a Gemini app in Google AI Studio, export the code, then adapt the project for local Vite development, runtime configuration, and local smoke checks.
 
 ## Local Changes
 
 - Vite local dev server configured to bind on `0.0.0.0` at port `3000`.
 - Environment-based Gemini API key handling through `.env.local`.
 - Added local build, type-check, preview, and smoke-test scripts.
-- Expanded app configuration, workspace tooling, UI state, storage, export, and document handling beyond the original AI Studio bundle.
+- Expanded app configuration, workspace tooling, UI state, storage, export, and document handling beyond the original starter bundle.
 - Local package lock included so dependency installs are reproducible.
 
 ## Run Locally

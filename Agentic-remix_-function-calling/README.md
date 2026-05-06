@@ -4,9 +4,9 @@
 
 # Agentic Remix Function Calling
 
-This started from an AI Studio app export, but this copy has been substantially edited for local development and repeatable desktop runs.
+This is a local-first Gemini function-calling project that has been substantially edited for local development and repeatable desktop runs.
 
-AI Studio reference: https://ai.studio/apps/9e35740a-a85b-432e-a51b-80d0388e274a
+To create a similar starting point, make a Gemini app in Google AI Studio, export the code, then adapt the project for local Vite development and environment-based API keys.
 
 ## Local Changes
 
@@ -14,7 +14,7 @@ AI Studio reference: https://ai.studio/apps/9e35740a-a85b-432e-a51b-80d0388e274a
 - Environment-based Gemini API key handling through `.env.local`.
 - Local package lock included so dependency installs are reproducible.
 - Windows-friendly `run.bat` launcher added for easier local startup.
-- Source and configuration edits made beyond the original AI Studio bundle.
+- Source and configuration edits made beyond the original starter bundle.
 
 ## Run Locally
 
