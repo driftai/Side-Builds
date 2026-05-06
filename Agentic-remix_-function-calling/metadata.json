@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Function calling",
+  "description": "Set the temperature of a room using function calls",
+  "requestFramePermissions": []
+}

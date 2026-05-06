@@ -1,0 +1,442 @@
+﻿/* ==========================================================================
+   8. UTILITIES & GENERIC ELEMENTS
+   ========================================================================== */
+.button.primary {
+  background-color: var(--theme-accent);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: filter 0.2s;
+}
+.button.primary:hover {
+  filter: brightness(1.1);
+}
+
+/* Error Screen (in-app) */
+.error-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  padding: 24px;
+  gap: 16px;
+}
+.error-screen .close-button {
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: white;
+  color: black;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   9. DYNAMIC INSERTS (ILLUSTRATIONS, MAPS)
+   ========================================================================== */
+
+.illustration-loading,
+.illustration-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  border: 2px dashed rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius);
+  margin: 1em 0;
+  padding: 16px;
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  opacity: 0.7;
+  text-align: center;
+}
+
+.illustration-loading span,
+.illustration-error span {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.illustration-error {
+  border-color: #d93025;
+  color: #d93025;
+}
+.illustration-error .icon {
+  font-size: 32px;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: var(--theme-accent);
+  animation: spin 1s ease infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.illustration-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  background-color: var(--theme-bg);
+  display: block;
+}
+
+/* Resizable elements: Images and Maps */
+.illustration-container.resizable,
+.map-container.resizable {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 1em auto;
+}
+
+.illustration-container.resizable {
+  line-height: 0; /* Prevents extra space below the image */
+}
+
+.map-container.resizable {
+  height: 450px; /* Default height for maps */
+  min-height: 200px;
+}
+
+.map-container.resizable iframe {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  border: 0;
+}
+
+.resizable:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid white;
+  border-radius: 4px;
+  cursor: nwse-resize;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.prose-view .map-wrapper {
+  resize: both;
+  overflow: hidden;
+  border: 1px dashed rgba(0, 0, 0, 0.2);
+  margin: 1em 0;
+  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  position: relative;
+  height: auto;
+  min-height: 200px;
+  min-width: 300px;
+  background: var(--theme-bg);
+}
+
+.prose-view .map-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ==========================================================================
+   10. RESPONSIVENESS
+   ========================================================================== */
+@media (max-width: 768px) {
+  header {
+    padding: 0 16px;
+  }
+  .header-controls {
+    gap: 8px;
+  }
+  .user-name,
+  .change-counter,
+  .font-selector {
+    display: none;
+  }
+  .main-app-area {
+    padding: 8px;
+  }
+  .tabs-container {
+    font-size: 14px;
+  }
+  .copy-button {
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+  }
+  .feature-item p {
+    display: none;
+  }
+  
+  /* ============================================
+     BRAND NEW MOBILE SPLASH SCREEN
+     ============================================ */
+  /* ============================================
+     INTERNAL PLACEHOLDER MOBILE STYLES
+     ============================================ */
+  .welcome-placeholder .welcome-prefix {
+    display: none;
+  }
+  
+  .welcome-placeholder .placeholder-features-grid {
+    display: none;
+  }
+  
+  .welcome-placeholder .welcome-placeholder-subtitle {
+    margin-bottom: 0;
+    font-size: 16px;
+  }
+
+  /* Ensure the placeholder is centered vertically in the document view */
+  .document-content.placeholder-active {
+     justify-content: center;
+     height: 100%;
+  }
+
+  /* ============================================
+     USER SETTINGS MOBILE OPTIMIZATION
+     ============================================ */
+  .userSettings.jazzy {
+    padding: 16px;
+    width: 100%;
+    max-width: 340px;
+    min-width: unset;
+  }
+  
+  .userSettings h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  
+  .config-description {
+    display: none;
+  }
+
+  .userSettings form {
+    margin-top: 0;
+    gap: 12px;
+  }
+  
+  /* Compress labels to save vertical space */
+  .userSettings p:not(.config-description):not(.context-description) {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+  }
+
+  .userSettings input[type='text'],
+  .userSettings textarea,
+  .font-selector-config {
+    padding: 10px;
+    font-size: 15px;
+  }
+
+  /* Compress context section */
+  .details-content {
+    padding-top: 4px;
+  }
+  .context-description {
+    display: none;
+  }
+  .userSettings textarea {
+    height: 90px; /* Increased height for more context space */
+  }
+  
+  .button.primary {
+    padding: 10px 20px;
+    font-size: 14px;
+    width: auto;
+    align-self: center;
+    min-width: 120px;
+  }
+}
+
+/* ==========================================================================
+   7. POWERED BY GEMINI BRANDING
+   ========================================================================== */
+
+/* 1. Base notice styling */
+.powered-by-gemini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme-text);
+  opacity: 0.5;
+  padding: 8px 0;
+  pointer-events: none;
+  user-select: none;
+  background-color: var(--theme-surface);
+  transition: opacity 0.3s, background-color 0.3s;
+}
+
+/* 2. Specific styling for the Welcome Screen footer */
+.powered-by-gemini.welcome-footer {
+  background-color: transparent;
+  color: #ffffff;
+  opacity: 0; /* Starts hidden for the entrance animation */
+  margin-top: 24px;
+  padding: 0;
+}
+
+/* 3. Entrance animation for the Welcome Screen */
+.welcome-screen-shroud.visible .welcome-footer {
+  animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 1s; /* Staggered to appear after the main button */
+}
+
+.powered-by-gemini.welcome-footer .gemini-star {
+  color: #ffffff;
+}
+
+/* 4. The Pulsating Star Icon */
+.gemini-star {
+  width: 16px;
+  height: 16px;
+  color: var(--theme-accent);
+  animation: twinkle 2s infinite ease-in-out;
+  will-change: transform, opacity, filter; /* Performance optimization */
+}
+
+/* 5. Twinkle Animation Keyframes */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8) rotate(0deg);
+    filter: drop-shadow(0 0 0px var(--theme-accent));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(10deg);
+    filter: drop-shadow(0 0 4px var(--theme-accent));
+  }
+}
+
+/* Illustration / Image Generation Styles */
+.illustration-loading, .illustration-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.02);
+  min-height: 200px;
+  text-align: center;
+}
+
+.illustration-error {
+  border-color: rgba(244, 67, 54, 0.2);
+  background-color: rgba(244, 67, 54, 0.02);
+  color: #f44336;
+}
+
+.illustration-error .icon {
+  font-size: 32px;
+}
+
+.error-text-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.error-header {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.error-detail {
+  font-size: 12px;
+  opacity: 0.8;
+  max-width: 300px;
+  word-break: break-word;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-top-color: var(--theme-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.attempt-logs {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  font-size: 11px;
+  text-align: left;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  padding-top: 12px;
+  width: 100%;
+}
+
+.attempt-logs.mode-error {
+  border-top-color: rgba(244, 67, 54, 0.2);
+}
+
+.attempt-logs-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 0.9;
+}
+
+.attempt-log-entry {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+  gap: 6px;
+}
+
+.attempt-model {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.attempt-reason {
+  opacity: 0.7;
+  word-break: break-word;
+}

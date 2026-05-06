@@ -1,0 +1,520 @@
+﻿/* ==========================================================================
+   6. KEYNOTE COMPANION (MAIN CONTENT)
+   ========================================================================== */
+
+.keynote-companion {
+  width: 100%;
+  height: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.document-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--theme-surface);
+  border-radius: var(--border-radius);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.tabs-container,
+.sub-tabs-container {
+  display: flex;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.tab-button,
+.sub-tab-button {
+  flex-grow: 1;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--theme-text);
+  opacity: 0.7;
+  transition: border-color 0.2s, opacity 0.2s;
+  /* Flex properties for centering icon/text content */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.tab-button:hover,
+.sub-tab-button:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+.tab-button.active,
+.sub-tab-button.active {
+  border-bottom-color: var(--theme-accent);
+  opacity: 1;
+}
+
+.sub-tabs-container {
+  background-color: var(--theme-bg);
+}
+
+/* Document Editor */
+.document-editor-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.document-toolbar {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 8px;
+}
+.document-toolbar button {
+  background: var(--theme-bg);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: var(--theme-text);
+}
+.document-toolbar button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.document-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.document-toolbar button:disabled:hover {
+  background-color: var(--theme-bg);
+}
+
+/* Mobile Toolbar specific styles */
+.mobile-toolbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+.mobile-menu-trigger {
+  background: none !important;
+  border: none !important;
+  padding: 4px !important;
+  cursor: pointer;
+}
+
+.mobile-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--theme-surface);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 200px;
+  padding: 8px 0;
+}
+
+.mobile-menu-dropdown button {
+  text-align: left;
+  background: none !important;
+  border: none !important;
+  padding: 12px 16px !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border-radius: 0 !important;
+}
+
+.mobile-menu-dropdown button:hover {
+  background-color: rgba(0,0,0,0.05) !important;
+}
+
+.mobile-menu-dropdown hr {
+  border: 0;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+  background: transparent;
+}
+
+.document-textarea {
+  flex-grow: 1;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  resize: none;
+  outline: none;
+  font-family: var(--font-document);
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: var(--theme-document-bg);
+  color: var(--theme-text);
+}
+
+.document-textarea::placeholder {
+  color: var(--theme-text);
+  opacity: 0.6;
+}
+
+/* Rendered/Delta/Minutes View */
+.document-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex-grow: 1;
+  position: relative;
+  font-family: var(--font-document);
+  line-height: 1.7;
+  background-color: var(--theme-document-bg);
+  min-height: 0; /* Fix for flexbox growth in nested scroll containers */
+}
+
+.scribe-embed-placeholder {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+  min-height: 50px;
+}
+
+.scribe-embed-placeholder:empty {
+  display: none;
+}
+
+.prose-view {
+  /* Removed max-width and margin to allow content to fill container */
+}
+
+.prose-view > *:first-child {
+  margin-top: 0 !important;
+}
+.prose-view h1,
+.prose-view h2,
+.prose-view h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.prose-view p {
+  margin-bottom: 1em;
+}
+.prose-view ul,
+.prose-view ol {
+  padding-left: 2em;
+}
+
+.prose-view table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 15px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden; /* Needed for border-radius on table */
+}
+
+.prose-view th,
+.prose-view td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.prose-view th {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.prose-view tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Delta view styles */
+ins {
+  background-color: #d4edda;
+  text-decoration: none;
+  color: #155724;
+}
+del {
+  background-color: #f8d7da;
+  text-decoration: line-through;
+  color: #721c24;
+}
+
+.document-actions {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: var(--theme-surface);
+  z-index: 5;
+}
+
+.document-actions > button {
+  background-color: var(--theme-document-bg);
+}
+
+.copy-button, .pdf-button, .upload-button, .download-button {
+  background: var(--theme-document-bg);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--theme-text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.copy-button:hover, .pdf-button:hover, .upload-button:hover, .download-button:hover {
+  background-color: var(--theme-surface);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.upload-button:hover {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+.download-button:hover {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+.download-button-wrapper {
+  position: relative;
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.download-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: transparent;
+}
+
+.download-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 101;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.download-menu button {
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--theme-text);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.download-menu button:hover {
+  background: var(--theme-bg);
+  color: var(--theme-accent);
+}
+
+.download-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(127, 127, 127, 0.25);
+}
+
+.pdf-button {
+  border-color: rgba(217, 48, 37, 0.2);
+}
+
+.pdf-button:hover {
+  color: #d93025;
+  border-color: #d93025;
+}
+
+.pdf-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Selection toolbar — appears above the editor textarea while text is selected */
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 0 0 8px 0;
+  border: 1px solid var(--theme-accent);
+  border-radius: 8px;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+
+.selection-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.selection-toolbar-label .icon {
+  color: var(--theme-accent);
+  font-size: 18px;
+}
+
+.selection-toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.selection-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.selection-toolbar-button:hover:not(:disabled) {
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+}
+
+.selection-toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.selection-toolbar-button .icon {
+  font-size: 16px;
+}
+
+.selection-toolbar-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--theme-text);
+  opacity: 0.6;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.selection-toolbar-close:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.15);
+}
+
+/* Citation chips — rendered for [Title](#src:<id>) Markdown links by the
+   custom marked renderer in DocumentRenderer. Click delegates to the
+   workspace view to scroll-and-pulse the matching source card. */
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px 1px 5px;
+  margin: 0 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  background: rgba(66, 133, 244, 0.08);
+  color: var(--theme-accent);
+  font-size: 0.85em;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.citation-chip:hover {
+  background: rgba(66, 133, 244, 0.18);
+  border-color: var(--theme-accent);
+}
+
+.citation-chip-missing {
+  background: rgba(217, 48, 37, 0.08);
+  border-color: rgba(217, 48, 37, 0.45);
+  color: #d93025;
+}
+
+.citation-chip-missing:hover {
+  background: rgba(217, 48, 37, 0.16);
+  border-color: #d93025;
+}
+
+.citation-chip:active {
+  transform: scale(0.97);
+}
+
+.citation-chip-icon {
+  font-size: 0.95em !important;
+  opacity: 0.7;
+}
+
+.citation-chip-text {
+  text-decoration: none;
+}

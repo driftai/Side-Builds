@@ -1,0 +1,235 @@
+﻿.header-menu-trigger .chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+}
+
+.header-menu-trigger .chevron.open {
+  transform: rotate(180deg);
+}
+
+.header-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background-color: var(--theme-surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+  max-height: min(400px, 70vh);
+  overflow-y: auto;
+  padding: 6px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--theme-text);
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--theme-bg);
+}
+
+.menu-item.active {
+  color: var(--theme-accent);
+  background-color: rgba(66, 133, 244, 0.05);
+}
+
+.roomInfo {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.roomName button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--theme-text);
+}
+
+.roomName h1 {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+.roomName h1:hover {
+  color: var(--theme-accent);
+}
+.roomName h1.active {
+  color: var(--theme-accent);
+}
+.roomName .icon {
+  transition: transform 0.2s ease-in-out;
+}
+.roomName h1.active .icon {
+  transform: rotate(180deg);
+}
+
+.roomList {
+  position: absolute;
+  top: 120%;
+  left: 0;
+  background-color: var(--theme-surface);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  padding: 8px 0;
+  min-width: 200px;
+  max-height: min(400px, 70vh);
+  overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+  z-index: 20;
+}
+
+.roomList,
+.header-dropdown-menu,
+.custom-dropdown-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+.roomList::-webkit-scrollbar,
+.header-dropdown-menu::-webkit-scrollbar,
+.custom-dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.roomList::-webkit-scrollbar-track,
+.header-dropdown-menu::-webkit-scrollbar-track,
+.custom-dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.roomList::-webkit-scrollbar-thumb,
+.header-dropdown-menu::-webkit-scrollbar-thumb,
+.custom-dropdown-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.roomList::-webkit-scrollbar-thumb:hover,
+.header-dropdown-menu::-webkit-scrollbar-thumb:hover,
+.custom-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+.roomList.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.roomList ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.roomList li button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: var(--theme-text);
+}
+.roomList li button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.header-controls button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--theme-text);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s;
+}
+.header-controls button:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.userSettingsButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-name {
+  margin: 0;
+  font-weight: 500;
+}
+
+.change-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 4px 10px;
+  border-radius: 16px;
+}
+.change-counter-number {
+  font-weight: 700;
+  color: var(--theme-accent);
+}
+
+.font-selector {
+  background-color: var(--theme-surface);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-body);
+  color: var(--theme-text);
+  font-size: 13px;
+  height: 32px;
+}
+
+.edit-agent-icon {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+.edit-agent-icon:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+

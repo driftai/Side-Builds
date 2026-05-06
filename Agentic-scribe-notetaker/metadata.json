@@ -1,0 +1,7 @@
+{
+  "name": "Scribe",
+  "description": "Talk to a smart, collaborative agent who will write for you. Communicate thoughts, brainstorm ideas and create interactive multimodal documents.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
