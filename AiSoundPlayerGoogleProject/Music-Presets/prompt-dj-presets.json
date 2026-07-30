@@ -1,0 +1,827 @@
+[
+  [
+    "Epic",
+    [
+      [
+        "prompt-0",
+        {
+          "promptId": "prompt-0",
+          "text": "Bossa Nova",
+          "weight": 0,
+          "cc": 0,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-1",
+        {
+          "promptId": "prompt-1",
+          "text": "Chillwave",
+          "weight": 0,
+          "cc": 1,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-2",
+        {
+          "promptId": "prompt-2",
+          "text": "Drum and Bass",
+          "weight": 0,
+          "cc": 2,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-3",
+        {
+          "promptId": "prompt-3",
+          "text": "Post Punk",
+          "weight": 0,
+          "cc": 3,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-4",
+        {
+          "promptId": "prompt-4",
+          "text": "Shoegaze",
+          "weight": 1,
+          "cc": 4,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-5",
+        {
+          "promptId": "prompt-5",
+          "text": "Funk",
+          "weight": 0,
+          "cc": 5,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-6",
+        {
+          "promptId": "prompt-6",
+          "text": "Chiptune",
+          "weight": 0,
+          "cc": 6,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-7",
+        {
+          "promptId": "prompt-7",
+          "text": "Lush Strings",
+          "weight": 0,
+          "cc": 7,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-8",
+        {
+          "promptId": "prompt-8",
+          "text": "Sparkling Arpeggios",
+          "weight": 0,
+          "cc": 8,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-9",
+        {
+          "promptId": "prompt-9",
+          "text": "Staccato Rhythms",
+          "weight": 1,
+          "cc": 9,
+          "color": "#d9b2ff"
+        }
+      ],
+      [
+        "prompt-10",
+        {
+          "promptId": "prompt-10",
+          "text": "Punchy Kick",
+          "weight": 0,
+          "cc": 10,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-11",
+        {
+          "promptId": "prompt-11",
+          "text": "Dubstep",
+          "weight": 0,
+          "cc": 11,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-12",
+        {
+          "promptId": "prompt-12",
+          "text": "K Pop",
+          "weight": 0,
+          "cc": 12,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-13",
+        {
+          "promptId": "prompt-13",
+          "text": "Neo Soul",
+          "weight": 1,
+          "cc": 13,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-14",
+        {
+          "promptId": "prompt-14",
+          "text": "Trip Hop",
+          "weight": 0.25,
+          "cc": 14,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-15",
+        {
+          "promptId": "prompt-15",
+          "text": "Thrash",
+          "weight": 0,
+          "cc": 15,
+          "color": "#d9b2ff"
+        }
+      ]
+    ]
+  ],
+  [
+    "sleep",
+    [
+      [
+        "prompt-0",
+        {
+          "promptId": "prompt-0",
+          "text": "Bossa Nova",
+          "weight": 1.75,
+          "cc": 0,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-1",
+        {
+          "promptId": "prompt-1",
+          "text": "Droning",
+          "weight": 1.57,
+          "cc": 1,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-2",
+        {
+          "promptId": "prompt-2",
+          "text": "Soft Pad",
+          "weight": 1.0299999999999998,
+          "cc": 2,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-3",
+        {
+          "promptId": "prompt-3",
+          "text": "Analog Warmth",
+          "weight": 1.75,
+          "cc": 3,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-4",
+        {
+          "promptId": "prompt-4",
+          "text": "Shoegaze",
+          "weight": 1,
+          "cc": 4,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-5",
+        {
+          "promptId": "prompt-5",
+          "text": "Tape Hiss",
+          "weight": 1.13,
+          "cc": 5,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-6",
+        {
+          "promptId": "prompt-6",
+          "text": "Sleepy",
+          "weight": 1.49,
+          "cc": 6,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-7",
+        {
+          "promptId": "prompt-7",
+          "text": "Atmospheric",
+          "weight": 1.52,
+          "cc": 7,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-8",
+        {
+          "promptId": "prompt-8",
+          "text": "Sparkling Arpeggios",
+          "weight": 0.25,
+          "cc": 8,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-9",
+        {
+          "promptId": "prompt-9",
+          "text": "Staccato Rhythms",
+          "weight": 1,
+          "cc": 9,
+          "color": "#d9b2ff"
+        }
+      ],
+      [
+        "prompt-10",
+        {
+          "promptId": "prompt-10",
+          "text": "Punchy Kick",
+          "weight": 0,
+          "cc": 10,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-11",
+        {
+          "promptId": "prompt-11",
+          "text": "Minimal Beat",
+          "weight": 1.2599999999999998,
+          "cc": 11,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-12",
+        {
+          "promptId": "prompt-12",
+          "text": "Slow Tempo",
+          "weight": 1.5199999999999998,
+          "cc": 12,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-13",
+        {
+          "promptId": "prompt-13",
+          "text": "Neo Soul",
+          "weight": 1,
+          "cc": 13,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-14",
+        {
+          "promptId": "prompt-14",
+          "text": "Floating",
+          "weight": 1.89,
+          "cc": 14,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-15",
+        {
+          "promptId": "prompt-15",
+          "text": "Reverb",
+          "weight": 1.37,
+          "cc": 15,
+          "color": "#d9b2ff"
+        }
+      ]
+    ]
+  ],
+  [
+    "Creative & Dreamy",
+    [
+      [
+        "prompt-0",
+        {
+          "promptId": "prompt-0",
+          "text": "Bossa Nova",
+          "weight": 1.75,
+          "cc": 0,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-1",
+        {
+          "promptId": "prompt-1",
+          "text": "Ethereal",
+          "weight": 1.1300000000000001,
+          "cc": 1,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-2",
+        {
+          "promptId": "prompt-2",
+          "text": "Soft Pad",
+          "weight": 1.1599999999999997,
+          "cc": 2,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-3",
+        {
+          "promptId": "prompt-3",
+          "text": "Analog Warmth",
+          "weight": 1.75,
+          "cc": 3,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-4",
+        {
+          "promptId": "prompt-4",
+          "text": "Shoegaze",
+          "weight": 2,
+          "cc": 4,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-5",
+        {
+          "promptId": "prompt-5",
+          "text": "Tape Hiss",
+          "weight": 1.13,
+          "cc": 5,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-6",
+        {
+          "promptId": "prompt-6",
+          "text": "Dream Pop",
+          "weight": 1.29,
+          "cc": 6,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-7",
+        {
+          "promptId": "prompt-7",
+          "text": "Atmospheric",
+          "weight": 1.83,
+          "cc": 7,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-8",
+        {
+          "promptId": "prompt-8",
+          "text": "Sparkling Arpeggios",
+          "weight": 0.25,
+          "cc": 8,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-9",
+        {
+          "promptId": "prompt-9",
+          "text": "Hopeful",
+          "weight": 1.2999999999999998,
+          "cc": 9,
+          "color": "#d9b2ff"
+        }
+      ],
+      [
+        "prompt-10",
+        {
+          "promptId": "prompt-10",
+          "text": "Out Washed",
+          "weight": 1.22,
+          "cc": 10,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-11",
+        {
+          "promptId": "prompt-11",
+          "text": "Minimal Beat",
+          "weight": 1.2599999999999998,
+          "cc": 11,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-12",
+        {
+          "promptId": "prompt-12",
+          "text": "Slow Tempo",
+          "weight": 1.5199999999999998,
+          "cc": 12,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-13",
+        {
+          "promptId": "prompt-13",
+          "text": "Neo Soul",
+          "weight": 1,
+          "cc": 13,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-14",
+        {
+          "promptId": "prompt-14",
+          "text": "Floating",
+          "weight": 1.89,
+          "cc": 14,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-15",
+        {
+          "promptId": "prompt-15",
+          "text": "Reverb",
+          "weight": 1.6600000000000001,
+          "cc": 15,
+          "color": "#d9b2ff"
+        }
+      ]
+    ]
+  ],
+  [
+    "Boom",
+    [
+      [
+        "prompt-0",
+        {
+          "promptId": "prompt-0",
+          "text": "Bossa Nova",
+          "weight": 0,
+          "cc": 0,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-1",
+        {
+          "promptId": "prompt-1",
+          "text": "Chillwave",
+          "weight": 0,
+          "cc": 1,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-2",
+        {
+          "promptId": "prompt-2",
+          "text": "Drum and Bass",
+          "weight": 1,
+          "cc": 2,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-3",
+        {
+          "promptId": "prompt-3",
+          "text": "Post Punk",
+          "weight": 0,
+          "cc": 3,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-4",
+        {
+          "promptId": "prompt-4",
+          "text": "Shoegaze",
+          "weight": 0,
+          "cc": 4,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-5",
+        {
+          "promptId": "prompt-5",
+          "text": "Funk",
+          "weight": 1,
+          "cc": 5,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-6",
+        {
+          "promptId": "prompt-6",
+          "text": "Chiptune",
+          "weight": 0,
+          "cc": 6,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-7",
+        {
+          "promptId": "prompt-7",
+          "text": "Lush Strings",
+          "weight": 0,
+          "cc": 7,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-8",
+        {
+          "promptId": "prompt-8",
+          "text": "Sparkling Arpeggios",
+          "weight": 0,
+          "cc": 8,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-9",
+        {
+          "promptId": "prompt-9",
+          "text": "Staccato Rhythms",
+          "weight": 0,
+          "cc": 9,
+          "color": "#d9b2ff"
+        }
+      ],
+      [
+        "prompt-10",
+        {
+          "promptId": "prompt-10",
+          "text": "Punchy Kick",
+          "weight": 0,
+          "cc": 10,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-11",
+        {
+          "promptId": "prompt-11",
+          "text": "Dubstep",
+          "weight": 0,
+          "cc": 11,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-12",
+        {
+          "promptId": "prompt-12",
+          "text": "K Pop",
+          "weight": 1,
+          "cc": 12,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-13",
+        {
+          "promptId": "prompt-13",
+          "text": "Neo Soul",
+          "weight": 0,
+          "cc": 13,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-14",
+        {
+          "promptId": "prompt-14",
+          "text": "Trip Hop",
+          "weight": 0,
+          "cc": 14,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-15",
+        {
+          "promptId": "prompt-15",
+          "text": "Thrash",
+          "weight": 0,
+          "cc": 15,
+          "color": "#d9b2ff"
+        }
+      ]
+    ]
+  ],
+  [
+    "A Future",
+    [
+      [
+        "prompt-0",
+        {
+          "promptId": "prompt-0",
+          "text": "Bossa Nova",
+          "weight": 0,
+          "cc": 0,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-1",
+        {
+          "promptId": "prompt-1",
+          "text": "Chillwave",
+          "weight": 0,
+          "cc": 1,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-2",
+        {
+          "promptId": "prompt-2",
+          "text": "Drum and Bass",
+          "weight": 0,
+          "cc": 2,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-3",
+        {
+          "promptId": "prompt-3",
+          "text": "Post Punk",
+          "weight": 0,
+          "cc": 3,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-4",
+        {
+          "promptId": "prompt-4",
+          "text": "Shoegaze",
+          "weight": 0,
+          "cc": 4,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-5",
+        {
+          "promptId": "prompt-5",
+          "text": "Funk",
+          "weight": 0,
+          "cc": 5,
+          "color": "#2af6de"
+        }
+      ],
+      [
+        "prompt-6",
+        {
+          "promptId": "prompt-6",
+          "text": "Chiptune",
+          "weight": 1,
+          "cc": 6,
+          "color": "#9900ff"
+        }
+      ],
+      [
+        "prompt-7",
+        {
+          "promptId": "prompt-7",
+          "text": "Lush Strings",
+          "weight": 1,
+          "cc": 7,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-8",
+        {
+          "promptId": "prompt-8",
+          "text": "Sparkling Arpeggios",
+          "weight": 0,
+          "cc": 8,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-9",
+        {
+          "promptId": "prompt-9",
+          "text": "Staccato Rhythms",
+          "weight": 0,
+          "cc": 9,
+          "color": "#d9b2ff"
+        }
+      ],
+      [
+        "prompt-10",
+        {
+          "promptId": "prompt-10",
+          "text": "Punchy Kick",
+          "weight": 1,
+          "cc": 10,
+          "color": "#3dffab"
+        }
+      ],
+      [
+        "prompt-11",
+        {
+          "promptId": "prompt-11",
+          "text": "Dubstep",
+          "weight": 2,
+          "cc": 11,
+          "color": "#ffdd28"
+        }
+      ],
+      [
+        "prompt-12",
+        {
+          "promptId": "prompt-12",
+          "text": "K Pop",
+          "weight": 0,
+          "cc": 12,
+          "color": "#ff25f6"
+        }
+      ],
+      [
+        "prompt-13",
+        {
+          "promptId": "prompt-13",
+          "text": "Neo Soul",
+          "weight": 0,
+          "cc": 13,
+          "color": "#d8ff3e"
+        }
+      ],
+      [
+        "prompt-14",
+        {
+          "promptId": "prompt-14",
+          "text": "Trip Hop",
+          "weight": 0,
+          "cc": 14,
+          "color": "#5200ff"
+        }
+      ],
+      [
+        "prompt-15",
+        {
+          "promptId": "prompt-15",
+          "text": "Thrash",
+          "weight": 0,
+          "cc": 15,
+          "color": "#d9b2ff"
+        }
+      ]
+    ]
+  ]
+]

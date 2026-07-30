@@ -1,0 +1,59 @@
+[
+    [
+        "Anti-Repetition (High Chaos)",
+        {
+            "bpm": 120,
+            "useDefaultBpm": true,
+            "density": 0.5,
+            "useDefaultDensity": true,
+            "brightness": 0.5,
+            "useDefaultBrightness": true,
+            "guidance": 3.0,
+            "useDefaultGuidance": false,
+            "temperature": 2.0,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ],
+    [
+        "Flowing / Evolving",
+        {
+            "bpm": 110,
+            "useDefaultBpm": false,
+            "density": 0.6,
+            "useDefaultDensity": false,
+            "brightness": 0.5,
+            "useDefaultBrightness": true,
+            "guidance": 3.5,
+            "useDefaultGuidance": false,
+            "temperature": 1.5,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ],
+    [
+        "Max Variation",
+        {
+            "bpm": 120,
+            "useDefaultBpm": true,
+            "density": 0.5,
+            "useDefaultDensity": true,
+            "brightness": 0.5,
+            "useDefaultBrightness": true,
+            "guidance": 2.0,
+            "useDefaultGuidance": false,
+            "temperature": 3.0,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ]
+]

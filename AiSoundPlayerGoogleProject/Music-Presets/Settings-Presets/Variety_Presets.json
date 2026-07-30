@@ -1,0 +1,59 @@
+[
+    [
+        "Focus / Minimal",
+        {
+            "bpm": 90,
+            "useDefaultBpm": false,
+            "density": 0.2,
+            "useDefaultDensity": false,
+            "brightness": 0.3,
+            "useDefaultBrightness": false,
+            "guidance": 5.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.5,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ],
+    [
+        "High Energy / Fast",
+        {
+            "bpm": 160,
+            "useDefaultBpm": false,
+            "density": 0.9,
+            "useDefaultDensity": false,
+            "brightness": 0.8,
+            "useDefaultBrightness": false,
+            "guidance": 4.0,
+            "useDefaultGuidance": true,
+            "temperature": 1.2,
+            "useDefaultTemperature": true,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ],
+    [
+        "Dark / Gloomy",
+        {
+            "bpm": 70,
+            "useDefaultBpm": false,
+            "density": 0.7,
+            "useDefaultDensity": false,
+            "brightness": 0.1,
+            "useDefaultBrightness": false,
+            "guidance": 4.5,
+            "useDefaultGuidance": false,
+            "temperature": 1.0,
+            "useDefaultTemperature": true,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "F_MAJOR_D_MINOR"
+        }
+    ]
+]

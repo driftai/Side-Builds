@@ -1,0 +1,59 @@
+[
+    [
+        "Goon: Deep Trance (Hypnotic)",
+        {
+            "bpm": 80,
+            "useDefaultBpm": false,
+            "density": 0.8,
+            "useDefaultDensity": false,
+            "brightness": 0.2,
+            "useDefaultBrightness": false,
+            "guidance": 5.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.6,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "E_FLAT_MAJOR_C_MINOR"
+        }
+    ],
+    [
+        "Goon: Sensory Overload (Brain Melt)",
+        {
+            "bpm": 135,
+            "useDefaultBpm": false,
+            "density": 1.0,
+            "useDefaultDensity": false,
+            "brightness": 0.7,
+            "useDefaultBrightness": false,
+            "guidance": 3.5,
+            "useDefaultGuidance": false,
+            "temperature": 1.5,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ],
+    [
+        "Goon: The Edge (Slow & Heavy)",
+        {
+            "bpm": 65,
+            "useDefaultBpm": false,
+            "density": 0.6,
+            "useDefaultDensity": false,
+            "brightness": 0.1,
+            "useDefaultBrightness": false,
+            "guidance": 6.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.4,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "A_FLAT_MAJOR_F_MINOR"
+        }
+    ]
+]

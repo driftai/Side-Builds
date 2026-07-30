@@ -1,0 +1,59 @@
+[
+    [
+        "Sleep: Deep Coma (Delta Waves)",
+        {
+            "bpm": 50,
+            "useDefaultBpm": false,
+            "density": 0.2,
+            "useDefaultDensity": false,
+            "brightness": 0.1,
+            "useDefaultBrightness": false,
+            "guidance": 6.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.3,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "C_MAJOR_A_MINOR"
+        }
+    ],
+    [
+        "Sleep: Lucid Dreaming (Floating)",
+        {
+            "bpm": 65,
+            "useDefaultBpm": false,
+            "density": 0.4,
+            "useDefaultDensity": false,
+            "brightness": 0.3,
+            "useDefaultBrightness": false,
+            "guidance": 4.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.8,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "D_FLAT_MAJOR_B_FLAT_MINOR"
+        }
+    ],
+    [
+        "Sleep: Warm Static (Cozy)",
+        {
+            "bpm": 60,
+            "useDefaultBpm": false,
+            "density": 0.3,
+            "useDefaultDensity": false,
+            "brightness": 0.2,
+            "useDefaultBrightness": false,
+            "guidance": 5.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.5,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": true,
+            "onlyBassAndDrums": false,
+            "currentScale": "SCALE_UNSPECIFIED"
+        }
+    ]
+]

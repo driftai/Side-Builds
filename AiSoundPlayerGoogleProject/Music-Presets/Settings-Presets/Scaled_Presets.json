@@ -1,0 +1,97 @@
+[
+    [
+        "Emotional (C Minor)",
+        {
+            "bpm": 110,
+            "useDefaultBpm": false,
+            "density": 0.6,
+            "useDefaultDensity": false,
+            "brightness": 0.4,
+            "useDefaultBrightness": false,
+            "guidance": 4.5,
+            "useDefaultGuidance": false,
+            "temperature": 1.0,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "E_FLAT_MAJOR_C_MINOR"
+        }
+    ],
+    [
+        "Bright & Happy (G Major)",
+        {
+            "bpm": 128,
+            "useDefaultBpm": false,
+            "density": 0.7,
+            "useDefaultDensity": false,
+            "brightness": 0.8,
+            "useDefaultBrightness": false,
+            "guidance": 3.5,
+            "useDefaultGuidance": false,
+            "temperature": 1.2,
+            "useDefaultTemperature": true,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "G_MAJOR_E_MINOR"
+        }
+    ],
+    [
+        "Deep & Serious (F Minor)",
+        {
+            "bpm": 85,
+            "useDefaultBpm": false,
+            "density": 0.4,
+            "useDefaultDensity": false,
+            "brightness": 0.3,
+            "useDefaultBrightness": false,
+            "guidance": 5.0,
+            "useDefaultGuidance": false,
+            "temperature": 0.8,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "A_FLAT_MAJOR_F_MINOR"
+        }
+    ],
+    [
+        "Energetic (D Major)",
+        {
+            "bpm": 145,
+            "useDefaultBpm": false,
+            "density": 0.9,
+            "useDefaultDensity": false,
+            "brightness": 0.7,
+            "useDefaultBrightness": false,
+            "guidance": 4.0,
+            "useDefaultGuidance": true,
+            "temperature": 1.5,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "D_MAJOR_B_MINOR"
+        }
+    ],
+    [
+        "Dreamy (B Major)",
+        {
+            "bpm": 100,
+            "useDefaultBpm": false,
+            "density": 0.5,
+            "useDefaultDensity": false,
+            "brightness": 0.6,
+            "useDefaultBrightness": false,
+            "guidance": 3.0,
+            "useDefaultGuidance": false,
+            "temperature": 2.0,
+            "useDefaultTemperature": false,
+            "muteBass": false,
+            "muteDrums": false,
+            "onlyBassAndDrums": false,
+            "currentScale": "B_MAJOR_A_FLAT_MINOR"
+        }
+    ]
+]

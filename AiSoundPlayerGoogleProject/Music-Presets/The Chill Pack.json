@@ -1,0 +1,46 @@
+[
+  [
+    "Lo-Fi Coffee Break",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Lo-Fi Hip Hop", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Jazz Piano", "weight": 1.5, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Boom Bap", "weight": 1.2, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Vinyl Crackle", "weight": 1, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Cozy", "weight": 1.8, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Relaxed", "weight": 2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Study Beats", "weight": 1.5, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Mellow", "weight": 1.5, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Head Nod", "weight": 1, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Nostalgic", "weight": 1.2, "cc": 9, "color": "#d9b2ff" } ]
+    ]
+  ],
+  [
+    "Digital Sunset",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Chillwave", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Analog Synth", "weight": 1.8, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Slow Groove", "weight": 1.5, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Retro", "weight": 1.2, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Warm Pad", "weight": 1.5, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Reverb", "weight": 1.2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Dreamy", "weight": 1.8, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Floating", "weight": 1.5, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Neon", "weight": 0.5, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Tape Warble", "weight": 1, "cc": 9, "color": "#d9b2ff" } ]
+    ]
+  ],
+  [
+    "Organic Detox",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Acoustic Guitar", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Folk", "weight": 1.2, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Soft Percussion", "weight": 1, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Nature", "weight": 0.5, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Peaceful", "weight": 2, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Intimate", "weight": 1.5, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Slow Tempo", "weight": 1.5, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Warm", "weight": 1.8, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Melancholy", "weight": 0.8, "cc": 8, "color": "#d8ff3e" } ]
+    ]
+  ]
+]

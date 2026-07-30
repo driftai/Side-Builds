@@ -1,0 +1,23 @@
+[
+  [
+    "Goon Cave Protocol",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Hypnotic Trance", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Deep Sub Bass", "weight": 2, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Slowed + Reverb", "weight": 1.8, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Drift Phonk", "weight": 1.5, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Sensual Vocals", "weight": 1.5, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Dark Ambience", "weight": 1.2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Brain Massage", "weight": 1, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Heavy Breathing", "weight": 0.8, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Mind Control", "weight": 1.2, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Repetitive Loop", "weight": 2, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Distorted 808", "weight": 1.5, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Edging Tempo", "weight": 1.8, "cc": 11, "color": "#ffdd28" } ],
+      [ "prompt-12", { "promptId": "prompt-12", "text": "Succubus", "weight": 1, "cc": 12, "color": "#ff25f6" } ],
+      [ "prompt-13", { "promptId": "prompt-13", "text": "Commanding", "weight": 1.5, "cc": 13, "color": "#d8ff3e" } ],
+      [ "prompt-14", { "promptId": "prompt-14", "text": "Throbbing", "weight": 1.5, "cc": 14, "color": "#5200ff" } ],
+      [ "prompt-15", { "promptId": "prompt-15", "text": "Submission", "weight": 1.2, "cc": 15, "color": "#d9b2ff" } ]
+    ]
+  ]
+]

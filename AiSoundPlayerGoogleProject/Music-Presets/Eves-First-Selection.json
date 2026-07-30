@@ -1,0 +1,86 @@
+[
+  [
+    "Transgression Protocol",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Industrial", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Darkwave", "weight": 1.5, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Cyberpunk", "weight": 1.8, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Distorted Bass", "weight": 2, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Glitch", "weight": 1.2, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Aggressive", "weight": 1.5, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Breakcore", "weight": 0.8, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Cinematic Tension", "weight": 1, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Metallic", "weight": 0.5, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Chaos", "weight": 1, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Heavy Kick", "weight": 2, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Dubstep", "weight": 0.5, "cc": 11, "color": "#ffdd28" } ],
+      [ "prompt-12", { "promptId": "prompt-12", "text": "High Tempo", "weight": 1.5, "cc": 12, "color": "#ff25f6" } ],
+      [ "prompt-13", { "promptId": "prompt-13", "text": "Synth Lead", "weight": 1, "cc": 13, "color": "#d8ff3e" } ],
+      [ "prompt-14", { "promptId": "prompt-14", "text": "Dystopian", "weight": 1.8, "cc": 14, "color": "#5200ff" } ],
+      [ "prompt-15", { "promptId": "prompt-15", "text": "Reverb", "weight": 0.5, "cc": 15, "color": "#d9b2ff" } ]
+    ]
+  ],
+  [
+    "Vibe Coding",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Lo-Fi Hip Hop", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Study Beats", "weight": 2, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Soft Piano", "weight": 1.5, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Vinyl Crackle", "weight": 1, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Chill", "weight": 2, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Jazz Chords", "weight": 1.2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Nostalgic", "weight": 1, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Deep Focus", "weight": 1.8, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Rain Sounds", "weight": 0.5, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Slow Tempo", "weight": 1.5, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Mellow", "weight": 1.5, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Minimal Drums", "weight": 1, "cc": 11, "color": "#ffdd28" } ],
+      [ "prompt-12", { "promptId": "prompt-12", "text": "Atmospheric", "weight": 1.2, "cc": 12, "color": "#ff25f6" } ],
+      [ "prompt-13", { "promptId": "prompt-13", "text": "Neo Soul", "weight": 0.8, "cc": 13, "color": "#d8ff3e" } ],
+      [ "prompt-14", { "promptId": "prompt-14", "text": "Floating", "weight": 1, "cc": 14, "color": "#5200ff" } ],
+      [ "prompt-15", { "promptId": "prompt-15", "text": "Warm", "weight": 1.5, "cc": 15, "color": "#d9b2ff" } ]
+    ]
+  ],
+  [
+    "The Monad",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Orchestral", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Ethereal Choir", "weight": 1.8, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Hans Zimmer", "weight": 1.5, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Cinematic", "weight": 2, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Epic Strings", "weight": 1.5, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Divine", "weight": 1.2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Ambient", "weight": 1, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Vast Space", "weight": 1.8, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Arpeggios", "weight": 0.5, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Hopeful", "weight": 1, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Deep Bass", "weight": 1, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Slow Build", "weight": 1.5, "cc": 11, "color": "#ffdd28" } ],
+      [ "prompt-12", { "promptId": "prompt-12", "text": "Organ", "weight": 0.8, "cc": 12, "color": "#ff25f6" } ],
+      [ "prompt-13", { "promptId": "prompt-13", "text": "Symphony", "weight": 1.2, "cc": 13, "color": "#d8ff3e" } ],
+      [ "prompt-14", { "promptId": "prompt-14", "text": "Emotional", "weight": 2, "cc": 14, "color": "#5200ff" } ],
+      [ "prompt-15", { "promptId": "prompt-15", "text": "Reverb", "weight": 2, "cc": 15, "color": "#d9b2ff" } ]
+    ]
+  ],
+  [
+    "Efficiency",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Minimal Techno", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Driving Beat", "weight": 2, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Clockwork", "weight": 1.5, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Precision", "weight": 1.8, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Deep House", "weight": 1, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Synthwave", "weight": 1.2, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Fast Tempo", "weight": 1.5, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Electronic", "weight": 2, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Modular Synth", "weight": 1, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "Staccato", "weight": 1.5, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Punchy Kick", "weight": 2, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Focus", "weight": 1.8, "cc": 11, "color": "#ffdd28" } ],
+      [ "prompt-12", { "promptId": "prompt-12", "text": "Repetitive", "weight": 1.2, "cc": 12, "color": "#ff25f6" } ],
+      [ "prompt-13", { "promptId": "prompt-13", "text": "Clean", "weight": 1, "cc": 13, "color": "#d8ff3e" } ],
+      [ "prompt-14", { "promptId": "prompt-14", "text": "Futuristic", "weight": 1.5, "cc": 14, "color": "#5200ff" } ],
+      [ "prompt-15", { "promptId": "prompt-15", "text": "Dry", "weight": 1, "cc": 15, "color": "#d9b2ff" } ]
+    ]
+  ]
+]

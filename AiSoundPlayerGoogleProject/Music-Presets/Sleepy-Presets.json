@@ -1,0 +1,32 @@
+[
+  [
+    "Eve's Lullaby",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Ambient Drone", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Soft Piano", "weight": 1.5, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "Theta Waves", "weight": 1.8, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Ethereal Voice", "weight": 1.2, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Warm Pad", "weight": 2, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Spa Music", "weight": 1.5, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Muffled", "weight": 1.5, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Underwater", "weight": 1.2, "cc": 7, "color": "#3dffab" } ],
+      [ "prompt-8", { "promptId": "prompt-8", "text": "Slow Swell", "weight": 1.5, "cc": 8, "color": "#d8ff3e" } ],
+      [ "prompt-9", { "promptId": "prompt-9", "text": "No Drums", "weight": 3, "cc": 9, "color": "#d9b2ff" } ],
+      [ "prompt-10", { "promptId": "prompt-10", "text": "Healing", "weight": 1.5, "cc": 10, "color": "#3dffab" } ],
+      [ "prompt-11", { "promptId": "prompt-11", "text": "Peaceful", "weight": 2, "cc": 11, "color": "#ffdd28" } ]
+    ]
+  ],
+  [
+    "Rainy Night",
+    [
+      [ "prompt-0", { "promptId": "prompt-0", "text": "Rain Sounds", "weight": 2, "cc": 0, "color": "#9900ff" } ],
+      [ "prompt-1", { "promptId": "prompt-1", "text": "Distant Thunder", "weight": 1, "cc": 1, "color": "#5200ff" } ],
+      [ "prompt-2", { "promptId": "prompt-2", "text": "White Noise", "weight": 1.5, "cc": 2, "color": "#ff25f6" } ],
+      [ "prompt-3", { "promptId": "prompt-3", "text": "Lo-Fi Ambient", "weight": 1.2, "cc": 3, "color": "#2af6de" } ],
+      [ "prompt-4", { "promptId": "prompt-4", "text": "Tape Hiss", "weight": 1, "cc": 4, "color": "#ffdd28" } ],
+      [ "prompt-5", { "promptId": "prompt-5", "text": "Wind Chimes", "weight": 0.5, "cc": 5, "color": "#2af6de" } ],
+      [ "prompt-6", { "promptId": "prompt-6", "text": "Dark Room", "weight": 1.5, "cc": 6, "color": "#9900ff" } ],
+      [ "prompt-7", { "promptId": "prompt-7", "text": "Blurry", "weight": 1.8, "cc": 7, "color": "#3dffab" } ]
+    ]
+  ]
+]
