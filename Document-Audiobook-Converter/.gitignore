@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+
+# Secrets. .env.local is the intended place for GEMINI_API_KEY; it must never
+# be committed. *.local covers it, but the explicit entries below mean a
+# differently-named env file cannot slip through either.
+*.local
+.env
+.env.*
+!.env.example
+
+# Python bytecode. These are not just noise: a compiled module embeds its
+# string constants, so a .pyc can carry an API key that was later removed from
+# the .py it was built from.
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+
+# Runtime data - transcripts of whatever documents have been converted.
+# Personal reading material, regenerated on every run.
+chat_history.json
+**/chat_history.json
+
+# Editor / working leftovers
+*.backup
+*.broken
+*.orig
+*.rej
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

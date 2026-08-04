@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "AI Audiobook Floating Controls",
+  "version": "1.0",
+  "description": "Floating audio controls that stay on top across browser tabs for the AI Audiobook Converter",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "windows"
+  ],
+  "host_permissions": [
+    "http://localhost:*",
+    "https://*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Audiobook Controls",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:*/*",
+        "https://*/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html"],
+      "matches": ["http://localhost:*/*", "https://*/*"]
+    }
+  ]
+}

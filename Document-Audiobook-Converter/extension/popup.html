@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Audiobook Floating Controls</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            color: #f9fafb;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            width: 320px;
+            height: 180px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            cursor: move;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .header:hover {
+            background: rgba(55, 65, 81, 0.5);
+        }
+
+        .title {
+            font-size: 12px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            color: #f9fafb;
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .progress-container {
+            margin-bottom: 12px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 10px;
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            background: rgba(55, 65, 81, 0.5);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(75, 85, 99, 0.5);
+            color: #f9fafb;
+            transform: scale(1.05);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .play-btn {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .play-btn:hover:not(:disabled) {
+            background: #2563eb;
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+            transform: scale(1.1);
+        }
+
+        .sentence-preview {
+            flex: 1;
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11px;
+            color: #d1d5db;
+            text-align: center;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-indicator.playing {
+            background: #10b981;
+        }
+
+        .status-indicator.paused {
+            background: #f59e0b;
+        }
+
+        .status-indicator.stopped {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" id="header">
+            <div class="title">🎵 Audio Controls</div>
+            <button class="close-btn" id="close-btn" title="Close">✕</button>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0 / 0</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="skip-backward" title="Previous Sentence">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.75 5.5a.75.75 0 00-.75.75v11.5a.75.75 0 001.5 0V6.25a.75.75 0 00-.75-.75zM17.15 5.72a.75.75 0 00-1.05.07L9.4 11.54a.75.75 0 000 .82l6.7 5.75a.75.75 0 10.98-1.14L11.1 12l6.05-5.14a.75.75 0 00.07-1.05z"/>
+                </svg>
+            </button>
+
+            <button class="btn play-btn" id="play-pause" title="Play/Pause">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="play-icon">
+                    <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.647c1.295.742 1.295 2.545 0 3.286L7.279 20.99c-1.25.717-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd"/>
+                </svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display: none;">
+                    <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0V6a.75.75 0 01.75-.75zm9 0a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0V6a.75.75 0 01.75-.75z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+
+            <button class="btn" id="skip-forward" title="Next Sentence">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.25 5.5a.75.75 0 01.75.75v11.5a.75.75 0 01-1.5 0V6.25a.75.75 0 01.75-.75zM6.85 5.72a.75.75 0 011.05.07l6.7 5.75a.75.75 0 010 .82l-6.7 5.75a.75.75 0 01-.98-1.14L12.9 12 6.85 6.86a.75.75 0 01-.07-1.05z"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="sentence-preview" id="sentence-preview">
+            Ready to play
+        </div>
+    </div>
+
+    <div class="status-indicator" id="status-indicator"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

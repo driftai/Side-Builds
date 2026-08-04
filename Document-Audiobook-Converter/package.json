@@ -1,0 +1,38 @@
+{
+  "name": "copy-of-pdf-to-audiobook-converter-natural-tts",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron-background": "electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 || wait-on http://localhost:5174 || wait-on http://localhost:5175 || wait-on http://localhost:5176 || wait-on http://localhost:5177 || wait-on http://localhost:5178 && electron .\"",
+    "build-electron": "npm run build && electron-builder"
+  },
+  "main": "electron/main.cjs",
+  "homepage": "./",
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/ws": "^8.18.1",
+    "mammoth": "^1.12.0",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tailwindcss": "^4.3.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.27",
+    "@types/node": "^22.14.0",
+    "concurrently": "^9.2.1",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.0.12",
+    "postcss": "^8.5.6",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "wait-on": "^9.0.1"
+  }
+}

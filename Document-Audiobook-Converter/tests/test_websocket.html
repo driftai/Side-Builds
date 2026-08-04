@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <button id="testBtn">Test WebSocket Connection</button>
+    <div id="status"></div>
+    <div id="messages"></div>
+
+    <script>
+        const testBtn = document.getElementById('testBtn');
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+
+        testBtn.onclick = function() {
+            statusDiv.textContent = 'Connecting...';
+
+            try {
+                const ws = new WebSocket('ws://localhost:9083');
+
+                ws.onopen = function() {
+                    statusDiv.textContent = '✅ Connected!';
+                    console.log('WebSocket connected');
+
+                    // Send a test message
+                    ws.send(JSON.stringify({
+                        type: 'ping',
+                        timestamp: Date.now()
+                    }));
+                };
+
+                ws.onmessage = function(event) {
+                    messagesDiv.textContent += 'Received: ' + event.data + '\n';
+                    console.log('Received:', event.data);
+                };
+
+                ws.onerror = function(error) {
+                    statusDiv.textContent = '❌ Error: ' + error;
+                    console.error('WebSocket error:', error);
+                };
+
+                ws.onclose = function(event) {
+                    statusDiv.textContent = 'Closed: ' + event.code + ' ' + event.reason;
+                    console.log('WebSocket closed:', event.code, event.reason);
+                };
+
+                // Auto close after 10 seconds
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.close();
+                    }
+                }, 10000);
+
+            } catch (error) {
+                statusDiv.textContent = '❌ Failed to create WebSocket: ' + error.message;
+                console.error('Failed to create WebSocket:', error);
+            }
+        };
+    </script>
+</body>
+</html>

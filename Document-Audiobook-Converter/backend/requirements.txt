@@ -1,0 +1,21 @@
+# Python dependencies for the Gemini Live WebSocket backend.
+#   pip install -r backend/requirements.txt
+#
+# Versions are the ones this backend is known to run on. Loosen if you need to.
+
+# Gemini Live API (bidiGenerateContent) - the audio generation itself
+google-genai==1.46.0
+
+# Legacy SDK, still used for the optional audio->text transcription path
+# (disabled by default, see TRANSCRIBE_GENERATED_AUDIO in server_config.py)
+google-generativeai==0.8.5
+
+# WebSocket server the frontend talks to
+websockets==14.2
+
+# PDF text extraction for documents pushed through the backend
+pdfminer.six==20250506
+
+# PCM -> MP3 conversion used by the transcription path.
+# Requires ffmpeg on PATH if that path is enabled.
+pydub==0.25.1

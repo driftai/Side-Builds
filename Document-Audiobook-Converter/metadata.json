@@ -1,0 +1,5 @@
+{
+  "name": "Copy of PDF to Audiobook Converter Natural TTS ",
+  "description": "An application that takes a PDF file, extracts the text content, and converts it into an audio book using the browser's text-to-speech capabilities.",
+  "requestFramePermissions": []
+}

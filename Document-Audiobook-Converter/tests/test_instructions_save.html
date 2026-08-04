@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Instructions Save Feature</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #333;
+        }
+        .success { background-color: #2d5a2d; }
+        .error { background-color: #5a2d2d; }
+    </style>
+</head>
+<body>
+    <h1>Instructions Save Feature Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Save Instructions to localStorage</h2>
+        <textarea id="instructionsInput" placeholder="Enter instructions to save...">You are a professional audiobook narrator with clear pronunciation and natural pacing.</textarea>
+        <br>
+        <button onclick="saveInstructions()">Save Instructions</button>
+        <button onclick="loadInstructions()">Load Instructions</button>
+        <button onclick="clearInstructions()">Clear Instructions</button>
+        <div id="saveResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Check Current localStorage Content</h2>
+        <button onclick="showLocalStorage()">Show Current Config</button>
+        <div id="localStorageResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Simulate App Behavior</h2>
+        <button onclick="simulateAppLoad()">Simulate App Load</button>
+        <button onclick="simulateInstructionUpdate()">Simulate Instruction Update</button>
+        <div id="simulationResult" class="result"></div>
+    </div>
+
+    <script>
+        const DEFAULT_CONFIG = {
+            apiKey: '',
+            model: 'gemini-2.0-flash-live-001',
+            temperature: 0.7,
+            maxTokens: 4096,
+            timeout: 30000,
+            websocketUrl: 'ws://localhost:9083',
+            voice: 'Aoede',
+            instructions: ''
+        };
+
+        function saveInstructions() {
+            const instructions = document.getElementById('instructionsInput').value;
+            const resultDiv = document.getElementById('saveResult');
+            
+            try {
+                // Get existing config or use default
+                const existingConfig = JSON.parse(localStorage.getItem('geminiAudiobookConfig') || JSON.stringify(DEFAULT_CONFIG));
+                
+                // Update instructions
+                const updatedConfig = { ...existingConfig, instructions: instructions };
+                
+                // Save to localStorage
+                localStorage.setItem('geminiAudiobookConfig', JSON.stringify(updatedConfig));
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `✅ Instructions saved successfully!<br>Length: ${instructions.length} characters`;
+                
+                console.log('💾 Instructions saved to localStorage:', instructions);
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error saving instructions: ${error.message}`;
+                console.error('❌ Failed to save instructions:', error);
+            }
+        }
+
+        function loadInstructions() {
+            const resultDiv = document.getElementById('saveResult');
+            const inputField = document.getElementById('instructionsInput');
+            
+            try {
+                const savedConfig = localStorage.getItem('geminiAudiobookConfig');
+                if (savedConfig) {
+                    const config = JSON.parse(savedConfig);
+                    inputField.value = config.instructions || '';
+                    
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ Instructions loaded successfully!<br>Content: "${config.instructions || '(empty)'}"`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ No saved configuration found';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error loading instructions: ${error.message}`;
+            }
+        }
+
+        function clearInstructions() {
+            const resultDiv = document.getElementById('saveResult');
+            const inputField = document.getElementById('instructionsInput');
+            
+            try {
+                const existingConfig = JSON.parse(localStorage.getItem('geminiAudiobookConfig') || JSON.stringify(DEFAULT_CONFIG));
+                const updatedConfig = { ...existingConfig, instructions: '' };
+                localStorage.setItem('geminiAudiobookConfig', JSON.stringify(updatedConfig));
+                
+                inputField.value = '';
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '✅ Instructions cleared successfully!';
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error clearing instructions: ${error.message}`;
+            }
+        }
+
+        function showLocalStorage() {
+            const resultDiv = document.getElementById('localStorageResult');
+            
+            try {
+                const savedConfig = localStorage.getItem('geminiAudiobookConfig');
+                if (savedConfig) {
+                    const config = JSON.parse(savedConfig);
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Current Configuration:</strong><br><pre>${JSON.stringify(config, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result';
+                    resultDiv.innerHTML = 'No configuration found in localStorage';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Error reading localStorage: ${error.message}`;
+            }
+        }
+
+        function simulateAppLoad() {
+            const resultDiv = document.getElementById('simulationResult');
+            
+            try {
+                // Simulate the app loading process
+                const savedConfig = localStorage.getItem('geminiAudiobookConfig');
+                let config;
+                
+                if (savedConfig) {
+                    const parsedConfig = JSON.parse(savedConfig);
+                    config = { ...DEFAULT_CONFIG, ...parsedConfig };
+                    
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ App Load Simulation:<br>
+                        - Configuration loaded from localStorage<br>
+                        - Instructions: "${config.instructions || '(empty)'}"<br>
+                        - API Key: ${config.apiKey ? 'Present' : 'Not set'}<br>
+                        - Voice: ${config.voice}`;
+                } else {
+                    config = DEFAULT_CONFIG;
+                    resultDiv.className = 'result';
+                    resultDiv.innerHTML = '📋 App Load Simulation:<br>- No saved config found, using defaults<br>- Instructions: (empty)';
+                }
+                
+                console.log('🔄 App load simulation completed:', config);
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ App load simulation failed: ${error.message}`;
+            }
+        }
+
+        function simulateInstructionUpdate() {
+            const resultDiv = document.getElementById('simulationResult');
+            const testInstructions = "Read this text with enthusiasm and clear diction.";
+            
+            try {
+                // Simulate the updateInstructions function from App.tsx
+                const existingConfig = JSON.parse(localStorage.getItem('geminiAudiobookConfig') || JSON.stringify(DEFAULT_CONFIG));
+                const updatedConfig = { ...existingConfig, instructions: testInstructions };
+                
+                // Simulate debounced save (without actual timeout)
+                localStorage.setItem('geminiAudiobookConfig', JSON.stringify(updatedConfig));
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `✅ Instruction Update Simulation:<br>
+                    - Instructions updated to: "${testInstructions}"<br>
+                    - Configuration saved to localStorage<br>
+                    - Save indicator would show for 2 seconds`;
+                
+                console.log('💾 Instruction update simulation completed');
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Instruction update simulation failed: ${error.message}`;
+            }
+        }
+
+        // Auto-load on page load
+        window.onload = function() {
+            showLocalStorage();
+            loadInstructions();
+        };
+    </script>
+</body>
+</html>

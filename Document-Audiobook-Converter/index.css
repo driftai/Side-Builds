@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* Suppress -ms-high-contrast deprecation warnings */
+@media (forced-colors: active) {
+  /* Modern high contrast mode support */
+  :root {
+    --forced-colors: active;
+  }
+}
+
+/* Animated multicolored gradient background */
+.animated-gradient {
+  background: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460, #1a1a2e, #533483, #16213e);
+  background-size: 400% 400%;
+  animation: gradientShift 25s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Minimalist Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(107, 114, 128, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.6);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Animated gradient for play button */
+.animated-play-button {
+  background: linear-gradient(45deg, #374151, #6b7280, #9ca3af, #d1d5db, #f9fafb, #1f2937);
+  background-size: 300% 300%;
+  animation: playButtonGradient 8s ease infinite;
+}
+
+@keyframes playButtonGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animated gradient for close button */
+.animated-close-button {
+  background: linear-gradient(45deg, #4b5563, #6b7280, #9ca3af, #6b7280, #4b5563);
+  background-size: 300% 300%;
+  animation: closeButtonGradient 6s ease infinite;
+  transition: all 0.3s ease;
+}
+
+.animated-close-button:hover {
+  background: linear-gradient(45deg, #dc2626, #ef4444, #f87171, #dc2626);
+  background-size: 300% 300%;
+  animation: closeButtonGradientRed 3s ease infinite;
+}
+
+@keyframes closeButtonGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes closeButtonGradientRed {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
