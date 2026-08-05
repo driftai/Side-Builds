@@ -102,13 +102,12 @@ const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
                                                 ? 'text-gray-200/90 hover:text-white hover:bg-gray-700/20'
                                                 : 'text-gray-400/70 hover:text-gray-300 hover:bg-gray-700/10'
                                     }`}
-                                title={
-                                    isCurrent
-                                        ? '🎯 Currently reading'
-                                        : isCompleted
-                                            ? '✅ Completed'
-                                            : 'Click to jump here'
-                                }
+                                title={`${isCurrent
+                                    ? '🎯 Currently reading'
+                                    : isCompleted
+                                        ? '✅ Completed'
+                                        : 'Click to jump here'
+                                    } - Clip #${index}`}
                             >
                                 {(() => {
                                     // Mark the word being spoken, inside the sentence

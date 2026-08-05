@@ -14,6 +14,10 @@ export interface GeminiApiConfig {
 
 interface GeminiAudiobookApiConfigProps {
   onConfigChange: (config: GeminiApiConfig) => void;
+  /** Close the narration sessions. Omitted where there is nothing to close. */
+  onDisconnect?: () => void;
+  /** Whether a narration session is currently open. */
+  isConnected?: boolean;
   initialConfig?: GeminiApiConfig;
 }
 
@@ -41,6 +45,8 @@ const AVAILABLE_MODELS = [
 
 const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
   onConfigChange,
+  onDisconnect,
+  isConnected = false,
   initialConfig
 }) => {
   const [config, setConfig] = useState<GeminiApiConfig>(initialConfig || DEFAULT_CONFIG);
@@ -484,6 +490,22 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
               >
                 {testStatus === 'connecting' ? 'Connecting...' : 'Test Connection'}
               </button>
+
+              {onDisconnect && (
+                <button
+                  onClick={onDisconnect}
+                  disabled={!isConnected}
+                  title={isConnected
+                    ? 'Close the live sessions. They reopen on the next passage.'
+                    : 'Nothing is connected'}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${isConnected
+                    ? 'border border-red-700 text-red-300 hover:bg-red-900/30'
+                    : 'border border-gray-700 text-gray-600 cursor-not-allowed'
+                    }`}
+                >
+                  Disconnect
+                </button>
+              )}
 
               <div className="grow">
                 <input

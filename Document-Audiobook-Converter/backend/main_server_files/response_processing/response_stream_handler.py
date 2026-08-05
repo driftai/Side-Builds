@@ -72,7 +72,10 @@ async def _receive_responses(session, response_handler, connection_monitor, conn
                     # Only handle completion if not already handled this response
                     if not getattr(response_handler, '_completion_handled', False):
                         setattr(response_handler, '_completion_handled', True)
-                        await response_handler.handle_turn_complete()
+                        # Deferred, so the loop below keeps collecting the last
+                        # transcription fragments instead of the boundary going
+                        # out with the tail of the transcript missing.
+                        response_handler.schedule_turn_completion()
                         # *** KEY FIX: Do NOT break or return here - just continue listening for next responses ***
                         # This allows the session to persist for multiple conversation turns
                         print(f"Turn completed for connection {connection_id}, session remaining active for next user input")

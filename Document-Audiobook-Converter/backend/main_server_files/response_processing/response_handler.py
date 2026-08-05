@@ -42,6 +42,29 @@ class GeminiResponseHandler:
         # nothing if the turn has moved on since it was scheduled.
         self._turn_seq = 0
 
+    # How long to keep a finished turn open for trailing transcription.
+    #
+    # The session reports what it said in fragments while the audio streams, and
+    # the last of them can land just after turn_complete. Sending the boundary
+    # the instant the turn ends therefore clips the tail off the transcript.
+    # Waiting cannot be done inline: the receive loop is what delivers those
+    # fragments, so blocking it guarantees none arrive. The completion is
+    # deferred instead, leaving the loop free to keep collecting.
+    TRANSCRIPT_SETTLE_SECONDS = 0.35
+
+    def schedule_turn_completion(self):
+        """End the turn shortly, so trailing transcription is not cut off."""
+        seq = self._turn_seq
+
+        async def finish_when_settled():
+            await asyncio.sleep(self.TRANSCRIPT_SETTLE_SECONDS)
+            # A turn that ended some other way in the meantime owns the stream now.
+            if not self._turn_still_current(seq):
+                return
+            await self.handle_turn_complete()
+
+        asyncio.create_task(finish_when_settled())
+
     def _turn_still_current(self, seq):
         """True if the turn a deferred task was scheduled for is still active."""
         return self._turn_seq == seq

@@ -86,7 +86,7 @@ interface AudioState {
 export const useAudioEngine = (
     geminiConfig: GeminiApiConfig | null,
     generateAudioForSentence: (
-        text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
+        text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void, priority?: number,
     ) => Promise<NarrationResult>,
     /** Identity of the loaded document; null disables caching (nothing to key on). */
     documentId: string | null = null,
@@ -315,13 +315,20 @@ export const useAudioEngine = (
             // Read the passage without its visual rules. The text stored with
             // the clip stays the source text, so markers still compare against
             // what the document actually says.
-            result = await generateAudioForSentence(narratableText(text), signal, onChunk);
+            // The position doubles as the priority: whichever passage playback
+            // will reach first is the one a free lane picks up.
+            result = await generateAudioForSentence(narratableText(text), signal, onChunk, index);
         } catch (error) {
             noteActivity(index, text, 'idle');
             throw error;
         }
 
-        if (key && documentId && saving && !signal?.aborted) {
+        // Stored even if the request was abandoned part-way through. The audio is
+        // finished and correct for this position; throwing it away because
+        // playback moved on is what left gaps in the manager - a passage played
+        // but never listed, with the one after it saved in its place. A clip made
+        // from text that has since changed is caught on read, not here.
+        if (key && documentId && saving) {
             const pcm = audioBufferToPcm16(result.buffer);
             // Not awaited: storing must never delay playback.
             void putClip({

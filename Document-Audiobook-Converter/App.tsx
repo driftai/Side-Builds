@@ -262,13 +262,17 @@ const App: React.FC = () => {
     // this counter is what tells the reading area to redraw, and how many
     // passages the last edit touched is worth showing.
     const [, setDocRevision] = useState(0);
+    // The in-page stand-in for Electron's always-on-top window, so the controls
+    // can be kept in view while reading further down a long document.
+    const [floatingControls, setFloatingControls] = useState(false);
+    const [floatingAt, setFloatingAt] = useState({ x: 24, y: 24 });
     const [lastEdit, setLastEdit] = useState<{ at: number; changed: number } | null>(null);
     const [geminiConfig, setGeminiConfig] = useState<GeminiApiConfig | null>(null);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
     const [voiceControlsCollapsed, setVoiceControlsCollapsed] = useState<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { wsState, generateAudioForSentence } = useGemini(geminiConfig);
+    const { wsState, generateAudioForSentence, disconnect } = useGemini(geminiConfig);
 
     const {
         appState,
@@ -624,12 +628,20 @@ const App: React.FC = () => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        // Try multiple methods to communicate with Electron
-                                                        sendToElectron('toggleControls');
+                                                        // In Electron this raises the always-on-top window. In a
+                                                        // browser none of those routes exist, which is why the
+                                                        // button did nothing at all - so open an in-page panel
+                                                        // instead and give the feature somewhere to live.
+                                                        if (isElectron) sendToElectron('toggleControls');
+                                                        else setFloatingControls(open => !open);
                                                     }}
-                                                    className="p-1.5 rounded-md bg-blue-700/50 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-colors duration-200"
-                                                    aria-label="Electron floating controls"
-                                                    title="Electron floating controls (always on top)"
+                                                    className={`p-1.5 rounded-md transition-colors duration-200 ${floatingControls && !isElectron
+                                                        ? 'bg-blue-500/70 text-white'
+                                                        : 'bg-blue-700/50 text-blue-300 hover:bg-blue-600/50 hover:text-white'}`}
+                                                    aria-label="Floating controls"
+                                                    title={isElectron
+                                                        ? 'Electron floating controls (always on top)'
+                                                        : 'Detachable playback controls'}
                                                 >
                                                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -932,6 +944,8 @@ const App: React.FC = () => {
                         <GeminiAudiobookApiConfig
                             onConfigChange={handleGeminiConfigChange}
                             initialConfig={geminiConfig || undefined}
+                            onDisconnect={disconnect}
+                            isConnected={wsState === 'connected' || wsState === 'connecting'}
                         />
                         <AudioCacheManager
                             activeDocumentId={documentId}
@@ -954,6 +968,65 @@ const App: React.FC = () => {
                     accept=".pdf,.txt,.docx"
                 />
             </div>
+
+            {/* Detached playback controls: what the Electron button offers when
+                running in Electron, available here too rather than doing
+                nothing. Dragged by its header, and it stays put while the
+                reading area scrolls. */}
+            {floatingControls && !isElectron && documentOpen && (
+                <div
+                    className="fixed z-50 w-64 rounded-lg border border-blue-500/30 bg-gray-900/95 backdrop-blur-md shadow-2xl shadow-black/50"
+                    style={{ left: floatingAt.x, top: floatingAt.y }}
+                >
+                    <div
+                        className="flex items-center justify-between px-3 py-1.5 border-b border-gray-700/40 cursor-move select-none"
+                        onPointerDown={(e) => {
+                            const startX = e.clientX - floatingAt.x;
+                            const startY = e.clientY - floatingAt.y;
+                            const move = (ev: PointerEvent) => setFloatingAt({
+                                // Kept on screen: a panel dragged off the edge
+                                // could not be dragged back.
+                                x: Math.max(0, Math.min(ev.clientX - startX, window.innerWidth - 256)),
+                                y: Math.max(0, Math.min(ev.clientY - startY, window.innerHeight - 80)),
+                            });
+                            const up = () => {
+                                window.removeEventListener('pointermove', move);
+                                window.removeEventListener('pointerup', up);
+                            };
+                            window.addEventListener('pointermove', move);
+                            window.addEventListener('pointerup', up);
+                        }}
+                    >
+                        <span className="text-[11px] text-gray-400">
+                            Clip #{currentSentenceIndex >= 0 ? currentSentenceIndex : '-'} of {sentencesRef.current.length}
+                        </span>
+                        <button
+                            onClick={() => setFloatingControls(false)}
+                            className="text-gray-500 hover:text-white text-xs leading-none px-1"
+                            aria-label="Close floating controls"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className="px-3 py-2">
+                        <p className="text-[11px] text-blue-300/90 italic mb-2 line-clamp-2 min-h-[2.2em]">
+                            {currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
+                                ? sentencesRef.current[currentSentenceIndex]
+                                : 'Press play to start listening.'}
+                        </p>
+                        <PlayerControls
+                            appState={appState}
+                            currentSentenceIndex={currentSentenceIndex}
+                            totalSentences={sentencesRef.current.length}
+                            onPlay={handlePlay}
+                            onPause={handlePause}
+                            onStop={handleStop}
+                            onSkipForward={handleSkipForward}
+                            onSkipBackward={handleSkipBackward}
+                        />
+                    </div>
+                </div>
+            )}
         </main>
     );
 };

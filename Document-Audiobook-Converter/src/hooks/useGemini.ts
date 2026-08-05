@@ -71,10 +71,8 @@ interface Lane {
     connecting: Promise<WebSocket> | null;
     /** Turns narrated on the current socket; reset when it is recycled. */
     turns: number;
-    /** Serialises turns on this lane's socket. */
-    chain: Promise<unknown>;
-    /** Turns queued or running here, used to pick the emptiest lane. */
-    depth: number;
+    /** True while this lane is narrating; a lane takes one turn at a time. */
+    running: boolean;
     /** This lane's connection state, aggregated into the hook's wsState. */
     state: 'disconnected' | 'connecting' | 'connected' | 'error';
 }
@@ -83,10 +81,33 @@ const makeLane = (): Lane => ({
     socket: null,
     connecting: null,
     turns: 0,
-    chain: Promise.resolve(),
-    depth: 0,
+    running: false,
     state: 'disconnected',
 });
+
+/**
+ * One passage waiting to be narrated.
+ *
+ * Work is held here rather than handed to a lane when it is requested. Fixing a
+ * passage to a lane up front interleaved badly: with two lanes, consecutive
+ * passages alternate, so each lane ends up holding every other passage. If one
+ * lane is busy with a long passage, the passage the listener needs next sits
+ * behind it while the *following* one - on the other lane - is generated first.
+ * That is what produced audio ready out of order, waiting on passage 52 while
+ * 53 was already done.
+ *
+ * Lanes take the lowest-numbered waiting passage when they come free instead,
+ * so whatever playback needs soonest is always picked up first.
+ */
+interface Job {
+    text: string;
+    /** Position in the document; lower is needed sooner. */
+    priority: number;
+    signal?: AbortSignal;
+    onChunk?: (pcm: ArrayBuffer) => void;
+    resolve: (result: NarrationResult) => void;
+    reject: (error: unknown) => void;
+}
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -104,6 +125,8 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
     const geminiConfigRef = useRef<GeminiApiConfig | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
 
+    /** Passages waiting for a lane, taken lowest-numbered first. */
+    const queueRef = useRef<Job[]>([]);
     const lanesRef = useRef<Lane[] | null>(null);
     const getLanes = useCallback((): Lane[] => {
         if (!lanesRef.current) {
@@ -431,24 +454,13 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         }
     }, []);
 
-    const generateAudioForSentence = useCallback((
-        text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
-    ): Promise<NarrationResult> => {
-        if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
-
-        // Send this turn down the emptiest lane. Ties go to the first lane, so
-        // two requests made back to back land on different lanes and genuinely
-        // overlap rather than queueing behind one another.
-        const lanes = getLanes();
-        const lane = lanes.reduce((best, next) => (next.depth < best.depth ? next : best), lanes[0]);
-        lane.depth += 1;
-
-        // Retries live inside the queued task. Re-entering generateAudioForSentence
-        // to retry would queue the attempt behind the very turn that is waiting on
-        // it, deadlocking the chain.
-        const run = async (): Promise<NarrationResult> => {
+    /** Narrate one passage on one lane, retrying a dropped socket. */
+    const runJob = useCallback(async (lane: Lane, job: Job): Promise<void> => {
+        try {
+            // Retries live inside the job rather than re-queueing, which would put
+            // the retry behind the very work that is waiting on it.
             for (let attempt = 0; ; attempt++) {
-                if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+                if (job.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
                 let ws: WebSocket;
                 try {
@@ -464,9 +476,10 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                 }
 
                 try {
-                    const result = await runTurn(ws, text, signal, onChunk);
+                    const result = await runTurn(ws, job.text, job.signal, job.onChunk);
                     retireSessionIfExhausted(lane);
-                    return result;
+                    job.resolve(result);
+                    return;
                 } catch (error) {
                     const name = (error as Error).name;
                     const message = (error as Error).message ?? '';
@@ -480,24 +493,87 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                     throw error;
                 }
             }
-        };
+        } catch (error) {
+            job.reject(error);
+        }
+    }, [getOrCreateWebSocket, runTurn, retireSessionIfExhausted]);
 
-        // Queue behind whatever turn is already in flight *on this lane*, whether
-        // it succeeded or not, and keep the chain itself un-rejectable so one
-        // failure cannot break every later sentence.
-        const queued = lane.chain.then(run, run);
-        lane.chain = queued.then(() => { }, () => { });
-        // Release the lane's slot once the turn settles, however it settled, so
-        // balancing keeps working after a failed or aborted passage.
-        queued.then(
-            () => { lane.depth -= 1; },
-            () => { lane.depth -= 1; },
-        );
-        return queued;
-    }, [getLanes, getOrCreateWebSocket, runTurn, retireSessionIfExhausted]);
+    /**
+     * Give an idle lane the passage that is needed soonest.
+     *
+     * Ordering by position rather than by arrival is the whole point: playback
+     * always wants the lowest-numbered passage it does not have yet, so that is
+     * what a free lane takes, whatever order the requests came in.
+     */
+    const pump = useCallback((lane: Lane) => {
+        if (lane.running) return;
+        const queue = queueRef.current;
+
+        // Drop anything already abandoned before choosing.
+        for (let i = queue.length - 1; i >= 0; i--) {
+            if (queue[i].signal?.aborted) {
+                queue[i].reject(new DOMException('Aborted', 'AbortError'));
+                queue.splice(i, 1);
+            }
+        }
+        if (!queue.length) return;
+
+        let pick = 0;
+        for (let i = 1; i < queue.length; i++) {
+            if (queue[i].priority < queue[pick].priority) pick = i;
+        }
+        const [job] = queue.splice(pick, 1);
+
+        lane.running = true;
+        void runJob(lane, job).finally(() => {
+            lane.running = false;
+            pump(lane);
+        });
+    }, [runJob]);
+
+    const generateAudioForSentence = useCallback((
+        text: string,
+        signal?: AbortSignal,
+        onChunk?: (pcm: ArrayBuffer) => void,
+        /** Where this passage sits in the document; lower is fetched first. */
+        priority: number = Number.MAX_SAFE_INTEGER,
+    ): Promise<NarrationResult> => {
+        if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+
+        return new Promise<NarrationResult>((resolve, reject) => {
+            queueRef.current.push({ text, priority, signal, onChunk, resolve, reject });
+            for (const lane of getLanes()) pump(lane);
+        });
+    }, [getLanes, pump]);
+
+    /**
+     * Drop every Live session and any work waiting on one.
+     *
+     * The sessions are otherwise held open between passages, which is what makes
+     * playback quick to resume. This is for when you would rather nothing was
+     * connected at all.
+     */
+    const disconnect = useCallback(() => {
+        const queue = queueRef.current;
+        while (queue.length) {
+            queue.pop()?.reject(new DOMException('Aborted', 'AbortError'));
+        }
+        for (const lane of getLanes()) {
+            const ws = lane.socket;
+            lane.socket = null;
+            lane.connecting = null;
+            lane.turns = 0;
+            lane.state = 'disconnected';
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                try { ws.close(1000, 'disconnected by user'); } catch { /* already closing */ }
+            }
+        }
+        syncWsState();
+    }, [getLanes, syncWsState]);
 
     return {
         wsState,
-        generateAudioForSentence
+        generateAudioForSentence,
+        disconnect
     };
 };
