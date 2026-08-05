@@ -267,6 +267,10 @@ class GeminiResponseHandler:
     async def handle_turn_complete(self):
         """Handle turn completion from Gemini."""
         try:
+            # One line per turn, so a passage whose transcript came back short can
+            # be spotted in the log without instrumenting the server again.
+            print(f"Turn ending with {len(getattr(self.audio_processor, 'spoken_text', ''))} chars "
+                  f"of transcript for {self._describe_audio(len(getattr(self.audio_processor, 'audio_data', b'')))} of audio")
             print(f"[DEBUG] handle_turn_complete called, audio_processor exists: {self.audio_processor is not None}")
             if self.audio_processor and self.audio_processor.audio_data:
                 print(f"[DEBUG] Audio data size in handle_turn_complete: {len(self.audio_processor.audio_data)} bytes")

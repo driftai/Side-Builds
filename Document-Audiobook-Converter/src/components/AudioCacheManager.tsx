@@ -315,7 +315,8 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences,
                                                 // from. The first catches an edited source, the second
                                                 // catches narration that wandered.
                                                 const compareAgainst = currentText ?? clip.text;
-                                                const match = compareNarration(compareAgainst, clip.spokenText);
+                                                const match = compareNarration(
+                                                    compareAgainst, clip.spokenText, clip.durationSec);
                                                 const sourceChanged = currentText !== undefined && currentText !== clip.text;
                                                 const style = MARKER_STYLES[match.level];
                                                 const isOpen = openClip === clip.key;

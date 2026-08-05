@@ -53,6 +53,18 @@ async def _receive_responses(session, response_handler, connection_monitor, conn
                 except Exception as e:
                     response_logger.warning(f"Could not log server content attributes: {e}")
 
+                # What the model actually spoke, reported by the session alongside
+                # the audio. Collected before anything else so that a transcript
+                # arriving in the same message as the turn's end is not lost to
+                # the early continue below.
+                output_transcription = getattr(server_content, 'output_transcription', None)
+                carried_transcription = False
+                if output_transcription is not None:
+                    fragment = getattr(output_transcription, 'text', None)
+                    if fragment:
+                        response_handler.audio_processor.spoken_text += fragment
+                        carried_transcription = True
+
                 # Check for turn completion first (based on Live API documentation)
                 turn_complete = getattr(server_content, 'turn_complete', None)
                 if turn_complete is not None and turn_complete:
@@ -67,16 +79,21 @@ async def _receive_responses(session, response_handler, connection_monitor, conn
                     continue
 
                 # Process model_turn content if available with enhanced error handling
-                # What the model actually spoke, streamed in fragments alongside
-                # the audio. Collected here so the turn-complete message can
-                # carry it to the client for comparison against the source text.
-                output_transcription = getattr(server_content, 'output_transcription', None)
-                if output_transcription is not None:
-                    fragment = getattr(output_transcription, 'text', None)
-                    if fragment:
-                        response_handler.audio_processor.spoken_text += fragment
-
                 model_turn = getattr(server_content, 'model_turn', None)
+
+                # A message carrying only the transcription is not evidence that
+                # the turn is over.
+                #
+                # The session reports what it said in its own message, with no
+                # model_turn and no audio. The handling below treats "no
+                # model_turn while audio is buffered" as a finished turn, so such
+                # a message ended the turn wherever it happened to land: the
+                # client was handed the boundary early and the transcript stored
+                # for the passage was whatever had arrived by then - a few words
+                # of a long passage. Gemini's turn_complete is the authority, and
+                # the hang guard covers a genuine stall.
+                if carried_transcription and model_turn is None:
+                    continue
                 if model_turn is not None:
                     # Process response parts if they exist
                     parts = getattr(model_turn, 'parts', None)
@@ -149,17 +166,21 @@ async def _receive_responses(session, response_handler, connection_monitor, conn
                             # Since we injected the indicator, it will be detected in the next iteration
                             continue
 
-                        # If injection failed, check if we have accumulated audio data that should trigger completion.
-                        # Same audible floor as the fallback below: a priming frame is not a turn.
+                        # A message we do not recognise is not a finished turn.
+                        #
+                        # This used to end the turn outright whenever any audio
+                        # had buffered, on the reasoning that a message without a
+                        # model_turn meant the model had stopped. It does not:
+                        # the session sends several such messages mid-generation,
+                        # and each one cut the passage short. Defer to the hang
+                        # guard, which only acts after the audio has actually
+                        # been silent for its threshold.
                         audio_size = len(getattr(response_handler.audio_processor, 'audio_data', []))
                         if audio_size >= response_handler.MIN_MEANINGFUL_AUDIO_BYTES:
-                            # Force completion if we have audio data and no completion indicators
-                            response_logger.info(f"Forcing turn completion for connection {connection_id} - audio_size: {audio_size} bytes")
-                            # Only handle completion if not already handled this response
-                            if not getattr(response_handler, '_completion_handled', False):
+                            completed = await response_handler.check_audio_completion()
+                            if completed:
                                 setattr(response_handler, '_completion_handled', True)
-                                await response_handler.handle_turn_complete()
-                            continue
+                                continue
                         else:
                             # No audio data and no completion indicators - this might be an empty response
                             response_logger.debug(f"No audio data and no completion indicators for connection {connection_id}")

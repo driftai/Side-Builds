@@ -243,7 +243,22 @@ const lcsLength = (a: string[], b: string[]): number => {
  * scores low even though every source word appears, which is exactly the
  * divergence worth flagging.
  */
-export const compareNarration = (sourceText: string, spokenText: string): MatchResult => {
+/**
+ * Slowest plausible narration, in characters per second.
+ *
+ * Used to tell a transcript that is short because the model went off-script
+ * from one that is short because the transcript itself is incomplete. Real
+ * narration runs about 15 characters a second; well under half that means the
+ * audio contains speech the transcript never accounted for.
+ */
+const MIN_CHARS_PER_SECOND = 6;
+
+export const compareNarration = (
+    sourceText: string,
+    spokenText: string,
+    /** Length of the stored audio, when known. */
+    audioSeconds?: number,
+): MatchResult => {
     const source = normaliseWords(sourceText || '');
     const spoken = normaliseWords(spokenText || '');
 
@@ -251,6 +266,20 @@ export const compareNarration = (sourceText: string, spokenText: string): MatchR
         return {
             level: 'unknown', ratio: null, wordDelta: -source.length,
             label: source.length ? 'no transcript stored' : 'nothing to compare',
+        };
+    }
+
+    // The session's transcript sometimes comes back covering only the opening
+    // of a long passage, while the audio is complete and correct. Scoring that
+    // as divergence marks good narration red and sends you off regenerating
+    // audio that was never wrong. If the audio is far too long for the words
+    // reported, the transcript is what is missing - say so instead of judging
+    // the narration on it.
+    if (audioSeconds && audioSeconds > 0
+        && (spokenText || '').trim().length < audioSeconds * MIN_CHARS_PER_SECOND) {
+        return {
+            level: 'unknown', ratio: null, wordDelta: spoken.length - source.length,
+            label: 'transcript incomplete - cannot judge this one',
         };
     }
 
