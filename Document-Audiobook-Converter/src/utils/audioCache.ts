@@ -258,10 +258,32 @@ export const compareNarration = (sourceText: string, spokenText: string): MatchR
     const ratio = (2 * common) / (source.length + spoken.length);
     const wordDelta = spoken.length - source.length;
 
-    const level: MatchLevel = ratio >= 0.75 ? 'match' : ratio >= 0.5 ? 'drift' : 'diverged';
+    /**
+     * Saying far more than the source is divergence in its own right, even when
+     * every source word is there in order.
+     *
+     * The overlap score alone does not catch it: a passage read correctly and
+     * then continued with an invented second sentence still contains all of the
+     * source, so it scores around two thirds - which reads as mild drift rather
+     * than the model going off on its own. Length is the signal there, so it is
+     * judged separately.
+     *
+     * Only for passages with enough words to mean something. On a three-word
+     * line a couple of extra words is normal narration, not divergence.
+     */
+    const OVERRUN_FACTOR = 1.75;
+    const overran = source.length >= 4 && spoken.length >= source.length * OVERRUN_FACTOR;
+
+    const level: MatchLevel = overran ? 'diverged'
+        : ratio >= 0.75 ? 'match'
+            : ratio >= 0.5 ? 'drift'
+                : 'diverged';
+
     const pct = Math.round(ratio * 100);
-    const label =
-        level === 'match' ? (ratio >= 0.995 ? 'read word for word' : `${pct}% match`)
+    const times = (spoken.length / Math.max(1, source.length)).toFixed(1);
+    const label = overran
+        ? `spoke ${times}x the source - diverged`
+        : level === 'match' ? (ratio >= 0.995 ? 'read word for word' : `${pct}% match`)
             : level === 'drift' ? `${pct}% match - drifted from the source`
                 : `${pct}% match - diverged from the source`;
 

@@ -239,7 +239,11 @@ export const useAudioEngine = (
         const saving = isSavingEnabled();
         let key: string | null = null;
 
-        if (documentId) {
+        // With saving off nothing stored is used either: every passage is
+        // generated live. Reading the cache while refusing to write it would
+        // still replay old audio for a document being worked on, which is the
+        // opposite of what turning saving off is for.
+        if (documentId && saving) {
             try {
                 key = await makeClipKey({ documentId, index, voice, model });
                 const hit = await getClip(key, context);
