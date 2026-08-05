@@ -10,6 +10,7 @@ import ReadingInterface from './src/components/ReadingInterface';
 import AudioCacheManager from './src/components/AudioCacheManager';
 import { makeDocumentId } from './src/utils/audioCache';
 import { supportsLiveFiles, pickDocument, watchFile } from './src/utils/liveFile';
+import { alignSentences } from './src/utils/documentDiff';
 
 // Electron integration
 declare global {
@@ -206,11 +207,62 @@ const GEMINI_VOICES = [
     'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat'
 ];
 
+export const SUPPORTED_TYPES = ['pdf', 'txt', 'docx'];
+
+/**
+ * Pull the text out of a document.
+ *
+ * Separate from loading it into the reader because the same extraction runs on
+ * two very different paths: opening a file, and re-reading one that changed on
+ * disk while it is being listened to. The second must not touch app state at
+ * all, so the work is done here and the caller decides what to do with it.
+ */
+const extractText = async (file: File, fileExtension: string): Promise<string> => {
+    if (fileExtension === 'pdf') {
+        let fullText = '';
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+        const pdf = await loadingTask.promise;
+        try {
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                // Join on spaces but honour the parser's end-of-line markers.
+                // Flattening every item with a space (the previous behaviour)
+                // welded headings onto the following paragraph, which is what
+                // produced single "sentences" hundreds of characters long.
+                let pageText = '';
+                for (const item of content.items as any[]) {
+                    if (typeof item.str !== 'string') continue;
+                    pageText += item.str;
+                    pageText += item.hasEOL ? '\n' : ' ';
+                }
+                fullText += pageText + '\n';
+                page.cleanup();
+            }
+        } finally {
+            // Releases the pdf.js worker; without this each opened document
+            // leaks one until the tab is reloaded.
+            await loadingTask.destroy();
+        }
+        return fullText;
+    }
+    if (fileExtension === 'txt') return handleTxtFile(file);
+    if (fileExtension === 'docx') return handleDocxFile(file);
+    return '';
+};
+
 const App: React.FC = () => {
     const [fileName, setFileName] = useState<string>('');
     const [documentId, setDocumentId] = useState<string | null>(null);
     const [liveWatching, setLiveWatching] = useState(false);
     const stopWatchRef = useRef<(() => void) | null>(null);
+    // The sentence list lives in a ref so playback can read it without
+    // re-rendering. An in-place edit therefore changes nothing React can see -
+    // this counter is what tells the reading area to redraw, and how many
+    // passages the last edit touched is worth showing.
+    const [, setDocRevision] = useState(0);
+    const [lastEdit, setLastEdit] = useState<{ at: number; changed: number } | null>(null);
     const [geminiConfig, setGeminiConfig] = useState<GeminiApiConfig | null>(null);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
     const [voiceControlsCollapsed, setVoiceControlsCollapsed] = useState<boolean>(false);
@@ -241,6 +293,7 @@ const App: React.FC = () => {
         setSelectedGeminiVoice,
         voices,
         spokenCharIndex,
+        applySentenceUpdate,
     } = useAudioEngine(geminiConfig, generateAudioForSentence, documentId, fileName);
 
     // Sync selectedGeminiVoice with geminiConfig.voice when config changes
@@ -365,39 +418,7 @@ const App: React.FC = () => {
         setAppState(AppState.PROCESSING);
 
         try {
-            let fullText = '';
-
-            if (fileExtension === 'pdf') {
-                const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
-                const pdf = await loadingTask.promise;
-                try {
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const content = await page.getTextContent();
-                        // Join on spaces but honour the parser's end-of-line markers.
-                        // Flattening every item with a space (the previous behaviour)
-                        // welded headings onto the following paragraph, which is what
-                        // produced single "sentences" hundreds of characters long.
-                        let pageText = '';
-                        for (const item of content.items as any[]) {
-                            if (typeof item.str !== 'string') continue;
-                            pageText += item.str;
-                            pageText += item.hasEOL ? '\n' : ' ';
-                        }
-                        fullText += pageText + '\n';
-                        page.cleanup();
-                    }
-                } finally {
-                    // Releases the pdf.js worker; without this each opened
-                    // document leaks one until the tab is reloaded.
-                    await loadingTask.destroy();
-                }
-            } else if (fileExtension === 'txt') {
-                fullText = await handleTxtFile(file);
-            } else if (fileExtension === 'docx') {
-                fullText = await handleDocxFile(file);
-            }
+            const fullText = await extractText(file, fileExtension);
 
             // Use improved sentence splitting instead of simple regex
             sentencesRef.current = splitIntoSentences(fullText);
@@ -422,6 +443,58 @@ const App: React.FC = () => {
         }
     };
 
+    /**
+     * Take on an edited version of the file that is already open.
+     *
+     * This deliberately avoids processFile. That path stops playback, flips the
+     * whole panel into PROCESSING and resets the reading position - reasonable
+     * when opening a document, destructive when the listener is halfway through
+     * one and merely saved a typo fix. Here the text is re-extracted quietly,
+     * compared against what is loaded, and folded in: unchanged passages keep
+     * their place and their generated audio, only edited ones are regenerated,
+     * and the audio playing at the time is never interrupted.
+     */
+    const applyLiveUpdate = useCallback(async (file: File) => {
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        if (!fileExtension || !SUPPORTED_TYPES.includes(fileExtension)) return;
+
+        try {
+            const fullText = await extractText(file, fileExtension);
+            const next = splitIntoSentences(fullText);
+            const alignment = alignSentences(sentencesRef.current, next);
+
+            // A save that did not change the text is common - editors rewrite
+            // the file on every keystroke in some setups. Doing nothing keeps
+            // it invisible.
+            if (alignment.identical) return;
+
+            applySentenceUpdate(next, alignment.oldToNew);
+            setDocRevision(revision => revision + 1);
+            setLastEdit({ at: Date.now(), changed: alignment.changedCount });
+        } catch (err) {
+            // A file caught mid-save can fail to parse. The version already
+            // loaded stays exactly as it is, and the next change is picked up.
+            console.warn('Live update skipped, document could not be re-read:', err);
+        }
+    }, [sentencesRef, applySentenceUpdate]);
+
+    /**
+     * Move the reader to a passage, from the saved-audio list.
+     *
+     * Only the position moves. Whatever the session is doing carries on: paused
+     * stays paused so the passage can be read, playing continues from there.
+     */
+    const handleJumpToSentence = useCallback((index: number) => {
+        if (index < 0 || index >= sentencesRef.current.length) return;
+        setCurrentSentenceIndex(index);
+        // The reading area is a separate scroll container, so bring the passage
+        // into view rather than leaving the jump invisible.
+        requestAnimationFrame(() => {
+            document.getElementById(`sentence-${index}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }, [sentencesRef, setCurrentSentenceIndex]);
+
     const handleUploadClick = useCallback(async () => {
         // Prefer a handle we can re-read, so later edits to the file show up
         // here without another upload. Falls back to the plain file input where
@@ -435,7 +508,7 @@ const App: React.FC = () => {
                     stopWatchRef.current = watchFile(
                         picked.handle,
                         picked.file.lastModified,
-                        (updated) => { void processFile(updated, { keepPosition: true }); },
+                        (updated) => { void applyLiveUpdate(updated); },
                     );
                     setLiveWatching(true);
                 }
@@ -443,7 +516,7 @@ const App: React.FC = () => {
             }
         }
         fileInputRef.current?.click();
-    }, []);
+    }, [applyLiveUpdate]);
     const handleVoiceModeToggle = useCallback(() => setVoiceMode(prev => prev === 'browser' ? 'gemini' : 'browser'), [setVoiceMode]);
     const handleSmoothPlaybackToggle = useCallback(() => {
         setSmoothPlayback(!smoothPlayback);
@@ -817,6 +890,11 @@ const App: React.FC = () => {
                                 ● watching file for edits
                             </span>
                         )}
+                        {lastEdit && (
+                            <span className="ml-2 text-xs text-blue-300 whitespace-nowrap">
+                                · updated {lastEdit.changed} passage{lastEdit.changed === 1 ? '' : 's'} in place
+                            </span>
+                        )}
                     </p>
 
                     {/* Gemini API Configuration */}
@@ -825,7 +903,11 @@ const App: React.FC = () => {
                             onConfigChange={handleGeminiConfigChange}
                             initialConfig={geminiConfig || undefined}
                         />
-                        <AudioCacheManager activeDocumentId={documentId} activeSentences={sentencesRef.current} />
+                        <AudioCacheManager
+                            activeDocumentId={documentId}
+                            activeSentences={sentencesRef.current}
+                            onJumpToSentence={handleJumpToSentence}
+                        />
                     </div>
                 </header>
                 {/* Scrolls rather than clips. With overflow-hidden, anything that

@@ -309,7 +309,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
      * one turn, surfacing as "Generated audio is too short" and "No audio data
      * received". Draining to the boundary keeps the stream aligned.
      */
-    const runTurn = useCallback((ws: WebSocket, text: string, signal?: AbortSignal): Promise<NarrationResult> => {
+    const runTurn = useCallback((
+        ws: WebSocket, text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
+    ): Promise<NarrationResult> => {
         return new Promise<NarrationResult>((resolve, reject) => {
             const chunks: ArrayBuffer[] = [];
             let aborted = false;
@@ -354,7 +356,17 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
 
                 if (data.audio) {
                     if (!aborted) {
-                        chunks.push(decodeAudioChunk(data.audio));
+                        const pcm = decodeAudioChunk(data.audio);
+                        chunks.push(pcm);
+                        // Hand it straight on as well, for callers that play the
+                        // passage as it arrives rather than waiting for the end.
+                        // Never allowed to break the turn: a listener that throws
+                        // would otherwise lose the whole passage.
+                        if (onChunk) {
+                            try { onChunk(pcm); } catch (error) {
+                                console.warn('Streaming chunk listener failed:', error);
+                            }
+                        }
                     }
                     return;
                 }
@@ -419,7 +431,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         }
     }, []);
 
-    const generateAudioForSentence = useCallback((text: string, signal?: AbortSignal): Promise<NarrationResult> => {
+    const generateAudioForSentence = useCallback((
+        text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
+    ): Promise<NarrationResult> => {
         if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
 
         // Send this turn down the emptiest lane. Ties go to the first lane, so
@@ -450,7 +464,7 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                 }
 
                 try {
-                    const result = await runTurn(ws, text, signal);
+                    const result = await runTurn(ws, text, signal, onChunk);
                     retireSessionIfExhausted(lane);
                     return result;
                 } catch (error) {

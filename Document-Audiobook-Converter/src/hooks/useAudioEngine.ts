@@ -1,8 +1,36 @@
 import type React from 'react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GeminiApiConfig } from '../components/GeminiConfig';
-import { makeClipKey, getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled } from '../utils/audioCache';
+import { makeClipKey, getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled } from '../utils/audioCache';
+import { remapIndex } from '../utils/documentDiff';
+import { PcmStreamPlayer } from '../utils/streamingPlayer';
 import type { NarrationResult } from './useGemini';
+
+/** Sample rate of the PCM the Live API returns. */
+const PCM_SAMPLE_RATE = 24000;
+
+/**
+ * Audio fragments for one passage as they arrive, so playback can begin before
+ * generation finishes. Only kept while the streaming bypass is enabled.
+ */
+interface StreamRecord {
+    chunks: ArrayBuffer[];
+    done: boolean;
+    listeners: Set<(pcm: ArrayBuffer | null) => void>;
+}
+
+/**
+ * A passage that is generated or generating. The text it was made from is kept
+ * alongside it so a document edit can tell which queued passages are still
+ * valid and which have to be thrown away - see applySentenceUpdate.
+ */
+interface PrefetchEntry {
+    promise: Promise<AudioBuffer>;
+    controller: AbortController;
+    text: string;
+    /** Set once the passage is fully generated and ready to play as one buffer. */
+    settled?: boolean;
+}
 
 export enum AppState {
     IDLE,
@@ -41,11 +69,15 @@ interface AudioState {
      * Gemini audio has no per-word timing, so its position is estimated.
      */
     spokenCharIndex: number | null;
+    /** Swap in an edited document without disturbing playback. */
+    applySentenceUpdate: (next: string[], oldToNew: (number | null)[]) => void;
 }
 
 export const useAudioEngine = (
     geminiConfig: GeminiApiConfig | null,
-    generateAudioForSentence: (text: string, signal?: AbortSignal) => Promise<NarrationResult>,
+    generateAudioForSentence: (
+        text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
+    ) => Promise<NarrationResult>,
     /** Identity of the loaded document; null disables caching (nothing to key on). */
     documentId: string | null = null,
     documentName: string = '',
@@ -97,7 +129,9 @@ export const useAudioEngine = (
     // only when playback advances, so a run of short sentences lets generation
     // pull further ahead instead of restarting the chain at each boundary.
     const PREFETCH_DEPTH = 4;
-    const prefetchQueueRef = useRef<Map<number, { promise: Promise<AudioBuffer>; controller: AbortController }>>(new Map());
+    const prefetchQueueRef = useRef<Map<number, PrefetchEntry>>(new Map());
+    const streamsRef = useRef<Map<number, StreamRecord>>(new Map());
+    const activePlayerRef = useRef<PcmStreamPlayer | null>(null);
 
     const consoleLogger = useRef({
         logAudio: (action: string, details: string) => console.log(`[Audio] ${action}: ${details}`),
@@ -105,6 +139,10 @@ export const useAudioEngine = (
 
     useEffect(() => { appStateRef.current = appState; }, [appState]);
     useEffect(() => { currentIndexRef.current = currentSentenceIndex; }, [currentSentenceIndex]);
+    // Read by applySentenceUpdate, which must not be rebuilt when the engine
+    // changes or it would churn the file watcher that holds it.
+    const voiceModeRef = useRef(voiceMode);
+    useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
     const getAudioContext = useCallback(() => {
         if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
@@ -121,11 +159,14 @@ export const useAudioEngine = (
             try { currentAudioSourceRef.current.stop(); } catch (e) { }
             currentAudioSourceRef.current = null;
         }
+        activePlayerRef.current?.stop();
+        activePlayerRef.current = null;
         for (const { promise, controller } of prefetchQueueRef.current.values()) {
             controller.abort();
             promise.catch(() => { });  // queued rejections are expected once aborted
         }
         prefetchQueueRef.current.clear();
+        streamsRef.current.clear();
         startedTokenRef.current = null;
         if (wordTimerRef.current !== null) {
             cancelAnimationFrame(wordTimerRef.current);
@@ -176,6 +217,7 @@ export const useAudioEngine = (
                 entry.controller.abort();
                 entry.promise.catch(() => { });
                 prefetchQueueRef.current.delete(i);
+                streamsRef.current.delete(i);
             }
         }
     }, []);
@@ -189,7 +231,7 @@ export const useAudioEngine = (
      * failure falls through to generating it again.
      */
     const requestAudio = useCallback(async (
-        index: number, text: string, signal?: AbortSignal,
+        index: number, text: string, signal?: AbortSignal, onChunk?: (pcm: ArrayBuffer) => void,
     ): Promise<AudioBuffer> => {
         const context = getAudioContext();
         const voice = geminiConfig?.voice ?? '';
@@ -227,7 +269,7 @@ export const useAudioEngine = (
         noteActivity(index, text, 'generating');
         let result: NarrationResult;
         try {
-            result = await generateAudioForSentence(text, signal);
+            result = await generateAudioForSentence(text, signal, onChunk);
         } catch (error) {
             noteActivity(index, text, 'idle');
             throw error;
@@ -262,12 +304,36 @@ export const useAudioEngine = (
 
         const controller = new AbortController();
         consoleLogger.current.logAudio('Prefetching', `Sentence ${index}`);
-        const promise = requestAudio(index, text, controller.signal);
+
+        // With the bypass on, keep the fragments as they arrive so this passage
+        // can start playing before it has finished generating.
+        let record: StreamRecord | null = null;
+        if (isStreamingEnabled()) {
+            record = { chunks: [], done: false, listeners: new Set() };
+            streamsRef.current.set(index, record);
+        }
+        const onChunk = record
+            ? (pcm: ArrayBuffer) => {
+                record!.chunks.push(pcm);
+                for (const listener of record!.listeners) listener(pcm);
+            }
+            : undefined;
+
+        const promise = requestAudio(index, text, controller.signal, onChunk);
+
+        const closeRecord = () => {
+            if (!record || record.done) return;
+            record.done = true;
+            for (const listener of record.listeners) listener(null);
+        };
 
         // Attach handlers that never reject, so an unclaimed queue entry can't
         // surface as an unhandled rejection while it waits to be played.
         promise.then(
             () => {
+                const entry = prefetchQueueRef.current.get(index);
+                if (entry?.controller === controller) entry.settled = true;
+                closeRecord();
                 if (!controller.signal.aborted) {
                     consoleLogger.current.logAudio('Prefetched', `Sentence ${index} ready`);
                     // Extend the chain immediately. Waiting for playback to reach
@@ -281,6 +347,10 @@ export const useAudioEngine = (
                 if (error?.name !== 'AbortError') {
                     console.warn(`Prefetch of sentence ${index} failed, will retry on demand:`, error?.message ?? error);
                 }
+                // Release anyone waiting on the stream before dropping it, or a
+                // streaming playback would sit waiting for fragments forever.
+                closeRecord();
+                streamsRef.current.delete(index);
                 // Drop it so playSentence regenerates rather than replaying the failure.
                 if (prefetchQueueRef.current.get(index)?.controller === controller) {
                     prefetchQueueRef.current.delete(index);
@@ -288,7 +358,7 @@ export const useAudioEngine = (
             }
         );
 
-        prefetchQueueRef.current.set(index, { promise, controller });
+        prefetchQueueRef.current.set(index, { promise, controller, text });
         return promise;
     }, [requestAudio]);
 
@@ -305,6 +375,150 @@ export const useAudioEngine = (
     // breaks the cycle without either having to be recreated.
     const fillFromRef = useRef<((from: number) => void) | null>(null);
     useEffect(() => { fillFromRef.current = fillPrefetchQueue; }, [fillPrefetchQueue]);
+
+    /**
+     * Fold an edited version of the document into the running session.
+     *
+     * Re-reading the file used to mean processing it from scratch: playback
+     * stopped, the queue was discarded and the reading position reset, so
+     * saving the file mid-listen cut the audio off. Nothing about an edit
+     * requires that. Given an alignment between the old and new sentences, this
+     * swaps the text underneath the session and leaves everything else running.
+     *
+     * Three things have to move together for that to hold:
+     *
+     * - queued work follows its passage to the new position, so an insertion
+     *   near the top does not invalidate every passage below it;
+     * - the reading position follows the sentence it was on;
+     * - the "already started" token follows the position, because the playback
+     *   effect keys on it. Without that the index change alone would restart
+     *   the sentence currently being spoken - the very interruption this exists
+     *   to prevent.
+     *
+     * Audio already playing is left alone even if its own text changed. It
+     * finishes, and the edit is heard when playback next reaches that passage.
+     */
+    const applySentenceUpdate = useCallback((
+        next: string[],
+        oldToNew: (number | null)[],
+    ) => {
+        sentencesRef.current = next;
+
+        const remapped = new Map<number, PrefetchEntry>();
+        for (const [oldIndex, entry] of prefetchQueueRef.current) {
+            const newIndex = oldIndex < oldToNew.length ? oldToNew[oldIndex] : null;
+            // Keep it only if it survived the edit and still matches the text at
+            // its new home; anything else would play stale words.
+            if (newIndex === null || next[newIndex] !== entry.text) {
+                entry.controller.abort();
+                entry.promise.catch(() => { });
+                streamsRef.current.delete(oldIndex);
+                continue;
+            }
+            remapped.set(newIndex, entry);
+        }
+        prefetchQueueRef.current = remapped;
+
+        // Fragments follow their passage too, so a stream already playing is
+        // not orphaned by an edit somewhere else in the document.
+        const remappedStreams = new Map<number, StreamRecord>();
+        for (const [oldIndex, stream] of streamsRef.current) {
+            const newIndex = oldIndex < oldToNew.length ? oldToNew[oldIndex] : null;
+            if (newIndex !== null && remapped.has(newIndex)) remappedStreams.set(newIndex, stream);
+        }
+        streamsRef.current = remappedStreams;
+
+        const from = currentIndexRef.current;
+        if (from >= 0) {
+            const to = remapIndex(from, oldToNew, next.length);
+            currentIndexRef.current = to;
+            if (startedTokenRef.current !== null) {
+                startedTokenRef.current = `${voiceModeRef.current}:${to}`;
+            }
+            if (to !== from) setCurrentSentenceIndex(to);
+        }
+
+        // Top the look-ahead back up: passages dropped above leave gaps.
+        //
+        // Only when the Live engine is the one speaking. Browser speech needs no
+        // look-ahead, and filling it here would send the edited passages to the
+        // API for audio that is never played - an edit would quietly cost calls
+        // while the browser voice is reading.
+        if (voiceModeRef.current === 'gemini') {
+            fillFromRef.current?.(currentIndexRef.current + 1);
+        }
+    }, []);
+
+    /**
+     * Start a passage that has not finished generating, playing its fragments
+     * as they arrive. Returns true when it has taken playback over.
+     *
+     * This is the bypass for the case where the look-ahead did not get far
+     * enough ahead: rather than sitting in silence until the passage is
+     * complete, the audio that exists is played immediately and the rest is
+     * scheduled behind it as it streams in.
+     */
+    const playStreamed = useCallback(async (
+        index: number, record: StreamRecord,
+    ): Promise<boolean> => {
+        const audioContext = getAudioContext();
+        if (audioContext.state === 'suspended') {
+            try { await audioContext.resume(); } catch { return false; }
+        }
+        // It finished while we were getting ready - the normal path is better.
+        if (record.done) return false;
+
+        consoleLogger.current.logAudio('Streaming', `Sentence ${index} while it generates`);
+
+        const player = new PcmStreamPlayer({
+            context: audioContext,
+            sampleRate: PCM_SAMPLE_RATE,
+            onStarved: () => consoleLogger.current.logAudio(
+                'Stream ran dry', `Sentence ${index} - generation fell behind playback`),
+            onFinished: () => {
+                record.listeners.delete(listener);
+                streamsRef.current.delete(index);
+                if (activePlayerRef.current !== player) return;  // superseded
+                activePlayerRef.current = null;
+                if (appStateRef.current === AppState.PLAYING) {
+                    setCurrentSentenceIndex(prevIndex => prevIndex + 1);
+                }
+            },
+        });
+
+        const listener = (pcm: ArrayBuffer | null) => {
+            if (activePlayerRef.current !== player) return;
+            if (pcm === null) player.end(); else player.push(pcm);
+        };
+
+        activePlayerRef.current = player;
+        record.listeners.add(listener);
+        // Everything that arrived before playback reached this passage.
+        for (const chunk of record.chunks) player.push(chunk);
+        if (record.done) player.end();
+
+        // Follow the audio clock for the word highlight. The passage's full
+        // length is not known yet, so progress is measured against what has
+        // been scheduled so far - it firms up as more arrives.
+        const spokenText = sentencesRef.current[index] ?? '';
+        const totalChars = spokenText.length || 1;
+        const followStream = () => {
+            if (appStateRef.current !== AppState.PLAYING || activePlayerRef.current !== player) {
+                wordTimerRef.current = null;
+                return;
+            }
+            const scheduled = player.scheduledSeconds;
+            if (scheduled > 0) {
+                const progress = Math.min(1, Math.max(0, player.elapsedSeconds / scheduled));
+                setSpokenCharIndex(Math.floor(progress * totalChars));
+            }
+            wordTimerRef.current = requestAnimationFrame(followStream);
+        };
+        if (wordTimerRef.current !== null) cancelAnimationFrame(wordTimerRef.current);
+        wordTimerRef.current = requestAnimationFrame(followStream);
+
+        return true;
+    }, [getAudioContext, sentencesRef]);
 
     const playSentence = useCallback(async (index: number) => {
         if (currentAudioSourceRef.current) {
@@ -330,6 +544,15 @@ export const useAudioEngine = (
             setError('Failed to generate audio for the selected sentence.');
             setAppState(AppState.PAUSED);
             return;
+        }
+
+        // Still generating? With the bypass on, play what exists rather than
+        // waiting for the rest. Only worth it when the passage really is not
+        // ready - a finished one plays better as a single buffer.
+        const pending = prefetchQueueRef.current.get(index);
+        const stream = streamsRef.current.get(index);
+        if (pending && !pending.settled && stream && !stream.done) {
+            if (await playStreamed(index, stream)) return;
         }
 
         try {
@@ -410,7 +633,7 @@ export const useAudioEngine = (
             if (wordTimerRef.current !== null) cancelAnimationFrame(wordTimerRef.current);
             wordTimerRef.current = requestAnimationFrame(followAudio);
         }
-    }, [requestAudio, getAudioContext, prunePrefetchQueue, fillPrefetchQueue, enqueuePrefetch]);
+    }, [requestAudio, getAudioContext, prunePrefetchQueue, fillPrefetchQueue, enqueuePrefetch, playStreamed]);
 
     const speakWithPersistentVoice = useCallback((text: string, voiceURI: string | null, onEnd?: () => void) => {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -569,6 +792,7 @@ export const useAudioEngine = (
         selectedGeminiVoice,
         setSelectedGeminiVoice,
         voices,
-        spokenCharIndex
+        spokenCharIndex,
+        applySentenceUpdate
     };
 };

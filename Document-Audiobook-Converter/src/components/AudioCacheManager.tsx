@@ -5,6 +5,7 @@ import {
     getStats, setLiveOnly, getLimits, setLimits, enforceLimits,
     formatBytes, formatDuration, subscribe,
     compareNarration, isSavingEnabled, setSavingEnabled, MatchLevel,
+    isStreamingEnabled, setStreamingEnabled,
 } from '../utils/audioCache';
 
 interface Activity {
@@ -23,6 +24,12 @@ interface Props {
      * shows up as a changed marker rather than silently stale audio.
      */
     activeSentences?: string[];
+    /**
+     * Move the reader to a passage. Lets a clip in this list be traced back to
+     * where it sits in the open document, so a flagged one can be looked at in
+     * context or replaced without hunting for it.
+     */
+    onJumpToSentence?: (index: number) => void;
 }
 
 /**
@@ -37,7 +44,7 @@ const MARKER_STYLES: Record<MatchLevel, { dot: string; text: string }> = {
     unknown:  { dot: 'bg-gray-600',   text: 'text-gray-500' },
 };
 
-const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences }) => {
+const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences, onJumpToSentence }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [documents, setDocuments] = useState<DocumentSummary[]>([]);
     const [stats, setStats] = useState({ clips: 0, bytes: 0, documents: 0 });
@@ -47,6 +54,7 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences 
     const [busy, setBusy] = useState(false);
     const [activity, setActivity] = useState<Activity | null>(null);
     const [saving, setSaving] = useState<boolean>(isSavingEnabled());
+    const [streaming, setStreaming] = useState<boolean>(isStreamingEnabled());
     const [openClip, setOpenClip] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
@@ -201,6 +209,23 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences 
                             </button>
                             {saving ? 'Saving on' : 'Saving off - every passage generated live'}
                         </label>
+                        <label
+                            className="text-xs text-gray-400 flex items-center gap-2"
+                            title={'Start a passage as soon as part of it exists, instead of waiting for the whole thing. '
+                                + 'Removes the pause when the look-ahead falls behind, at the risk of the audio running '
+                                + 'dry mid-sentence if generation cannot keep up.'}
+                        >
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={streaming}
+                                onClick={() => setStreaming(setStreamingEnabled(!streaming))}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${streaming ? 'bg-blue-600' : 'bg-gray-600'}`}
+                            >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${streaming ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </button>
+                            {streaming ? 'Play while generating' : 'Play only complete passages'}
+                        </label>
                         <button
                             disabled={busy}
                             onClick={() => withBusy(enforceLimits)}
@@ -282,6 +307,18 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences 
                                                 const sourceChanged = currentText !== undefined && currentText !== clip.text;
                                                 const style = MARKER_STYLES[match.level];
                                                 const isOpen = openClip === clip.key;
+                                                // Where this clip's passage sits in the document as it
+                                                // reads now. Prefer matching on the text: an edit that
+                                                // inserted sentences above moves the passage, and its
+                                                // stored position would point somewhere else entirely.
+                                                const jumpTarget = (() => {
+                                                    if (!onJumpToSentence || !activeSentences?.length) return null;
+                                                    if (doc.documentId !== activeDocumentId) return null;
+                                                    if (activeSentences[clip.index] === clip.text) return clip.index;
+                                                    const found = activeSentences.indexOf(clip.text);
+                                                    if (found >= 0) return found;
+                                                    return clip.index < activeSentences.length ? clip.index : null;
+                                                })();
                                                 return (
                                                 <div key={clip.key} className="p-2 pl-5">
                                                     <div className="flex items-start gap-2">
@@ -313,6 +350,17 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences 
                                                                 )}
                                                             </p>
                                                         </button>
+                                                        {jumpTarget !== null && (
+                                                            <button
+                                                                title={jumpTarget === clip.index
+                                                                    ? `Go to passage ${jumpTarget} in the document`
+                                                                    : `Go to this passage - it has moved to ${jumpTarget} since the audio was made`}
+                                                                onClick={() => onJumpToSentence?.(jumpTarget)}
+                                                                className="text-[10px] px-1.5 py-0.5 rounded border border-gray-600 text-gray-400 hover:text-blue-300 hover:border-blue-600 whitespace-nowrap"
+                                                            >
+                                                                Go to
+                                                            </button>
+                                                        )}
                                                         <button
                                                             disabled={busy}
                                                             title={clip.liveOnly

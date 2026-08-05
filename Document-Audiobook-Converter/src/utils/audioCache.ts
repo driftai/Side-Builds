@@ -287,6 +287,34 @@ export const setSavingEnabled = (enabled: boolean): boolean => {
     return enabled;
 };
 
+// --- playing before generation finishes -------------------------------------
+
+const STREAMING_KEY = 'audioStreamingEnabled';
+
+/**
+ * Whether a passage may start playing before it has finished generating.
+ *
+ * Normally a passage is played only once it is complete, which is what makes
+ * playback reliably gapless. When the look-ahead has not managed to get far
+ * enough ahead - a long passage after a short one, a slow turn - that means
+ * waiting in silence for the rest of it.
+ *
+ * With this on, audio starts as soon as enough has arrived to play against and
+ * the rest is scheduled as it streams in. The risk is the other way round: if
+ * generation falls behind playback the audio runs dry mid-sentence. That is why
+ * it is opt-in and off by default - the normal path is better whenever the
+ * look-ahead is keeping up, which is most of the time.
+ */
+export const isStreamingEnabled = (): boolean => {
+    try { return localStorage.getItem(STREAMING_KEY) === 'true'; } catch { return false; }
+};
+
+export const setStreamingEnabled = (enabled: boolean): boolean => {
+    try { localStorage.setItem(STREAMING_KEY, enabled ? 'true' : 'false'); } catch { /* non-fatal */ }
+    emit({ type: 'changed' });
+    return enabled;
+};
+
 // --- PCM conversion ---------------------------------------------------------
 
 /** AudioBuffer (float) -> the 16-bit PCM the server originally sent. */
