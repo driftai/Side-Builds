@@ -58,6 +58,14 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
   const [ttsText, setTtsText] = useState<string>('Hello, this is a test of the Gemini voice engine.');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const testWsRef = useRef<WebSocket | null>(null);
+  /**
+   * Whether this panel is holding a session of its own.
+   *
+   * Separate from the narration state the app passes in: a session opened from
+   * here occupies a slot exactly like a narration lane does, so Disconnect has
+   * to know about it or it sits greyed out with a live connection behind it.
+   */
+  const [testConnected, setTestConnected] = useState(false);
 
   // Update local config when initialConfig prop changes
   useEffect(() => {
@@ -138,6 +146,7 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
         setTestStatus('idle');
         setTestMessage('Connection closed by main app');
         setIsSpeaking(false);
+        setTestConnected(false);
       }
     };
 
@@ -194,18 +203,30 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
           const data = JSON.parse(event.data);
           if (data.is_system_message) {
             setTestMessage(`Server: ${data.text}`);
-            // Close after successful handshake
-            setTimeout(() => ws.close(), 1000);
+            // Left open deliberately. It used to close itself a second after the
+            // handshake, which contradicted both the server's own message and
+            // the Disconnect button beside it: the panel said the session would
+            // remain active while the socket had already gone, so there was
+            // never anything for Disconnect to close. Narration still takes the
+            // slot back when it needs one - it asks for this socket to close
+            // before opening its own.
+            setTestConnected(true);
           }
         } catch (e) {
           // Ignore parse errors for test
         }
       };
 
+      ws.onclose = () => {
+        if (testWsRef.current === ws) testWsRef.current = null;
+        setTestConnected(false);
+      };
+
       ws.onerror = () => {
         clearTimeout(timeoutId);
         setTestStatus('error');
         setTestMessage('WebSocket connection failed.');
+        setTestConnected(false);
       };
 
     } catch (error) {
@@ -228,6 +249,13 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
       }
       const ws = new WebSocket(config.websocketUrl);
       testWsRef.current = ws;
+      setTestConnected(true);
+      // Speaking holds a session too, so Disconnect stays live for it and goes
+      // back to grey once this socket is gone.
+      ws.addEventListener('close', () => {
+        if (testWsRef.current === ws) testWsRef.current = null;
+        setTestConnected(false);
+      });
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
       ws.onopen = () => {
@@ -491,21 +519,26 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
                 {testStatus === 'connecting' ? 'Connecting...' : 'Test Connection'}
               </button>
 
-              {onDisconnect && (
-                <button
-                  onClick={onDisconnect}
-                  disabled={!isConnected}
-                  title={isConnected
-                    ? 'Close the live sessions. They reopen on the next passage.'
-                    : 'Nothing is connected'}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${isConnected
-                    ? 'border border-red-700 text-red-300 hover:bg-red-900/30'
-                    : 'border border-gray-700 text-gray-600 cursor-not-allowed'
-                    }`}
-                >
-                  Disconnect
-                </button>
-              )}
+              {onDisconnect && (() => {
+                // Anything holding a session counts, whether it was opened by
+                // narration or from this panel.
+                const anythingConnected = isConnected || testConnected;
+                return (
+                  <button
+                    onClick={onDisconnect}
+                    disabled={!anythingConnected}
+                    title={anythingConnected
+                      ? 'Close every live session and free the API. Narration reconnects on the next passage.'
+                      : 'Nothing is connected'}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${anythingConnected
+                      ? 'border border-red-700 text-red-300 hover:bg-red-900/30'
+                      : 'border border-gray-700 text-gray-600 cursor-not-allowed'
+                      }`}
+                  >
+                    Disconnect
+                  </button>
+                );
+              })()}
 
               <div className="grow">
                 <input
