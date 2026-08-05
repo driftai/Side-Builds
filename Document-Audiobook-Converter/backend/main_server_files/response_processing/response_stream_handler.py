@@ -67,6 +67,15 @@ async def _receive_responses(session, response_handler, connection_monitor, conn
                     continue
 
                 # Process model_turn content if available with enhanced error handling
+                # What the model actually spoke, streamed in fragments alongside
+                # the audio. Collected here so the turn-complete message can
+                # carry it to the client for comparison against the source text.
+                output_transcription = getattr(server_content, 'output_transcription', None)
+                if output_transcription is not None:
+                    fragment = getattr(output_transcription, 'text', None)
+                    if fragment:
+                        response_handler.audio_processor.spoken_text += fragment
+
                 model_turn = getattr(server_content, 'model_turn', None)
                 if model_turn is not None:
                     # Process response parts if they exist

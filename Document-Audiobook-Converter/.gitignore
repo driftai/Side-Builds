@@ -39,6 +39,10 @@ chat_history.json
 *.orig
 *.rej
 
+# Agent tooling. Local dev-server launch config, useful on this machine but not
+# part of the project.
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

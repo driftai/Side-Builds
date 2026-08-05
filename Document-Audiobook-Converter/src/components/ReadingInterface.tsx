@@ -8,7 +8,32 @@ interface ReadingInterfaceProps {
     onSentenceClick: (index: number) => void;
     voiceControlsCollapsed: boolean;
     sessionStartTime: number | null;
+    /** Character offset being spoken in the current sentence, if known. */
+    spokenCharIndex?: number | null;
 }
+
+/**
+ * Split a sentence around the word covering `charIndex`, so it can be marked
+ * while the rest of the sentence stays intact. Returns null when the offset
+ * falls outside the sentence, in which case the sentence renders plainly.
+ */
+const splitAroundWord = (sentence: string, charIndex: number | null | undefined) => {
+    if (charIndex === null || charIndex === undefined) return null;
+    if (charIndex < 0 || charIndex >= sentence.length) return null;
+
+    // Walk out to the whitespace on either side of the offset.
+    let start = charIndex;
+    while (start > 0 && !/\s/.test(sentence[start - 1])) start--;
+    let end = charIndex;
+    while (end < sentence.length && !/\s/.test(sentence[end])) end++;
+    if (end <= start) return null;
+
+    return {
+        before: sentence.slice(0, start),
+        word: sentence.slice(start, end),
+        after: sentence.slice(end),
+    };
+};
 
 const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
     sentences,
@@ -16,7 +41,8 @@ const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
     appState,
     onSentenceClick,
     voiceControlsCollapsed,
-    sessionStartTime
+    sessionStartTime,
+    spokenCharIndex
 }) => {
     return (
         <div className={`flex-none ${voiceControlsCollapsed ? 'h-[68vh]' : 'h-[41vh]'} bg-linear-to-b from-gray-900/30 to-gray-800/20 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out`}>
@@ -82,7 +108,21 @@ const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
                                             : 'Click to jump here'
                                 }
                             >
-                                {sentence}
+                                {(() => {
+                                    // Mark the word being spoken, inside the sentence
+                                    // already highlighted as current.
+                                    const parts = isCurrent ? splitAroundWord(sentence, spokenCharIndex) : null;
+                                    if (!parts) return sentence;
+                                    return (
+                                        <>
+                                            {parts.before}
+                                            <span className="bg-blue-400/30 text-white rounded-xs px-0.5 -mx-0.5 transition-colors duration-100">
+                                                {parts.word}
+                                            </span>
+                                            {parts.after}
+                                        </>
+                                    );
+                                })()}
                                 {' '}
                             </span>
                         );

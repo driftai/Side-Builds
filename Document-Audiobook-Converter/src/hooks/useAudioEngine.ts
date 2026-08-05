@@ -1,6 +1,8 @@
 import type React from 'react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GeminiApiConfig } from '../components/GeminiConfig';
+import { makeClipKey, getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled } from '../utils/audioCache';
+import type { NarrationResult } from './useGemini';
 
 export enum AppState {
     IDLE,
@@ -33,25 +35,51 @@ interface AudioState {
     selectedGeminiVoice: string;
     setSelectedGeminiVoice: (voice: string) => void;
     voices: SpeechSynthesisVoice[];
+    /**
+     * Character offset within the current sentence that is being spoken, or
+     * null when nothing is. Browser speech reports real word boundaries;
+     * Gemini audio has no per-word timing, so its position is estimated.
+     */
+    spokenCharIndex: number | null;
 }
 
 export const useAudioEngine = (
     geminiConfig: GeminiApiConfig | null,
-    generateAudioForSentence: (text: string, signal?: AbortSignal) => Promise<AudioBuffer>
+    generateAudioForSentence: (text: string, signal?: AbortSignal) => Promise<NarrationResult>,
+    /** Identity of the loaded document; null disables caching (nothing to key on). */
+    documentId: string | null = null,
+    documentName: string = '',
 ): AudioState => {
     const [appState, setAppState] = useState<AppState>(AppState.IDLE);
     const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
     const [error, setError] = useState<string | null>(null);
     const [smoothPlayback, setSmoothPlayback] = useState<boolean>(true);
     const [voiceMode, setVoiceMode] = useState<'browser' | 'gemini'>('browser');
-    const [selectedVoiceURI, setSelectedVoiceURI] = useState<string | null>(null);
-    const [selectedGeminiVoice, setSelectedGeminiVoice] = useState<string>('Aoede');
+    // Restore the last voice on load. App.tsx has always written this on change,
+    // but nothing ever read it back, so every reload dropped you onto the system
+    // default and the choice had to be made again.
+    const [selectedVoiceURI, setSelectedVoiceURI] = useState<string | null>(() => {
+        try { return localStorage.getItem('selectedVoiceURI'); } catch { return null; }
+    });
+    const [selectedGeminiVoice, setSelectedGeminiVoice] = useState<string>(() => {
+        try {
+            const saved = localStorage.getItem('geminiAudiobookConfig');
+            const voice = saved ? JSON.parse(saved).voice : null;
+            return typeof voice === 'string' && voice ? voice : 'Aoede';
+        } catch { return 'Aoede'; }
+    });
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+    const [spokenCharIndex, setSpokenCharIndex] = useState<number | null>(null);
+    const wordTimerRef = useRef<number | null>(null);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const sentencesRef = useRef<string[]>([]);
     const appStateRef = useRef<AppState>(appState);
+    /** "<mode>:<index>" of the sentence already started, so it is not restarted. */
+    const startedTokenRef = useRef<string | null>(null);
+    /** Latest playing index, readable from callbacks without re-creating them. */
+    const currentIndexRef = useRef<number>(-1);
 
     // Look-ahead queue of sentences already being generated, keyed by index.
     //
@@ -64,7 +92,11 @@ export const useAudioEngine = (
     // Requests are serialised on the shared socket (see useGemini), so a depth of
     // N queues N turns back-to-back rather than firing them concurrently - the
     // pipeline simply stays fed.
-    const PREFETCH_DEPTH = 3;
+    // How many sentences to keep generated-or-generating ahead of the one
+    // playing. The queue tops itself up the moment any prefetch finishes, not
+    // only when playback advances, so a run of short sentences lets generation
+    // pull further ahead instead of restarting the chain at each boundary.
+    const PREFETCH_DEPTH = 4;
     const prefetchQueueRef = useRef<Map<number, { promise: Promise<AudioBuffer>; controller: AbortController }>>(new Map());
 
     const consoleLogger = useRef({
@@ -72,6 +104,7 @@ export const useAudioEngine = (
     });
 
     useEffect(() => { appStateRef.current = appState; }, [appState]);
+    useEffect(() => { currentIndexRef.current = currentSentenceIndex; }, [currentSentenceIndex]);
 
     const getAudioContext = useCallback(() => {
         if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
@@ -93,19 +126,30 @@ export const useAudioEngine = (
             promise.catch(() => { });  // queued rejections are expected once aborted
         }
         prefetchQueueRef.current.clear();
+        startedTokenRef.current = null;
+        if (wordTimerRef.current !== null) {
+            cancelAnimationFrame(wordTimerRef.current);
+            wordTimerRef.current = null;
+        }
+        setSpokenCharIndex(null);
     }, []);
 
     // Voice list population
     useEffect(() => {
         const populateVoiceList = () => {
             const newVoices = window.speechSynthesis.getVoices();
-            if (newVoices.length > 0) {
-                setVoices(newVoices);
-                if (!selectedVoiceURI) {
-                    const defaultVoice = newVoices.find(v => v.lang.startsWith('en') && v.default) || newVoices[0];
-                    setSelectedVoiceURI(defaultVoice.voiceURI);
-                }
-            }
+            if (newVoices.length === 0) return;
+            setVoices(newVoices);
+
+            // Voices arrive asynchronously and vary by machine, so a restored
+            // choice is only honoured once it is confirmed to still exist. If it
+            // has gone (different device, uninstalled voice), fall back rather
+            // than leaving a selection that cannot speak.
+            setSelectedVoiceURI(current => {
+                if (current && newVoices.some(v => v.voiceURI === current)) return current;
+                const fallback = newVoices.find(v => v.lang.startsWith('en') && v.default) || newVoices[0];
+                return fallback.voiceURI;
+            });
         };
         populateVoiceList();
         speechSynthesis.onvoiceschanged = populateVoiceList;
@@ -113,7 +157,17 @@ export const useAudioEngine = (
             speechSynthesis.onvoiceschanged = null;
             resetPlaybackState();
         };
-    }, [resetPlaybackState, selectedVoiceURI]);
+        // selectedVoiceURI is deliberately not a dependency: the setter above
+        // reads the current value functionally, and listing it here tore down
+        // and re-subscribed the voiceschanged handler on every voice change.
+    }, [resetPlaybackState]);
+
+    // Persist the choice here rather than only in the change handler, so it is
+    // remembered however it was set.
+    useEffect(() => {
+        if (!selectedVoiceURI) return;
+        try { localStorage.setItem('selectedVoiceURI', selectedVoiceURI); } catch { /* non-fatal */ }
+    }, [selectedVoiceURI]);
 
     /** Drop queued sentences we have already moved past, aborting their work. */
     const prunePrefetchQueue = useCallback((beforeIndex: number) => {
@@ -125,6 +179,76 @@ export const useAudioEngine = (
             }
         }
     }, []);
+
+    /**
+     * Get audio for one sentence, from the cache when we already have it.
+     *
+     * Every request for narration funnels through here - the sentence being
+     * played and each look-ahead alike - so a clip is stored exactly once and
+     * replaying a passage costs nothing. Cache trouble is never fatal: any
+     * failure falls through to generating it again.
+     */
+    const requestAudio = useCallback(async (
+        index: number, text: string, signal?: AbortSignal,
+    ): Promise<AudioBuffer> => {
+        const context = getAudioContext();
+        const voice = geminiConfig?.voice ?? '';
+        const model = geminiConfig?.model ?? '';
+        const saving = isSavingEnabled();
+        let key: string | null = null;
+
+        if (documentId) {
+            try {
+                key = await makeClipKey({ documentId, index, voice, model });
+                const hit = await getClip(key, context);
+                // A stored clip only counts when it was made from the text this
+                // passage currently holds. Editing the document leaves the old
+                // audio in place so the manager can show the mismatch, but it
+                // must never be played as though it were current.
+                if (hit && hit.meta.text === text) {
+                    consoleLogger.current.logAudio(
+                        'Cache hit',
+                        `Sentence ${index} (${hit.meta.durationSec.toFixed(1)}s, no API call)`,
+                    );
+                    noteActivity(index, text, 'hit');
+                    return hit.buffer;
+                }
+                if (hit) {
+                    consoleLogger.current.logAudio(
+                        'Source changed',
+                        `Sentence ${index} - stored audio is for older text, regenerating`,
+                    );
+                }
+            } catch (error) {
+                console.warn(`Cache lookup failed for sentence ${index}, generating:`, error);
+            }
+        }
+
+        noteActivity(index, text, 'generating');
+        let result: NarrationResult;
+        try {
+            result = await generateAudioForSentence(text, signal);
+        } catch (error) {
+            noteActivity(index, text, 'idle');
+            throw error;
+        }
+
+        if (key && documentId && saving && !signal?.aborted) {
+            const pcm = audioBufferToPcm16(result.buffer);
+            // Not awaited: storing must never delay playback.
+            void putClip({
+                key, documentId, documentName, index, text,
+                spokenText: result.spokenText,
+                voice, model,
+                bytes: pcm.byteLength,
+                durationSec: result.buffer.duration,
+                sampleRate: result.buffer.sampleRate,
+            }, pcm).then(() => noteActivity(index, text, 'saved'));
+        } else {
+            noteActivity(index, text, 'idle');
+        }
+        return result.buffer;
+    }, [geminiConfig, documentId, documentName, generateAudioForSentence, getAudioContext]);
 
     /** Queue one sentence if it isn't queued already. Returns its promise. */
     const enqueuePrefetch = useCallback((index: number): Promise<AudioBuffer> | null => {
@@ -138,7 +262,7 @@ export const useAudioEngine = (
 
         const controller = new AbortController();
         consoleLogger.current.logAudio('Prefetching', `Sentence ${index}`);
-        const promise = generateAudioForSentence(text, controller.signal);
+        const promise = requestAudio(index, text, controller.signal);
 
         // Attach handlers that never reject, so an unclaimed queue entry can't
         // surface as an unhandled rejection while it waits to be played.
@@ -146,6 +270,11 @@ export const useAudioEngine = (
             () => {
                 if (!controller.signal.aborted) {
                     consoleLogger.current.logAudio('Prefetched', `Sentence ${index} ready`);
+                    // Extend the chain immediately. Waiting for playback to reach
+                    // the next sentence meant the look-ahead could never get
+                    // further ahead than it started, so a run of short sentences
+                    // kept catching up with generation.
+                    fillFromRef.current?.(currentIndexRef.current + 1);
                 }
             },
             (error) => {
@@ -161,7 +290,7 @@ export const useAudioEngine = (
 
         prefetchQueueRef.current.set(index, { promise, controller });
         return promise;
-    }, [generateAudioForSentence]);
+    }, [requestAudio]);
 
     /** Keep the next PREFETCH_DEPTH sentences after `fromIndex` in flight. */
     const fillPrefetchQueue = useCallback((fromIndex: number) => {
@@ -170,6 +299,12 @@ export const useAudioEngine = (
             enqueuePrefetch(i);
         }
     }, [smoothPlayback, enqueuePrefetch]);
+
+    // enqueuePrefetch calls back into fillPrefetchQueue when a prefetch lands,
+    // which would be a circular dependency between two useCallbacks. A ref
+    // breaks the cycle without either having to be recreated.
+    const fillFromRef = useRef<((from: number) => void) | null>(null);
+    useEffect(() => { fillFromRef.current = fillPrefetchQueue; }, [fillPrefetchQueue]);
 
     const playSentence = useCallback(async (index: number) => {
         if (currentAudioSourceRef.current) {
@@ -212,7 +347,7 @@ export const useAudioEngine = (
             try {
                 const text = sentencesRef.current[index];
                 if (!text) throw new Error(`No text found for sentence ${index}`);
-                audioBuffer = await generateAudioForSentence(text);
+                audioBuffer = await requestAudio(index, text);
             } catch (retryError: any) {
                 if (retryError?.name === 'AbortError') return;
                 console.error(`Error generating audio for sentence ${index}:`, retryError);
@@ -250,8 +385,32 @@ export const useAudioEngine = (
             fillPrefetchQueue(index + 1);
 
             source.start();
+
+            // Follow the audio clock to estimate which word is being spoken.
+            //
+            // Live audio carries no per-word timing, so position is inferred from
+            // elapsed time. Weighting by character count rather than spreading
+            // words evenly tracks noticeably better, since longer words take
+            // longer to say - but it is still an estimate and will drift a little
+            // inside a long passage.
+            const spokenText = sentencesRef.current[index] ?? '';
+            const startedAt = audioContext.currentTime;
+            const totalChars = spokenText.length || 1;
+            const followAudio = () => {
+                if (appStateRef.current !== AppState.PLAYING
+                    || currentAudioSourceRef.current !== source) {
+                    wordTimerRef.current = null;
+                    return;
+                }
+                const elapsed = audioContext.currentTime - startedAt;
+                const progress = Math.min(1, Math.max(0, elapsed / (audioBuffer!.duration || 1)));
+                setSpokenCharIndex(Math.floor(progress * totalChars));
+                wordTimerRef.current = requestAnimationFrame(followAudio);
+            };
+            if (wordTimerRef.current !== null) cancelAnimationFrame(wordTimerRef.current);
+            wordTimerRef.current = requestAnimationFrame(followAudio);
         }
-    }, [generateAudioForSentence, getAudioContext, prunePrefetchQueue, fillPrefetchQueue, enqueuePrefetch]);
+    }, [requestAudio, getAudioContext, prunePrefetchQueue, fillPrefetchQueue, enqueuePrefetch]);
 
     const speakWithPersistentVoice = useCallback((text: string, voiceURI: string | null, onEnd?: () => void) => {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -274,6 +433,14 @@ export const useAudioEngine = (
             utterance.onend = onEnd;
         }
 
+        // Browser speech reports real word boundaries, so the highlight can be
+        // exact here rather than estimated.
+        utterance.onboundary = (event) => {
+            if (event.name === 'word' || event.name === undefined) {
+                setSpokenCharIndex(event.charIndex);
+            }
+        };
+
         utterance.onerror = (event) => {
             console.warn('TTS utterance error:', event.error);
             // These were 'voice-unavailable' / 'voice-cancelled', neither of which
@@ -291,10 +458,42 @@ export const useAudioEngine = (
         window.speechSynthesis.speak(utterance);
     }, [voices]);
 
+    // Hand over cleanly when the engine is switched.
+    //
+    // Nothing used to stop the outgoing engine: switching mid-sentence left
+    // browser speech running while Gemini started its own audio, so both played
+    // at once, and the look-ahead queue still held work for the old mode. This
+    // stops the old engine and clears its queue; the playback effect below then
+    // resumes the same sentence on the new one - from saved audio if there is
+    // any, which needs no API call at all.
+    //
+    // Declared before the playback effect so it runs first in the same commit.
+    const previousVoiceModeRef = useRef(voiceMode);
+    useEffect(() => {
+        if (previousVoiceModeRef.current === voiceMode) return;
+        previousVoiceModeRef.current = voiceMode;
+        resetPlaybackState();
+    }, [voiceMode, resetPlaybackState]);
+
     // Playback effect
+    //
+    // Guarded so a sentence is only ever started once. This effect depends on
+    // several callbacks whose identity changes for reasons unrelated to
+    // playback - speakWithPersistentVoice rebuilds whenever the browser's voice
+    // list repopulates, playSentence whenever the Gemini config object is
+    // replaced. Each of those re-ran the effect mid-sentence and called
+    // playSentence again for the *same* index, which stops the audio currently
+    // playing and starts it over: the sentence appeared to cut off part-way and
+    // the next one to begin early.
     useEffect(() => {
         const sentences = sentencesRef.current;
+        const token = `${voiceMode}:${currentSentenceIndex}`;
+        if (appState === AppState.PLAYING && startedTokenRef.current === token) return;
+        if (appState !== AppState.PLAYING) startedTokenRef.current = null;
+
         if (appState === AppState.PLAYING && currentSentenceIndex >= 0 && currentSentenceIndex < sentences.length) {
+            startedTokenRef.current = token;
+            setSpokenCharIndex(null);
             document.getElementById(`sentence-${currentSentenceIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (voiceMode === 'browser') {
                 if (!window.speechSynthesis.speaking) {
@@ -369,6 +568,7 @@ export const useAudioEngine = (
         setSelectedVoiceURI,
         selectedGeminiVoice,
         setSelectedGeminiVoice,
-        voices
+        voices,
+        spokenCharIndex
     };
 };

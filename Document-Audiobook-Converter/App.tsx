@@ -7,6 +7,9 @@ import { useGemini } from './src/hooks/useGemini';
 import { splitIntoSentences, handleTxtFile, handleDocxFile } from './src/utils/textProcessing';
 import PlayerControls from './src/components/PlayerControls';
 import ReadingInterface from './src/components/ReadingInterface';
+import AudioCacheManager from './src/components/AudioCacheManager';
+import { makeDocumentId } from './src/utils/audioCache';
+import { supportsLiveFiles, pickDocument, watchFile } from './src/utils/liveFile';
 
 // Electron integration
 declare global {
@@ -205,6 +208,9 @@ const GEMINI_VOICES = [
 
 const App: React.FC = () => {
     const [fileName, setFileName] = useState<string>('');
+    const [documentId, setDocumentId] = useState<string | null>(null);
+    const [liveWatching, setLiveWatching] = useState(false);
+    const stopWatchRef = useRef<(() => void) | null>(null);
     const [geminiConfig, setGeminiConfig] = useState<GeminiApiConfig | null>(null);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
     const [voiceControlsCollapsed, setVoiceControlsCollapsed] = useState<boolean>(false);
@@ -233,8 +239,9 @@ const App: React.FC = () => {
         setSelectedVoiceURI,
         selectedGeminiVoice,
         setSelectedGeminiVoice,
-        voices
-    } = useAudioEngine(geminiConfig, generateAudioForSentence);
+        voices,
+        spokenCharIndex,
+    } = useAudioEngine(geminiConfig, generateAudioForSentence, documentId, fileName);
 
     // Sync selectedGeminiVoice with geminiConfig.voice when config changes
     useEffect(() => {
@@ -315,7 +322,11 @@ const App: React.FC = () => {
     const handleClosePdf = useCallback(() => {
         handleStop();
         setAppState(AppState.IDLE);
+        stopWatchRef.current?.();
+        stopWatchRef.current = null;
+        setLiveWatching(false);
         setFileName('');
+        setDocumentId(null);
         setError(null);
         setCurrentSentenceIndex(-1);
         sentencesRef.current = [];
@@ -328,8 +339,17 @@ const App: React.FC = () => {
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file) return;
+        if (file) await processFile(file);
+    };
 
+    /**
+     * Read a document into the reader.
+     *
+     * `keepPosition` is used when the same file changed on disk: the text is
+     * re-extracted in place instead of resetting the session, so a small edit
+     * does not throw away where you were reading.
+     */
+    const processFile = async (file: File, opts: { keepPosition?: boolean } = {}) => {
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
         const supportedTypes = ['pdf', 'txt', 'docx'];
 
@@ -339,6 +359,7 @@ const App: React.FC = () => {
             return;
         }
 
+        const resumeAt = opts.keepPosition ? currentSentenceIndex : -1;
         handleStop();
         setFileName(file.name);
         setAppState(AppState.PROCESSING);
@@ -380,7 +401,19 @@ const App: React.FC = () => {
 
             // Use improved sentence splitting instead of simple regex
             sentencesRef.current = splitIntoSentences(fullText);
-            setSessionStartTime(Date.now()); // Start focus time tracking
+
+            // Identity for the saved-audio store, from the file's name. Keying on
+            // the text meant an edited file became a different document and lost
+            // everything generated for it; keying on the name lets the file be
+            // revised while its stored audio stays attached, with per-passage
+            // markers showing where the audio no longer matches the text.
+            setDocumentId(await makeDocumentId(file.name));
+
+            if (!opts.keepPosition) setSessionStartTime(Date.now()); // Start focus time tracking
+            // Re-reading after an edit: hold position, but never past the new end.
+            if (resumeAt >= 0) {
+                setCurrentSentenceIndex(Math.min(resumeAt, sentencesRef.current.length - 1));
+            }
             setAppState(AppState.READY);
         } catch (err) {
             console.error(`Error processing ${fileExtension.toUpperCase()} file:`, err);
@@ -389,7 +422,28 @@ const App: React.FC = () => {
         }
     };
 
-    const handleUploadClick = useCallback(() => fileInputRef.current?.click(), []);
+    const handleUploadClick = useCallback(async () => {
+        // Prefer a handle we can re-read, so later edits to the file show up
+        // here without another upload. Falls back to the plain file input where
+        // the File System Access API is unavailable.
+        if (supportsLiveFiles()) {
+            const picked = await pickDocument();
+            if (picked) {
+                await processFile(picked.file);
+                stopWatchRef.current?.();
+                if (picked.handle) {
+                    stopWatchRef.current = watchFile(
+                        picked.handle,
+                        picked.file.lastModified,
+                        (updated) => { void processFile(updated, { keepPosition: true }); },
+                    );
+                    setLiveWatching(true);
+                }
+                return;
+            }
+        }
+        fileInputRef.current?.click();
+    }, []);
     const handleVoiceModeToggle = useCallback(() => setVoiceMode(prev => prev === 'browser' ? 'gemini' : 'browser'), [setVoiceMode]);
     const handleSmoothPlaybackToggle = useCallback(() => {
         setSmoothPlayback(!smoothPlayback);
@@ -460,10 +514,14 @@ const App: React.FC = () => {
                             }}
                             voiceControlsCollapsed={voiceControlsCollapsed}
                             sessionStartTime={sessionStartTime}
+                            spokenCharIndex={spokenCharIndex}
                         />
 
                         {/* Voice Controls Section */}
-                        <div className={`flex-none ${voiceControlsCollapsed ? 'min-h-[3vh] max-h-[3vh]' : 'h-[48vh]'} bg-gray-900/60 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out`}>
+                        {/* Collapsed height is content-driven rather than 3vh, which
+                            clipped the header on short screens. Expanded is a max so
+                            the panel can shrink when there is less room. */}
+                        <div className={`flex-none ${voiceControlsCollapsed ? '' : 'h-[48vh] max-h-[48dvh] min-h-[8rem]'} bg-gray-900/60 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out`}>
                             {/* Voice Controls Header - Clickable */}
                             <div
                                 className={`bg-gray-800/40 px-6 py-2 border-b border-gray-700/20 cursor-pointer hover:bg-gray-700/40 transition-colors duration-200`}
@@ -734,23 +792,46 @@ const App: React.FC = () => {
     };
 
     return (
-        <main className="animated-gradient min-h-screen w-full flex items-center justify-center p-2 sm:p-4">
-            <div className="w-full max-w-6xl h-[95vh] sm:h-[90vh] min-h-[600px] sm:min-h-[700px] bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl shadow-indigo-500/10 border border-white/10 text-white p-4 sm:p-6 flex flex-col">
-                <header className="shrink-0 text-center mb-4">
+        // The card is centred with `my-auto` rather than `items-center` on this
+        // flex parent. Centring a flex child taller than its container pushes the
+        // child's top *above* the scroll origin, where it cannot be reached -
+        // which is why content ended up out of view on shorter windows and only
+        // zooming out brought it back. Auto margins collapse to zero once the
+        // child overflows, so it starts at the top and scrolls normally.
+        //
+        // The height is a max rather than a fixed 90vh with a 700px floor: that
+        // combination guaranteed an overflow on any window under ~780px tall.
+        <main className="animated-gradient min-h-screen w-full flex justify-center p-2 sm:p-4 overflow-y-auto">
+            <div className="w-full max-w-6xl my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl shadow-indigo-500/10 border border-white/10 text-white p-3 sm:p-6 flex flex-col">
+                {/* Header may itself be taller than a short window once both
+                    config panels are open, so it scrolls rather than squeezing
+                    the reader out of view. */}
+                <header className="shrink-0 text-center mb-3 sm:mb-4 max-h-[45dvh] overflow-y-auto">
                     <h1 className="text-2xl font-bold tracking-tight bg-linear-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text mb-2">
                         Document Audiobook Converter
                     </h1>
-                    <p className="text-gray-400 text-sm mb-3">Upload a PDF, TXT, or DOCX file and listen to it.</p>
+                    <p className="text-gray-400 text-sm mb-3">
+                        Upload a PDF, TXT, or DOCX file and listen to it.
+                        {liveWatching && (
+                            <span className="ml-2 text-xs text-green-400 whitespace-nowrap">
+                                ● watching file for edits
+                            </span>
+                        )}
+                    </p>
 
                     {/* Gemini API Configuration */}
-                    <div className="max-w-2xl mx-auto">
+                    <div className="max-w-2xl mx-auto space-y-2">
                         <GeminiAudiobookApiConfig
                             onConfigChange={handleGeminiConfigChange}
                             initialConfig={geminiConfig || undefined}
                         />
+                        <AudioCacheManager activeDocumentId={documentId} activeSentences={sentencesRef.current} />
                     </div>
                 </header>
-                <div className="grow flex items-center justify-center min-h-0 overflow-hidden">
+                {/* Scrolls rather than clips. With overflow-hidden, anything that
+                    did not fit - the player controls, most visibly - was simply
+                    cut off with no way to reach it. */}
+                <div className="grow flex items-start justify-center min-h-0 overflow-y-auto">
                     {renderContent()}
                 </div>
                 <input

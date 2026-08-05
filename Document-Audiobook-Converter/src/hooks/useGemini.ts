@@ -8,6 +8,86 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 const PCM_SAMPLE_RATE = 24000;
 
+/**
+ * Narrated passages per Live session before the socket is recycled.
+ *
+ * A Live session keeps every turn's audio in its context window, and audio
+ * accrues at roughly 25 tokens per second against a 128k limit. Google's own
+ * guidance is that as this history builds the model "may hallucinate, slow
+ * down, or the session may be forcibly terminated" - audible here as the voice
+ * being clean for the first few passages and degrading after that.
+ *
+ * Narration has no need of conversation history: each passage is independent.
+ * So rather than compress the window (which discards history anyway), the
+ * socket is dropped after this many turns. The server opens a fresh Gemini
+ * session for the next connection, and context starts empty again.
+ *
+ * The reconnect costs roughly two seconds, which the look-ahead queue absorbs.
+ */
+const MAX_TURNS_PER_SESSION = 6;
+
+/**
+ * How many passages may be generated at the same time.
+ *
+ * Generation runs at roughly 1.38x real time - a passage takes longer to make
+ * than it takes to hear. On a single lane that is a hard ceiling: playback
+ * drains the queue faster than one socket can fill it, so the look-ahead can
+ * never actually get ahead however deep the queue is, and long passages are
+ * heard as waiting. Depth alone cannot fix a throughput problem.
+ *
+ * Two independent sessions generate two passages at once, putting production
+ * comfortably ahead of playback so the buffer grows during the opening
+ * passages and stays full afterwards. It costs no extra tokens - the same
+ * turns are run, just not one after another.
+ *
+ * Two and not more: the server allows three concurrent sessions (measured, see
+ * session_manager.py) and the config panel's test connection can hold one.
+ */
+const LANE_COUNT = 2;
+
+/**
+ * One narrated passage: the audio, plus what the model reported actually
+ * saying. The spoken text lets the app compare narration against the source and
+ * flag passages that drifted - it is empty if the session reported nothing.
+ */
+export interface NarrationResult {
+    buffer: AudioBuffer;
+    spokenText: string;
+}
+
+/**
+ * One generation lane: its own socket, its own Gemini session, and its own
+ * serialised turn chain.
+ *
+ * Turns must stay strictly ordered *within* a lane - the server's messages
+ * carry no request id, so two overlapping turns on one socket cannot be told
+ * apart (see runTurn). Across lanes there is no such problem: separate sockets
+ * mean separate message streams, so they can safely run at once.
+ */
+interface Lane {
+    /** Live socket, or null when this lane has none open. */
+    socket: WebSocket | null;
+    /** Connection attempt in progress, shared by whatever is waiting on it. */
+    connecting: Promise<WebSocket> | null;
+    /** Turns narrated on the current socket; reset when it is recycled. */
+    turns: number;
+    /** Serialises turns on this lane's socket. */
+    chain: Promise<unknown>;
+    /** Turns queued or running here, used to pick the emptiest lane. */
+    depth: number;
+    /** This lane's connection state, aggregated into the hook's wsState. */
+    state: 'disconnected' | 'connecting' | 'connected' | 'error';
+}
+
+const makeLane = (): Lane => ({
+    socket: null,
+    connecting: null,
+    turns: 0,
+    chain: Promise.resolve(),
+    depth: 0,
+    state: 'disconnected',
+});
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const decodeAudioChunk = (base64: string): ArrayBuffer => {
@@ -21,15 +101,25 @@ const decodeAudioChunk = (base64: string): ArrayBuffer => {
 
 export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
     const [wsState, setWsState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-    const sharedWebSocketRef = useRef<WebSocket | null>(null);
-    const wsConnectionPromiseRef = useRef<Promise<WebSocket> | null>(null);
     const geminiConfigRef = useRef<GeminiApiConfig | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
 
-    // Serialises turns on the shared socket. The Live API runs one turn per
-    // session at a time and the responses carry no request id, so two overlapping
-    // requests cannot be told apart - see runTurn for the full explanation.
-    const turnChainRef = useRef<Promise<unknown>>(Promise.resolve());
+    const lanesRef = useRef<Lane[] | null>(null);
+    const getLanes = useCallback((): Lane[] => {
+        if (!lanesRef.current) {
+            lanesRef.current = Array.from({ length: LANE_COUNT }, makeLane);
+        }
+        return lanesRef.current;
+    }, []);
+
+    /** Roll the lanes' individual states into the single one the UI shows. */
+    const syncWsState = useCallback(() => {
+        const lanes = getLanes();
+        if (lanes.some(lane => lane.state === 'connected')) setWsState('connected');
+        else if (lanes.some(lane => lane.state === 'connecting')) setWsState('connecting');
+        else if (lanes.some(lane => lane.state === 'error')) setWsState('error');
+        else setWsState('disconnected');
+    }, [getLanes]);
 
     useEffect(() => { geminiConfigRef.current = geminiConfig; }, [geminiConfig]);
 
@@ -49,7 +139,7 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         audioContextRef.current = null;
     }, []);
 
-    const getOrCreateWebSocket = useCallback(async (): Promise<WebSocket> => {
+    const getOrCreateWebSocket = useCallback(async (lane: Lane): Promise<WebSocket> => {
         const currentConfig = geminiConfigRef.current;
         // Only the socket URL is required. The key sent here is an optional
         // override - the server resolves its own from the environment, .env.local
@@ -59,14 +149,14 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
             throw new Error('Gemini WebSocket URL must be configured.');
         }
 
-        // If we have an active connection, reuse it
-        if (sharedWebSocketRef.current && sharedWebSocketRef.current.readyState === WebSocket.OPEN) {
-            return sharedWebSocketRef.current;
+        // If this lane has an active connection, reuse it
+        if (lane.socket && lane.socket.readyState === WebSocket.OPEN) {
+            return lane.socket;
         }
 
         // If a connection is already being established, wait for it
-        if (wsConnectionPromiseRef.current) {
-            return wsConnectionPromiseRef.current;
+        if (lane.connecting) {
+            return lane.connecting;
         }
 
         // Ask GeminiConfig to drop its test socket. This used to be followed by a
@@ -90,7 +180,8 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
             }, 15000); // 15 second timeout for initialization
 
             ws.onopen = () => {
-                setWsState('connecting');
+                lane.state = 'connecting';
+                syncWsState();
                 const setupMessage = {
                     type: 'init',
                     voice: currentConfig.voice,
@@ -109,9 +200,13 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                     if (data.text && data.text.includes("Connected to Gemini API") && data.is_system_message && !isSessionReady) {
                         clearTimeout(initTimeout);
                         isSessionReady = true;
-                        setWsState('connected');
-                        sharedWebSocketRef.current = ws;
-                        wsConnectionPromiseRef.current = null;
+                        lane.state = 'connected';
+                        lane.socket = ws;
+                        lane.connecting = null;
+                        // Fresh session, fresh context: count from zero however
+                        // this connection came about, not only after a recycle.
+                        lane.turns = 0;
+                        syncWsState();
                         resolve(ws);
                     }
                 } catch (e) {
@@ -121,24 +216,36 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
 
             ws.onerror = () => {
                 clearTimeout(initTimeout);
-                setWsState('error');
-                sharedWebSocketRef.current = null;
-                wsConnectionPromiseRef.current = null;
+                lane.state = 'error';
+                lane.socket = null;
+                lane.connecting = null;
+                syncWsState();
                 reject(new Error("WebSocket connection error"));
             };
 
             ws.onclose = () => {
-                setWsState('disconnected');
-                if (sharedWebSocketRef.current === ws) {
-                    sharedWebSocketRef.current = null;
-                    wsConnectionPromiseRef.current = null;
+                // Only this lane's own socket closing says anything about it; a
+                // stale socket from a recycle finishing its close must not mark
+                // the lane down while a fresh one is already serving turns.
+                if (lane.socket === ws || lane.socket === null) {
+                    lane.state = 'disconnected';
+                    syncWsState();
+                }
+                if (lane.socket === ws) {
+                    lane.socket = null;
+                    lane.connecting = null;
                 }
             };
         });
 
-        wsConnectionPromiseRef.current = connectionPromise;
+        lane.connecting = connectionPromise;
+        // A failed attempt must not be cached, or the lane would hand the same
+        // rejected promise to every later turn and never reconnect.
+        connectionPromise.catch(() => {
+            if (lane.connecting === connectionPromise) lane.connecting = null;
+        });
         return connectionPromise;
-    }, []);
+    }, [syncWsState]);
 
     const buildAudioBuffer = useCallback((chunks: ArrayBuffer[], text: string): AudioBuffer => {
         const totalLength = chunks.reduce((acc, value) => acc + value.byteLength, 0);
@@ -202,8 +309,8 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
      * one turn, surfacing as "Generated audio is too short" and "No audio data
      * received". Draining to the boundary keeps the stream aligned.
      */
-    const runTurn = useCallback((ws: WebSocket, text: string, signal?: AbortSignal): Promise<AudioBuffer> => {
-        return new Promise<AudioBuffer>((resolve, reject) => {
+    const runTurn = useCallback((ws: WebSocket, text: string, signal?: AbortSignal): Promise<NarrationResult> => {
+        return new Promise<NarrationResult>((resolve, reject) => {
             const chunks: ArrayBuffer[] = [];
             let aborted = false;
             let finished = false;
@@ -267,7 +374,10 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                     return;
                 }
                 try {
-                    resolve(buildAudioBuffer(chunks, text));
+                    // `text` on the boundary message is the session's own output
+                    // transcription: the words the model actually spoke.
+                    const spokenText = typeof data.text === 'string' ? data.text.trim() : '';
+                    resolve({ buffer: buildAudioBuffer(chunks, text), spokenText });
                 } catch (error) {
                     reject(error as Error);
                 }
@@ -286,19 +396,49 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         });
     }, [buildAudioBuffer]);
 
-    const generateAudioForSentence = useCallback((text: string, signal?: AbortSignal): Promise<AudioBuffer> => {
+    /**
+     * Close this lane's socket once it has narrated its quota, so its next turn
+     * starts a clean Gemini session with no accumulated audio context.
+     *
+     * Done between turns, never during one: each lane's chain is serialised, so
+     * by the time this runs the turn has reached its boundary and nothing is
+     * streaming. Lanes count and recycle independently - each one's context is
+     * its own, so retiring one leaves the other mid-session and untouched.
+     */
+    const retireSessionIfExhausted = useCallback((lane: Lane) => {
+        lane.turns += 1;
+        if (lane.turns < MAX_TURNS_PER_SESSION) return;
+
+        const ws = lane.socket;
+        lane.turns = 0;
+        lane.socket = null;
+        lane.connecting = null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log(`♻️ Recycling Live session after ${MAX_TURNS_PER_SESSION} passages to keep context clean`);
+            try { ws.close(1000, 'context refresh'); } catch { /* already closing */ }
+        }
+    }, []);
+
+    const generateAudioForSentence = useCallback((text: string, signal?: AbortSignal): Promise<NarrationResult> => {
         if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+
+        // Send this turn down the emptiest lane. Ties go to the first lane, so
+        // two requests made back to back land on different lanes and genuinely
+        // overlap rather than queueing behind one another.
+        const lanes = getLanes();
+        const lane = lanes.reduce((best, next) => (next.depth < best.depth ? next : best), lanes[0]);
+        lane.depth += 1;
 
         // Retries live inside the queued task. Re-entering generateAudioForSentence
         // to retry would queue the attempt behind the very turn that is waiting on
         // it, deadlocking the chain.
-        const run = async (): Promise<AudioBuffer> => {
+        const run = async (): Promise<NarrationResult> => {
             for (let attempt = 0; ; attempt++) {
                 if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
                 let ws: WebSocket;
                 try {
-                    ws = await getOrCreateWebSocket();
+                    ws = await getOrCreateWebSocket(lane);
                 } catch (error) {
                     if (attempt < MAX_RETRIES) {
                         console.log(`🔄 WebSocket creation failed, retrying (${attempt + 1}/${MAX_RETRIES}) in 2 seconds...`);
@@ -310,7 +450,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                 }
 
                 try {
-                    return await runTurn(ws, text, signal);
+                    const result = await runTurn(ws, text, signal);
+                    retireSessionIfExhausted(lane);
+                    return result;
                 } catch (error) {
                     const name = (error as Error).name;
                     const message = (error as Error).message ?? '';
@@ -326,13 +468,19 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
             }
         };
 
-        // Queue behind whatever turn is already in flight, whether it succeeded or
-        // not, and keep the chain itself un-rejectable so one failure cannot break
-        // every later sentence.
-        const queued = turnChainRef.current.then(run, run);
-        turnChainRef.current = queued.then(() => { }, () => { });
+        // Queue behind whatever turn is already in flight *on this lane*, whether
+        // it succeeded or not, and keep the chain itself un-rejectable so one
+        // failure cannot break every later sentence.
+        const queued = lane.chain.then(run, run);
+        lane.chain = queued.then(() => { }, () => { });
+        // Release the lane's slot once the turn settles, however it settled, so
+        // balancing keeps working after a failed or aborted passage.
+        queued.then(
+            () => { lane.depth -= 1; },
+            () => { lane.depth -= 1; },
+        );
         return queued;
-    }, [getOrCreateWebSocket, runTurn]);
+    }, [getLanes, getOrCreateWebSocket, runTurn, retireSessionIfExhausted]);
 
     return {
         wsState,

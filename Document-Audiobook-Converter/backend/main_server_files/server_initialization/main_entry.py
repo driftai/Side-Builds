@@ -9,7 +9,10 @@ from functools import partial
 from main_server_files.api_configuration.api_client_manager import setup_api_environment
 from main_server_files.api_configuration.gemini_config import MAIN_MODEL
 from main_server_files.server_initialization.server_lifecycle_manager import manage_server_lifecycle, cleanup_server
-from main_server_files.server_initialization.server_config import CLEANUP_INTERVAL_SEC, DEFAULT_PORT, STATUS_PORT
+from main_server_files.server_initialization.server_config import (
+    CLEANUP_INTERVAL_SEC, DEFAULT_PORT, STATUS_PORT, FORCE_IPV4
+)
+from main_server_files.server_initialization.network_preference import force_ipv4, describe_local_ipv4
 from main_server_files.server_initialization.logging_utils import enable_timestamped_logging
 from main_server_files.websocket_server.gemini_session_handler import gemini_session_handler
 from main_server_files.session_management.session_manager import (
@@ -152,6 +155,11 @@ def run_main_server():
     try:
         # Enable timestamped logging for all console output
         enable_timestamped_logging()
+
+        # Apply before any client is created, so every outbound call uses it.
+        if force_ipv4(FORCE_IPV4):
+            print(f"Outbound traffic pinned to IPv4 (LAN address {describe_local_ipv4()})")
+            print("  An IP-restricted key should allowlist your public IPv4, not this one.")
 
         print(f"Session limit for {MAIN_MODEL}: {MAIN_MODEL_SESSION_LIMIT} concurrent session(s)")
         print(f"Maximum concurrent sessions: {MAIN_MODEL_SESSION_LIMIT}")

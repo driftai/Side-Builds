@@ -20,6 +20,9 @@ class AudioProcessor:
         self.websocket = websocket
         self.connection_id = connection_id
         self.audio_data = b''
+        # The model's own words for the turn being received, accumulated from the
+        # session's output transcription and sent with the turn-complete message.
+        self.spoken_text = ''
         self.audio_queue = asyncio.Queue()
         self.is_sequential = False
         self.is_playing_audio = False
@@ -38,6 +41,7 @@ class AudioProcessor:
     def reset(self):
         """Reset the audio processor state."""
         self.audio_data = b''
+        self.spoken_text = ''
         self.is_playing_audio = False
         # Clear the queue
         while not self.audio_queue.empty():
@@ -336,8 +340,11 @@ class AudioProcessor:
             if self.audio_data and self.websocket.state not in (websockets.protocol.State.CLOSED, websockets.protocol.State.CLOSING):
                 # Use transcribed text if available, otherwise provide a fallback message
                 if not TRANSCRIBE_GENERATED_AUDIO:
-                    # Turn-complete signal only, with no text to report.
-                    message_text = ""
+                    # The session's own output transcription: what the model
+                    # actually spoke, gathered free alongside the audio. Empty
+                    # when the model produced no speech, which is itself worth
+                    # reporting.
+                    message_text = self.spoken_text.strip()
                     is_error = False
                 elif transcribed_text:
                     cleaned_text = transcribed_text.replace("GEMINI: ", "")

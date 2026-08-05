@@ -14,6 +14,15 @@ STATUS_PORT = DEFAULT_PORT + 1
 # Chat history file path
 CHAT_HISTORY_FILE = "chat_history.json"
 
+# Send outbound API traffic over IPv4.
+#
+# Google API keys restricted by IP almost always list an IPv4 address, but a
+# dual-stack machine prefers IPv6, so the request Google actually sees comes
+# from an IPv6 address that was never allowlisted. The result is a confusing
+# API_KEY_IP_ADDRESS_BLOCKED naming an address you did not add. Set this to
+# False if you are on an IPv6-only network.
+FORCE_IPV4 = True
+
 # Transcribe generated audio back into text with a second API call.
 #
 # The audiobook frontend only uses the resulting `is_transcription` message as

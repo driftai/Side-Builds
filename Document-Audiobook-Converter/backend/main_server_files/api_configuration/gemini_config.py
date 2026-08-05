@@ -173,7 +173,15 @@ def create_gemini_config(voice_name="Aoede", context=None, instructions=None):
                     "voice_name": voice_name
                 }
             }
-        }
+        },
+        # Ask the session to report what it actually said.
+        #
+        # This arrives on the same stream as the audio, so it costs no extra
+        # request - unlike the old path, which sent the generated audio back to
+        # gemini-2.0-flash to be transcribed and was quota-blocked at limit: 0.
+        # Having the model's own words lets the app compare them against the
+        # source text and flag passages where the narration drifted.
+        "output_audio_transcription": {},
     }
 
     # Add system instruction if provided, otherwise fall back to narration mode
