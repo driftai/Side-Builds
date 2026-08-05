@@ -550,14 +550,21 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
      * Drop every Live session and any work waiting on one.
      *
      * The sessions are otherwise held open between passages, which is what makes
-     * playback quick to resume. This is for when you would rather nothing was
-     * connected at all.
+     * playback quick to resume. This releases them outright, so the API is free
+     * for something else to use - which means every socket has to go, not just
+     * the narration lanes: the config panel holds its own test connection, and
+     * that occupies a session slot exactly like a lane does.
+     *
+     * Nothing reconnects on its own afterwards. Lanes open on demand, so the
+     * next passage brings them back, and Test Connection re-establishes one
+     * immediately.
      */
     const disconnect = useCallback(() => {
         const queue = queueRef.current;
         while (queue.length) {
             queue.pop()?.reject(new DOMException('Aborted', 'AbortError'));
         }
+        window.dispatchEvent(new CustomEvent('closeGeminiTestConnection'));
         for (const lane of getLanes()) {
             const ws = lane.socket;
             lane.socket = null;
