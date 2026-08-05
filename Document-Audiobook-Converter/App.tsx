@@ -562,7 +562,7 @@ const App: React.FC = () => {
             case AppState.PLAYING:
             case AppState.PAUSED:
                 return (
-                    <div className="w-full h-full flex flex-col max-h-full">
+                    <div className="w-full h-full flex flex-col max-h-full min-h-0">
                         <div className="flex items-center justify-between mb-3 shrink-0">
                             <h2 className="text-lg font-semibold text-white truncate grow mr-3" title={fileName}>{fileName}</h2>
                             <button
@@ -585,16 +585,17 @@ const App: React.FC = () => {
                                 setCurrentSentenceIndex(index);
                                 setAppState(AppState.PLAYING);
                             }}
-                            voiceControlsCollapsed={voiceControlsCollapsed}
                             sessionStartTime={sessionStartTime}
                             spokenCharIndex={spokenCharIndex}
                         />
 
                         {/* Voice Controls Section */}
-                        {/* Collapsed height is content-driven rather than 3vh, which
-                            clipped the header on short screens. Expanded is a max so
-                            the panel can shrink when there is less room. */}
-                        <div className={`flex-none ${voiceControlsCollapsed ? '' : 'h-[48vh] max-h-[48dvh] min-h-[8rem]'} bg-gray-900/60 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out`}>
+                        {/* Sized by its content up to a cap, rather than a fixed slice
+                            of the viewport. Fixed heights here and on the reading area
+                            could add up to more than the screen, so opening the config
+                            or the audio manager pushed the controls off the bottom
+                            instead of the panels sharing out what room there is. */}
+                        <div className={`shrink-0 ${voiceControlsCollapsed ? '' : 'max-h-[38dvh] min-h-[8rem]'} bg-gray-900/60 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out flex flex-col`}>
                             {/* Voice Controls Header - Clickable */}
                             <div
                                 className={`bg-gray-800/40 px-6 py-2 border-b border-gray-700/20 cursor-pointer hover:bg-gray-700/40 transition-colors duration-200`}
@@ -646,7 +647,7 @@ const App: React.FC = () => {
                             {/* Scrollable Voice Controls - Always present but hidden when collapsed */}
                             <div className={`p-4 overflow-y-auto space-y-4 transition-all duration-300 ease-in-out ${voiceControlsCollapsed
                                     ? 'max-h-0 opacity-0 invisible'
-                                    : 'h-[28vh] opacity-100 visible'
+                                    : 'grow min-h-0 opacity-100 visible'
                                 }`}>
                                 {/* Voice Mode Toggle */}
                                 <div className="flex items-center justify-between">
@@ -815,29 +816,38 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Current Sentence Display */}
-                                <div className="bg-gray-800/50 rounded-lg p-3 min-h-[60px] flex items-center justify-center relative">
-                                    <p className="text-blue-300 italic text-center text-sm leading-relaxed">
-                                        {appState === AppState.PLAYING || appState === AppState.PAUSED
-                                            ? (currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
-                                                ? sentencesRef.current[currentSentenceIndex]
-                                                : 'Press play to start listening.')
-                                            : 'Press play to start listening.'}
-                                    </p>
-                                </div>
-
-                                {/* Playback Controls */}
-                                <PlayerControls
-                                    appState={appState}
-                                    currentSentenceIndex={currentSentenceIndex}
-                                    totalSentences={sentencesRef.current.length}
-                                    onPlay={handlePlay}
-                                    onPause={handlePause}
-                                    onStop={handleStop}
-                                    onSkipForward={handleSkipForward}
-                                    onSkipBackward={handleSkipBackward}
-                                />
                             </div>
+
+                            {/* The transport and the line being read sit outside
+                                the scrolling area, pinned to the bottom of the
+                                panel. They used to scroll away with the settings
+                                above them, which is what put the controls out of
+                                reach whenever the panel was expanded on a short
+                                window. */}
+                            {!voiceControlsCollapsed && (
+                                <div className="shrink-0 border-t border-gray-700/20 px-4 py-3 space-y-3">
+                                    <div className="bg-gray-800/50 rounded-lg p-3 min-h-[60px] flex items-center justify-center relative">
+                                        <p className="text-blue-300 italic text-center text-sm leading-relaxed">
+                                            {appState === AppState.PLAYING || appState === AppState.PAUSED
+                                                ? (currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
+                                                    ? sentencesRef.current[currentSentenceIndex]
+                                                    : 'Press play to start listening.')
+                                                : 'Press play to start listening.'}
+                                        </p>
+                                    </div>
+
+                                    <PlayerControls
+                                        appState={appState}
+                                        currentSentenceIndex={currentSentenceIndex}
+                                        totalSentences={sentencesRef.current.length}
+                                        onPlay={handlePlay}
+                                        onPause={handlePause}
+                                        onStop={handleStop}
+                                        onSkipForward={handleSkipForward}
+                                        onSkipBackward={handleSkipBackward}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -864,6 +874,10 @@ const App: React.FC = () => {
         }
     };
 
+    // Whether the reading session is on screen, and so whether there is
+    // anything for the panels to share the height between.
+    const documentOpen = appState !== AppState.IDLE && sentencesRef.current.length > 0;
+
     return (
         // The card is centred with `my-auto` rather than `items-center` on this
         // flex parent. Centring a flex child taller than its container pushes the
@@ -874,12 +888,28 @@ const App: React.FC = () => {
         //
         // The height is a max rather than a fixed 90vh with a 700px floor: that
         // combination guaranteed an overflow on any window under ~780px tall.
+        //
+        // With a document open the card takes the full height instead of just
+        // capping it. A card sized by its content leaves nothing for the reading
+        // area to grow into, so the panels could not share the space out: opening
+        // the controls or the audio manager simply pushed the transport off the
+        // bottom. With no document there is nothing to share, so it stays
+        // content-sized and centred.
         <main className="animated-gradient min-h-screen w-full flex justify-center p-2 sm:p-4 overflow-y-auto">
-            <div className="w-full max-w-6xl my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl shadow-indigo-500/10 border border-white/10 text-white p-3 sm:p-6 flex flex-col">
+            <div className={`w-full max-w-6xl my-auto ${documentOpen
+                ? 'h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)]'
+                : 'max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]'
+                } bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl shadow-indigo-500/10 border border-white/10 text-white p-3 sm:p-6 flex flex-col`}>
                 {/* Header may itself be taller than a short window once both
                     config panels are open, so it scrolls rather than squeezing
                     the reader out of view. */}
-                <header className="shrink-0 text-center mb-3 sm:mb-4 max-h-[45dvh] overflow-y-auto">
+                {/* The header gives way first. With a document open it is the
+                    least important thing on screen, and with the voice controls
+                    expanded as well there is not enough height for all three at
+                    once on a short window - so it yields rather than pushing the
+                    transport off the bottom. It scrolls internally either way. */}
+                <header className={`shrink-0 text-center mb-3 sm:mb-4 overflow-y-auto ${!documentOpen ? 'max-h-[45dvh]'
+                    : voiceControlsCollapsed ? 'max-h-[35dvh]' : 'max-h-[26dvh]'}`}>
                     <h1 className="text-2xl font-bold tracking-tight bg-linear-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text mb-2">
                         Document Audiobook Converter
                     </h1>
@@ -913,7 +943,7 @@ const App: React.FC = () => {
                 {/* Scrolls rather than clips. With overflow-hidden, anything that
                     did not fit - the player controls, most visibly - was simply
                     cut off with no way to reach it. */}
-                <div className="grow flex items-start justify-center min-h-0 overflow-y-auto">
+                <div className="grow flex items-stretch justify-center min-h-0">
                     {renderContent()}
                 </div>
                 <input

@@ -37,6 +37,18 @@ interface Props {
  * what to throw away. Clips are scoped per document, so opening one book never
  * shows another's audio.
  */
+/**
+ * Model names are long and mostly boilerplate. Trim the common prefix and the
+ * dated suffix so voice and model fit on one line; the full name stays in the
+ * row's tooltip.
+ */
+const shortModelName = (model: string): string =>
+    model
+        .replace(/^models\//, '')
+        .replace(/^gemini-/, '')
+        .replace(/-preview(-\d{2}-\d{4})?$/, '')
+        .replace(/-latest$/, ' (latest)');
+
 const MARKER_STYLES: Record<MatchLevel, { dot: string; text: string }> = {
     match:    { dot: 'bg-green-400',  text: 'text-green-400' },
     drift:    { dot: 'bg-amber-400',  text: 'text-amber-400' },
@@ -335,8 +347,9 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences,
                                                         >
                                                             <p className="text-xs text-gray-300 truncate">{compareAgainst || clip.text}</p>
                                                             <p className="text-[10px] mt-0.5 flex flex-wrap gap-x-2">
-                                                                <span className="text-gray-500">
+                                                                <span className="text-gray-500" title={clip.model || 'model not recorded'}>
                                                                     {formatDuration(clip.durationSec)} · {formatBytes(clip.bytes)} · {clip.voice}
+                                                                    {clip.model && <> · {shortModelName(clip.model)}</>}
                                                                 </span>
                                                                 <span className={style.text}>{match.label}</span>
                                                                 {match.wordDelta > 2 && (

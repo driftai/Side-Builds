@@ -6,7 +6,6 @@ interface ReadingInterfaceProps {
     currentSentenceIndex: number;
     appState: AppState;
     onSentenceClick: (index: number) => void;
-    voiceControlsCollapsed: boolean;
     sessionStartTime: number | null;
     /** Character offset being spoken in the current sentence, if known. */
     spokenCharIndex?: number | null;
@@ -40,12 +39,15 @@ const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
     currentSentenceIndex,
     appState,
     onSentenceClick,
-    voiceControlsCollapsed,
     sessionStartTime,
     spokenCharIndex
 }) => {
+    // The reading area takes whatever room is left rather than a fixed slice of
+    // the viewport, so it gives way when the controls or the audio manager open
+    // and takes the space back when they close. Fixed heights here and on the
+    // controls could add up to more than the screen.
     return (
-        <div className={`flex-none ${voiceControlsCollapsed ? 'h-[68vh]' : 'h-[41vh]'} bg-linear-to-b from-gray-900/30 to-gray-800/20 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out`}>
+        <div className="grow min-h-[7rem] flex flex-col bg-linear-to-b from-gray-900/30 to-gray-800/20 rounded-lg border border-gray-700/30 overflow-hidden relative transition-all duration-300 ease-in-out">
             {/* Progress & Stats Header */}
             <div className="bg-gray-800/40 px-6 py-3 border-b border-gray-700/20">
                 <div className="flex items-center justify-between">
@@ -79,7 +81,7 @@ const ReadingInterface: React.FC<ReadingInterfaceProps> = ({
             </div>
 
             {/* Clean Reading Area */}
-            <div className={`p-8 overflow-y-auto ${voiceControlsCollapsed ? 'h-[calc(68vh-4rem)]' : 'h-[calc(41vh-4rem)]'} transition-all duration-300 ease-in-out`}>
+            <div className="p-8 overflow-y-auto grow min-h-0 transition-all duration-300 ease-in-out">
                 {/* Minimalist Text Content */}
                 <div className="max-w-4xl mx-auto font-serif text-lg text-gray-300 leading-relaxed text-justify px-6">
                     {sentences.map((sentence, index) => {

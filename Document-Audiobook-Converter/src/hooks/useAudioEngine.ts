@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { GeminiApiConfig } from '../components/GeminiConfig';
 import { makeClipKey, getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled } from '../utils/audioCache';
 import { remapIndex } from '../utils/documentDiff';
+import { narratableText, isNarratable } from '../utils/textProcessing';
 import { PcmStreamPlayer } from '../utils/streamingPlayer';
 import type { NarrationResult } from './useGemini';
 
@@ -30,6 +31,15 @@ interface PrefetchEntry {
     text: string;
     /** Set once the passage is fully generated and ready to play as one buffer. */
     settled?: boolean;
+    /**
+     * Fragments for this particular generation, when the bypass is on.
+     *
+     * Held on the entry rather than in a map keyed by position. Keying by
+     * position aliased: jumping back re-queued the same index, and when the
+     * abandoned generation's abort landed it removed the *new* entry's
+     * fragments, leaving playback waiting on a stream that would never fill.
+     */
+    stream?: StreamRecord;
 }
 
 export enum AppState {
@@ -103,6 +113,9 @@ export const useAudioEngine = (
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [spokenCharIndex, setSpokenCharIndex] = useState<number | null>(null);
     const wordTimerRef = useRef<number | null>(null);
+    // Bumped to make the playback effect re-run when the sentence to play has
+    // not changed number - resuming on a passage that was edited underneath us.
+    const [playNonce, setPlayNonce] = useState(0);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -130,8 +143,13 @@ export const useAudioEngine = (
     // pull further ahead instead of restarting the chain at each boundary.
     const PREFETCH_DEPTH = 4;
     const prefetchQueueRef = useRef<Map<number, PrefetchEntry>>(new Map());
-    const streamsRef = useRef<Map<number, StreamRecord>>(new Map());
     const activePlayerRef = useRef<PcmStreamPlayer | null>(null);
+    /**
+     * Where playback should go when the current audio ends, when that is not
+     * simply the next passage - set when an edit has left the audio being played
+     * detached from the document, so the passage it moved to is not skipped.
+     */
+    const nextIndexOverrideRef = useRef<number | null>(null);
 
     const consoleLogger = useRef({
         logAudio: (action: string, details: string) => console.log(`[Audio] ${action}: ${details}`),
@@ -161,12 +179,12 @@ export const useAudioEngine = (
         }
         activePlayerRef.current?.stop();
         activePlayerRef.current = null;
+        nextIndexOverrideRef.current = null;
         for (const { promise, controller } of prefetchQueueRef.current.values()) {
             controller.abort();
             promise.catch(() => { });  // queued rejections are expected once aborted
         }
         prefetchQueueRef.current.clear();
-        streamsRef.current.clear();
         startedTokenRef.current = null;
         if (wordTimerRef.current !== null) {
             cancelAnimationFrame(wordTimerRef.current);
@@ -210,6 +228,28 @@ export const useAudioEngine = (
         try { localStorage.setItem('selectedVoiceURI', selectedVoiceURI); } catch { /* non-fatal */ }
     }, [selectedVoiceURI]);
 
+    /**
+     * Move on once a passage has finished being spoken.
+     *
+     * Normally that is the next passage. After an edit replaced or removed the
+     * one being spoken, the position it moved to has not been read yet, so
+     * playback resumes *at* it - stepping over it is what skipped a passage
+     * after every source change. The number may be unchanged in that case, so
+     * the started-token is cleared and the effect nudged, or nothing would
+     * restart.
+     */
+    const advanceAfterPassage = useCallback(() => {
+        const override = nextIndexOverrideRef.current;
+        nextIndexOverrideRef.current = null;
+        if (override === null) {
+            setCurrentSentenceIndex(prev => prev + 1);
+            return;
+        }
+        startedTokenRef.current = null;
+        setCurrentSentenceIndex(override);
+        setPlayNonce(n => n + 1);
+    }, []);
+
     /** Drop queued sentences we have already moved past, aborting their work. */
     const prunePrefetchQueue = useCallback((beforeIndex: number) => {
         for (const [i, entry] of [...prefetchQueueRef.current.entries()]) {
@@ -217,7 +257,6 @@ export const useAudioEngine = (
                 entry.controller.abort();
                 entry.promise.catch(() => { });
                 prefetchQueueRef.current.delete(i);
-                streamsRef.current.delete(i);
             }
         }
     }, []);
@@ -273,7 +312,10 @@ export const useAudioEngine = (
         noteActivity(index, text, 'generating');
         let result: NarrationResult;
         try {
-            result = await generateAudioForSentence(text, signal, onChunk);
+            // Read the passage without its visual rules. The text stored with
+            // the clip stays the source text, so markers still compare against
+            // what the document actually says.
+            result = await generateAudioForSentence(narratableText(text), signal, onChunk);
         } catch (error) {
             noteActivity(index, text, 'idle');
             throw error;
@@ -305,17 +347,17 @@ export const useAudioEngine = (
 
         const text = sentencesRef.current[index];
         if (!text) return null;
+        // Nothing to say: never spend a call on a passage that is only a rule.
+        if (!isNarratable(text)) return null;
 
         const controller = new AbortController();
         consoleLogger.current.logAudio('Prefetching', `Sentence ${index}`);
 
         // With the bypass on, keep the fragments as they arrive so this passage
         // can start playing before it has finished generating.
-        let record: StreamRecord | null = null;
-        if (isStreamingEnabled()) {
-            record = { chunks: [], done: false, listeners: new Set() };
-            streamsRef.current.set(index, record);
-        }
+        const record: StreamRecord | null = isStreamingEnabled()
+            ? { chunks: [], done: false, listeners: new Set() }
+            : null;
         const onChunk = record
             ? (pcm: ArrayBuffer) => {
                 record!.chunks.push(pcm);
@@ -354,15 +396,18 @@ export const useAudioEngine = (
                 // Release anyone waiting on the stream before dropping it, or a
                 // streaming playback would sit waiting for fragments forever.
                 closeRecord();
-                streamsRef.current.delete(index);
-                // Drop it so playSentence regenerates rather than replaying the failure.
+                // Only ever drop our own entry. A jump can have re-queued this
+                // position already, and removing the newcomer here is what left
+                // playback stranded on a stream that never filled.
                 if (prefetchQueueRef.current.get(index)?.controller === controller) {
                     prefetchQueueRef.current.delete(index);
                 }
             }
         );
 
-        prefetchQueueRef.current.set(index, { promise, controller, text });
+        prefetchQueueRef.current.set(index, {
+            promise, controller, text, stream: record ?? undefined,
+        });
         return promise;
     }, [requestAudio]);
 
@@ -416,30 +461,29 @@ export const useAudioEngine = (
             if (newIndex === null || next[newIndex] !== entry.text) {
                 entry.controller.abort();
                 entry.promise.catch(() => { });
-                streamsRef.current.delete(oldIndex);
                 continue;
             }
             remapped.set(newIndex, entry);
         }
         prefetchQueueRef.current = remapped;
 
-        // Fragments follow their passage too, so a stream already playing is
-        // not orphaned by an edit somewhere else in the document.
-        const remappedStreams = new Map<number, StreamRecord>();
-        for (const [oldIndex, stream] of streamsRef.current) {
-            const newIndex = oldIndex < oldToNew.length ? oldToNew[oldIndex] : null;
-            if (newIndex !== null && remapped.has(newIndex)) remappedStreams.set(newIndex, stream);
-        }
-        streamsRef.current = remappedStreams;
-
         const from = currentIndexRef.current;
         if (from >= 0) {
             const to = remapIndex(from, oldToNew, next.length);
+            const survived = from < oldToNew.length && oldToNew[from] !== null;
+
             currentIndexRef.current = to;
             if (startedTokenRef.current !== null) {
                 startedTokenRef.current = `${voiceModeRef.current}:${to}`;
             }
             if (to !== from) setCurrentSentenceIndex(to);
+
+            // If the passage being spoken was itself edited or removed, the audio
+            // still playing no longer belongs to any passage in the document. It
+            // is left to finish, but the position it moved to has not been read
+            // yet - so playback must resume *at* it rather than after it, which
+            // is what was skipping a passage on every edit.
+            nextIndexOverrideRef.current = survived ? null : to;
         }
 
         // Top the look-ahead back up: passages dropped above leave gaps.
@@ -472,6 +516,29 @@ export const useAudioEngine = (
         // It finished while we were getting ready - the normal path is better.
         if (record.done) return false;
 
+        // Wait for proof that this passage really is streaming before taking it
+        // over.
+        //
+        // A passage served from the cache arrives whole and emits no fragments
+        // at all. Committing to the stream on the strength of an unsettled
+        // promise meant those played nothing: the record closed empty, the
+        // player finished with no audio, and the book raced to the end in
+        // silence. The first fragment is the only reliable signal.
+        if (record.chunks.length === 0) {
+            const streaming = await new Promise<boolean>((resolve) => {
+                const probe = (pcm: ArrayBuffer | null) => {
+                    record.listeners.delete(probe);
+                    resolve(pcm !== null);   // null means it ended without streaming
+                };
+                record.listeners.add(probe);
+            });
+            if (!streaming) return false;
+        }
+        // The listener may have moved on while we waited - a jump, a stop.
+        if (appStateRef.current !== AppState.PLAYING || currentIndexRef.current !== index) {
+            return false;
+        }
+
         consoleLogger.current.logAudio('Streaming', `Sentence ${index} while it generates`);
 
         const player = new PcmStreamPlayer({
@@ -481,12 +548,9 @@ export const useAudioEngine = (
                 'Stream ran dry', `Sentence ${index} - generation fell behind playback`),
             onFinished: () => {
                 record.listeners.delete(listener);
-                streamsRef.current.delete(index);
                 if (activePlayerRef.current !== player) return;  // superseded
                 activePlayerRef.current = null;
-                if (appStateRef.current === AppState.PLAYING) {
-                    setCurrentSentenceIndex(prevIndex => prevIndex + 1);
-                }
+                if (appStateRef.current === AppState.PLAYING) advanceAfterPassage();
             },
         });
 
@@ -522,7 +586,7 @@ export const useAudioEngine = (
         wordTimerRef.current = requestAnimationFrame(followStream);
 
         return true;
-    }, [getAudioContext, sentencesRef]);
+    }, [getAudioContext, sentencesRef, advanceAfterPassage]);
 
     const playSentence = useCallback(async (index: number) => {
         if (currentAudioSourceRef.current) {
@@ -532,6 +596,20 @@ export const useAudioEngine = (
 
         // Anything before this sentence is history; stop paying for it.
         prunePrefetchQueue(index);
+
+        // A passage that is only a divider - the rule above a stat block, a
+        // scene break - has nothing to speak. The model answers those with a
+        // turn containing no audio, which surfaced as "No audio data received"
+        // and paused the book. Move past it instead, keeping the look-ahead fed.
+        if (!isNarratable(sentencesRef.current[index] ?? '')) {
+            consoleLogger.current.logAudio('Skipping', `Sentence ${index} has no speakable text`);
+            fillPrefetchQueue(index + 1);
+            window.setTimeout(() => {
+                if (appStateRef.current === AppState.PLAYING
+                    && currentIndexRef.current === index) advanceAfterPassage();
+            }, 200);
+            return;
+        }
 
         // Claim THIS sentence before queueing any look-ahead. Turns are
         // serialised in the order they are requested, so filling the look-ahead
@@ -554,7 +632,7 @@ export const useAudioEngine = (
         // waiting for the rest. Only worth it when the passage really is not
         // ready - a finished one plays better as a single buffer.
         const pending = prefetchQueueRef.current.get(index);
-        const stream = streamsRef.current.get(index);
+        const stream = pending?.stream;
         if (pending && !pending.settled && stream && !stream.done) {
             if (await playStreamed(index, stream)) return;
         }
@@ -602,9 +680,7 @@ export const useAudioEngine = (
             source.connect(audioContext.destination);
             currentAudioSourceRef.current = source;
             source.onended = () => {
-                if (appStateRef.current === AppState.PLAYING) {
-                    setCurrentSentenceIndex(prevIndex => prevIndex + 1);
-                }
+                if (appStateRef.current === AppState.PLAYING) advanceAfterPassage();
             };
 
             // Top the queue up again: this sentence's duration is now known, so
@@ -730,7 +806,7 @@ export const useAudioEngine = (
                 speakWithPersistentVoice(
                     sentences[currentSentenceIndex],
                     selectedVoiceURI,
-                    () => setCurrentSentenceIndex(prev => prev + 1)
+                    advanceAfterPassage
                 );
             } else {
                 playSentence(currentSentenceIndex);
@@ -738,7 +814,7 @@ export const useAudioEngine = (
         } else if (appState === AppState.PLAYING && currentSentenceIndex >= sentences.length) {
             handleStop();
         }
-    }, [currentSentenceIndex, appState, speakWithPersistentVoice, selectedVoiceURI, playSentence, voiceMode]);
+    }, [currentSentenceIndex, appState, speakWithPersistentVoice, selectedVoiceURI, playSentence, voiceMode, playNonce, advanceAfterPassage]);
 
     const handleStop = useCallback(() => {
         resetPlaybackState();

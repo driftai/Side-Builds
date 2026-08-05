@@ -225,3 +225,29 @@ export const handleDocxFile = async (file: File): Promise<string> => {
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
 };
+
+// --- what can actually be spoken -------------------------------------------
+
+/**
+ * Runs of rule characters used as visual dividers.
+ *
+ * Deliberately a character class rather than a repeated single character:
+ * dividers pasted from elsewhere mix ASCII hyphens with U+2010, en and em
+ * dashes, so matching one repeated character leaves stragglers behind.
+ */
+const DIVIDER_RUN = /[-=_*~+#|<>.‐‑‒–—―·•●─-╿]{3,}/gu;
+
+/**
+ * The passage as it should be read aloud, with visual furniture removed.
+ *
+ * A stat block or scene break carries rules like `---------------` that mean
+ * something on the page and nothing in speech. Sent as-is they are worse than
+ * useless: the Live model returns a turn with no audio in it at all, which
+ * surfaces as "No audio data received" and stops the book.
+ */
+export const narratableText = (text: string): string =>
+    text.replace(DIVIDER_RUN, ' ').replace(/\s+/g, ' ').trim();
+
+/** Is there anything here worth sending to be spoken? */
+export const isNarratable = (text: string): boolean =>
+    /[\p{L}\p{N}]/u.test(narratableText(text));

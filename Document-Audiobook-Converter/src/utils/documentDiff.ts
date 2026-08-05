@@ -127,9 +127,15 @@ export const alignSentences = (before: string[], after: string[]): SentenceAlign
 /**
  * Where a position in the old document should land in the new one.
  *
- * A surviving sentence keeps its place. One that was deleted hands over to the
- * nearest sentence after it, so the reader moves forward into the edit rather
- * than jumping backwards over text it has already read.
+ * A surviving sentence keeps its place. One that did not survive - rewritten or
+ * removed - keeps its *position* instead, measured from the nearest sentence
+ * that did survive.
+ *
+ * Holding the position rather than handing over to the next survivor is what
+ * makes an edit to the passage being read land on its replacement. Jumping to
+ * the following sentence meant the rewritten text was never read at all: the
+ * reader arrived one past it, and the passage that had just been edited was
+ * stepped over.
  */
 export const remapIndex = (
     index: number,
@@ -137,20 +143,21 @@ export const remapIndex = (
     newLength: number,
 ): number => {
     if (index < 0) return index;
-    if (index >= oldToNew.length) return Math.min(index, newLength - 1);
+    const clamp = (n: number) => Math.max(0, Math.min(n, newLength - 1));
+    if (index >= oldToNew.length) return clamp(index);
 
     const direct = oldToNew[index];
     if (direct !== null) return direct;
 
-    for (let i = index + 1; i < oldToNew.length; i++) {
-        const mapped = oldToNew[i];
-        if (mapped !== null) return mapped;
-    }
-    // Everything after was deleted too: fall back to the last sentence that
-    // still exists before this point, then to the end of the document.
+    // Offset from the closest surviving sentence before this one.
     for (let i = index - 1; i >= 0; i--) {
         const mapped = oldToNew[i];
-        if (mapped !== null) return Math.min(mapped + 1, newLength - 1);
+        if (mapped !== null) return clamp(mapped + (index - i));
     }
-    return Math.min(index, newLength - 1);
+    // Nothing survived above; measure back from the first survivor below.
+    for (let i = index + 1; i < oldToNew.length; i++) {
+        const mapped = oldToNew[i];
+        if (mapped !== null) return clamp(mapped - (i - index));
+    }
+    return clamp(index);
 };
