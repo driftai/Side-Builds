@@ -572,7 +572,20 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
             lane.turns = 0;
             lane.state = 'disconnected';
             if (ws && ws.readyState === WebSocket.OPEN) {
-                try { ws.close(1000, 'disconnected by user'); } catch { /* already closing */ }
+                try {
+                    // Ask the server to close the Gemini session before dropping
+                    // the socket. Closing the socket alone ends the session by
+                    // cancellation, which tears the connection down rather than
+                    // closing it, and the service can keep the slot for this key
+                    // reserved until its own timeout - so the API is not actually
+                    // free for anything else yet.
+                    ws.send(JSON.stringify({ type: 'disconnect' }));
+                } catch { /* socket already going */ }
+                // Give the close frame a moment to reach the server first.
+                const closing = ws;
+                setTimeout(() => {
+                    try { closing.close(1000, 'disconnected by user'); } catch { /* already closing */ }
+                }, 150);
             }
         }
         syncWsState();

@@ -141,7 +141,14 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
     const handleCloseRequest = () => {
       if (testWsRef.current) {
         console.log("GeminiConfig: Closing test connection due to external request");
-        testWsRef.current.close();
+        // Same as the narration lanes: ask the server to close the Gemini
+        // session rather than just dropping the socket, or the slot for this
+        // key stays reserved on the service side after we have gone.
+        const ws = testWsRef.current;
+        try {
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'disconnect' }));
+        } catch { /* socket already going */ }
+        setTimeout(() => { try { ws.close(); } catch { /* already closing */ } }, 150);
         testWsRef.current = null;
         setTestStatus('idle');
         setTestMessage('Connection closed by main app');

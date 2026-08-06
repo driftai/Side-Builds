@@ -94,6 +94,32 @@ async def send_to_gemini(session, websocket, connection_monitor, connection_id, 
                                     await connection_monitor.safe_send(json.dumps(pong_response))
                                     continue
                                     
+                                # *** EXPLICIT DISCONNECT ***
+                                elif message_type == "disconnect":
+                                    # Close the Gemini session on purpose rather than
+                                    # letting it fall out of a cancelled task.
+                                    #
+                                    # Dropping the client socket does end the session,
+                                    # but it unwinds through cancellation, so the
+                                    # connection to Google is torn down rather than
+                                    # closed - and the service can hold the session
+                                    # slot for that key until its own timeout. Asking
+                                    # the session to close first releases it now,
+                                    # which is the point of the button: freeing the
+                                    # API for something else to use.
+                                    print(f"Client {connection_id} asked to disconnect; closing Gemini session")
+                                    try:
+                                        # The live session this loop is already
+                                        # serving - no lookup needed, and the
+                                        # module-level table is not imported here.
+                                        if session is not None and hasattr(session, "close"):
+                                            await session.close()
+                                            print(f"Gemini session closed cleanly for {connection_id}")
+                                    except Exception as close_error:
+                                        print(f"Could not close Gemini session cleanly: {close_error}")
+                                    # Ending the read loop unwinds the handler normally.
+                                    return
+
                                 # *** COMMAND MESSAGE HANDLING ***
                                 elif message_type in ["command", "action", "request"]:
                                     print(f"Processing typed command: {data.get('command', data.get('action', 'unknown'))}")
