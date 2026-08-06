@@ -224,8 +224,14 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
         }
       };
 
+      // Only report the panel as disconnected if this is still the socket the
+      // panel is using. Speaking replaces the tested connection with a new one,
+      // and the old socket's close arrives *after* the replacement is live - so
+      // clearing the flag unconditionally here switched Disconnect off while a
+      // connection was genuinely open.
       ws.onclose = () => {
-        if (testWsRef.current === ws) testWsRef.current = null;
+        if (testWsRef.current !== ws) return;
+        testWsRef.current = null;
         setTestConnected(false);
       };
 
@@ -233,7 +239,7 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
         clearTimeout(timeoutId);
         setTestStatus('error');
         setTestMessage('WebSocket connection failed.');
-        setTestConnected(false);
+        if (testWsRef.current === ws) setTestConnected(false);
       };
 
     } catch (error) {
@@ -260,7 +266,10 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
       // Speaking holds a session too, so Disconnect stays live for it and goes
       // back to grey once this socket is gone.
       ws.addEventListener('close', () => {
-        if (testWsRef.current === ws) testWsRef.current = null;
+        // As above: a socket that has already been replaced must not report the
+        // panel disconnected on its way out.
+        if (testWsRef.current !== ws) return;
+        testWsRef.current = null;
         setTestConnected(false);
       });
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
