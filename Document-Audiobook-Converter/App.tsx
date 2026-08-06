@@ -9,6 +9,7 @@ import PlayerControls from './src/components/PlayerControls';
 import ReadingInterface from './src/components/ReadingInterface';
 import AudioCacheManager from './src/components/AudioCacheManager';
 import { makeDocumentId } from './src/utils/audioCache';
+import { createPortal } from 'react-dom';
 import { supportsLiveFiles, pickDocument, watchFile } from './src/utils/liveFile';
 import { alignSentences } from './src/utils/documentDiff';
 
@@ -266,6 +267,17 @@ const App: React.FC = () => {
     // can be kept in view while reading further down a long document.
     const [floatingControls, setFloatingControls] = useState(false);
     const [floatingAt, setFloatingAt] = useState({ x: 24, y: 24 });
+    /**
+     * A real window holding the playback controls, outside the browser.
+     *
+     * A page cannot draw outside its own window, so an in-page panel can only
+     * ever float within the tab - no use while you are reading something else.
+     * Document Picture-in-Picture opens an actual always-on-top window that can
+     * be dragged anywhere on the desktop and stays above other applications,
+     * which is what a detached transport is for. The audio keeps playing here;
+     * only the controls move.
+     */
+    const [pipWindow, setPipWindow] = useState<Window | null>(null);
     const [lastEdit, setLastEdit] = useState<{ at: number; changed: number } | null>(null);
     const [geminiConfig, setGeminiConfig] = useState<GeminiApiConfig | null>(null);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -499,6 +511,61 @@ const App: React.FC = () => {
         });
     }, [sentencesRef, setCurrentSentenceIndex]);
 
+    /**
+     * Put the transport in a window of its own, on top of everything else.
+     *
+     * The window starts empty, so the page's styles are copied across - a
+     * detached document inherits none of them, and the controls would arrive
+     * unstyled. Rules are copied where the browser will read them and the
+     * stylesheet is linked where it will not, which is what a bundled build
+     * versus a dev server needs.
+     *
+     * Falls back to the in-page panel where the API is missing (Firefox, Safari,
+     * any non-secure context), and hands over to Electron's own window when
+     * running there.
+     */
+    const toggleDetachedControls = useCallback(async () => {
+        if (isElectron) { sendToElectron('toggleControls'); return; }
+
+        const dpip = (window as any).documentPictureInPicture;
+        if (!dpip?.requestWindow) { setFloatingControls(open => !open); return; }
+
+        if (pipWindow) { pipWindow.close(); setPipWindow(null); return; }
+
+        try {
+            const win: Window = await dpip.requestWindow({ width: 320, height: 168 });
+            for (const sheet of Array.from(document.styleSheets)) {
+                try {
+                    const css = Array.from(sheet.cssRules).map(rule => rule.cssText).join('');
+                    const style = win.document.createElement('style');
+                    style.textContent = css;
+                    win.document.head.appendChild(style);
+                } catch {
+                    // Cross-origin sheet: its rules cannot be read, so point the
+                    // new window at the file instead.
+                    if (sheet.href) {
+                        const link = win.document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = sheet.href;
+                        win.document.head.appendChild(link);
+                    }
+                }
+            }
+            win.document.body.style.margin = '0';
+            win.document.body.style.background = '#111827';
+            // Closed from its own title bar as well as from the button.
+            win.addEventListener('pagehide', () => setPipWindow(null));
+            setPipWindow(win);
+        } catch (error) {
+            // Refused (no gesture, already open elsewhere): keep the in-page panel.
+            console.warn('Could not open a detached controls window:', error);
+            setFloatingControls(open => !open);
+        }
+    }, [pipWindow]);
+
+    // Never leave the detached window behind when the reader goes away.
+    useEffect(() => () => { try { pipWindow?.close(); } catch { /* already gone */ } }, [pipWindow]);
+
     const handleUploadClick = useCallback(async () => {
         // Prefer a handle we can re-read, so later edits to the file show up
         // here without another upload. Falls back to the plain file input where
@@ -628,20 +695,15 @@ const App: React.FC = () => {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        // In Electron this raises the always-on-top window. In a
-                                                        // browser none of those routes exist, which is why the
-                                                        // button did nothing at all - so open an in-page panel
-                                                        // instead and give the feature somewhere to live.
-                                                        if (isElectron) sendToElectron('toggleControls');
-                                                        else setFloatingControls(open => !open);
+                                                        void toggleDetachedControls();
                                                     }}
-                                                    className={`p-1.5 rounded-md transition-colors duration-200 ${floatingControls && !isElectron
+                                                    className={`p-1.5 rounded-md transition-colors duration-200 ${(pipWindow || floatingControls) && !isElectron
                                                         ? 'bg-blue-500/70 text-white'
                                                         : 'bg-blue-700/50 text-blue-300 hover:bg-blue-600/50 hover:text-white'}`}
                                                     aria-label="Floating controls"
                                                     title={isElectron
                                                         ? 'Electron floating controls (always on top)'
-                                                        : 'Detachable playback controls'}
+                                                        : 'Detach the playback controls into a window that stays on top'}
                                                 >
                                                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -971,10 +1033,38 @@ const App: React.FC = () => {
                 />
             </div>
 
-            {/* Detached playback controls: what the Electron button offers when
-                running in Electron, available here too rather than doing
-                nothing. Dragged by its header, and it stays put while the
-                reading area scrolls. */}
+            {/* Detached playback controls, in a window of their own.
+                Rendered through a portal, so these are the same controls driving
+                the same playback - the audio stays in this page either way. */}
+            {pipWindow && createPortal(
+                <div className="w-full h-full bg-gray-900 text-white flex flex-col justify-between p-3 font-sans">
+                    <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                            Clip #{currentSentenceIndex >= 0 ? currentSentenceIndex : '-'} of {sentencesRef.current.length}
+                        </span>
+                        <span className="text-[10px] text-gray-600 truncate">{fileName}</span>
+                    </div>
+                    <p className="text-xs text-blue-300/90 italic my-2 leading-snug line-clamp-3">
+                        {currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
+                            ? sentencesRef.current[currentSentenceIndex]
+                            : 'Press play to start listening.'}
+                    </p>
+                    <PlayerControls
+                        appState={appState}
+                        currentSentenceIndex={currentSentenceIndex}
+                        totalSentences={sentencesRef.current.length}
+                        onPlay={handlePlay}
+                        onPause={handlePause}
+                        onStop={handleStop}
+                        onSkipForward={handleSkipForward}
+                        onSkipBackward={handleSkipBackward}
+                    />
+                </div>,
+                pipWindow.document.body
+            )}
+
+            {/* Fallback for browsers without a detachable window: the same
+                controls pinned inside the page, dragged by their header. */}
             {floatingControls && !isElectron && documentOpen && (
                 <div
                     className="fixed z-50 w-64 rounded-lg border border-blue-500/30 bg-gray-900/95 backdrop-blur-md shadow-2xl shadow-black/50"
