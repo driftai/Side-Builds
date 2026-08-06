@@ -14,8 +14,12 @@ export interface GeminiApiConfig {
 
 interface GeminiAudiobookApiConfigProps {
   onConfigChange: (config: GeminiApiConfig) => void;
-  /** Close the narration sessions. Omitted where there is nothing to close. */
+  /** Stop the tool using Gemini until it is deliberately allowed back. */
   onDisconnect?: () => void;
+  /** Allow it again, after a disconnect. */
+  onAllowConnections?: () => void;
+  /** True once Disconnect has been pressed and nothing may connect. */
+  connectionsBlocked?: boolean;
   /** Whether a narration session is currently open. */
   isConnected?: boolean;
   initialConfig?: GeminiApiConfig;
@@ -46,6 +50,8 @@ const AVAILABLE_MODELS = [
 const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
   onConfigChange,
   onDisconnect,
+  onAllowConnections,
+  connectionsBlocked = false,
   isConnected = false,
   initialConfig
 }) => {
@@ -169,6 +175,8 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
 
   // Test Connection Function
   const handleTestConnection = useCallback(() => {
+    // Testing is the deliberate act of using the API again, so it lifts a stop.
+    onAllowConnections?.();
     setTestStatus('connecting');
     setTestMessage('Connecting to WebSocket...');
 
@@ -210,14 +218,11 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
           const data = JSON.parse(event.data);
           if (data.is_system_message) {
             setTestMessage(`Server: ${data.text}`);
-            // Left open deliberately. It used to close itself a second after the
-            // handshake, which contradicted both the server's own message and
-            // the Disconnect button beside it: the panel said the session would
-            // remain active while the socket had already gone, so there was
-            // never anything for Disconnect to close. Narration still takes the
-            // slot back when it needs one - it asks for this socket to close
-            // before opening its own.
+            // Closed as soon as it has proved the API answers. Holding it open
+            // would keep a session alive for no reason, and a long-lived session
+            // is exactly what degrades narration quality.
             setTestConnected(true);
+            setTimeout(() => ws.close(), 1000);
           }
         } catch (e) {
           // Ignore parse errors for test
@@ -252,6 +257,10 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
   const handleTestTTS = useCallback(() => {
     if (!ttsText.trim()) return;
 
+    // Speaking is a deliberate use of the API, so it lifts a stop too. The stop
+    // is there to prevent the tool reconnecting on its own, not to argue with a
+    // button you just pressed.
+    onAllowConnections?.();
     setIsSpeaking(true);
     setTestMessage('Requesting audio...');
     setTestStatus('connecting');
@@ -535,26 +544,24 @@ const GeminiAudiobookApiConfig: React.FC<GeminiAudiobookApiConfigProps> = ({
                 {testStatus === 'connecting' ? 'Connecting...' : 'Test Connection'}
               </button>
 
-              {onDisconnect && (() => {
-                // Anything holding a session counts, whether it was opened by
-                // narration or from this panel.
-                const anythingConnected = isConnected || testConnected;
-                return (
-                  <button
-                    onClick={onDisconnect}
-                    disabled={!anythingConnected}
-                    title={anythingConnected
-                      ? 'Close every live session and free the API. Narration reconnects on the next passage.'
-                      : 'Nothing is connected'}
-                    className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${anythingConnected
-                      ? 'border border-red-700 text-red-300 hover:bg-red-900/30'
-                      : 'border border-gray-700 text-gray-600 cursor-not-allowed'
-                      }`}
-                  >
-                    Disconnect
-                  </button>
-                );
-              })()}
+              {onDisconnect && (
+                // A stop rather than a tidy-up, so it does not wait for
+                // something to be connected: pressing it closes whatever is open
+                // and bars anything from opening after. Test Connection lifts it.
+                <button
+                  onClick={onDisconnect}
+                  disabled={connectionsBlocked}
+                  title={connectionsBlocked
+                    ? 'Gemini is disconnected. Test Connection allows it again.'
+                    : 'Close any live session and block further use of the Gemini API until you reconnect.'}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${connectionsBlocked
+                    ? 'border border-gray-700 text-gray-600 cursor-not-allowed'
+                    : 'border border-red-700 text-red-300 hover:bg-red-900/30'
+                    }`}
+                >
+                  {connectionsBlocked ? 'Disconnected' : 'Disconnect'}
+                </button>
+              )}
 
               <div className="grow">
                 <input

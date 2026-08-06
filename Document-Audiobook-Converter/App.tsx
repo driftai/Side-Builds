@@ -272,7 +272,7 @@ const App: React.FC = () => {
     const [voiceControlsCollapsed, setVoiceControlsCollapsed] = useState<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { wsState, generateAudioForSentence, disconnect } = useGemini(geminiConfig);
+    const { wsState, generateAudioForSentence, disconnect, allowConnections, connectionsBlocked } = useGemini(geminiConfig);
 
     const {
         appState,
@@ -945,6 +945,8 @@ const App: React.FC = () => {
                             onConfigChange={handleGeminiConfigChange}
                             initialConfig={geminiConfig || undefined}
                             onDisconnect={disconnect}
+                            onAllowConnections={allowConnections}
+                            connectionsBlocked={connectionsBlocked}
                             isConnected={wsState === 'connected' || wsState === 'connecting'}
                         />
                         <AudioCacheManager

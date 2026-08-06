@@ -125,6 +125,17 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
     const geminiConfigRef = useRef<GeminiApiConfig | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
 
+    /**
+     * Whether the tool is barred from talking to Gemini at all.
+     *
+     * Disconnect is a stop, not a tidy-up: closing what is open is no use if the
+     * next passage silently opens it again. While this is set, nothing here will
+     * open a socket - not narration, not the look-ahead - so the API stays free
+     * for something else until it is deliberately allowed back.
+     */
+    const blockedRef = useRef(false);
+    const [connectionsBlocked, setConnectionsBlocked] = useState(false);
+
     /** Passages waiting for a lane, taken lowest-numbered first. */
     const queueRef = useRef<Job[]>([]);
     const lanesRef = useRef<Lane[] | null>(null);
@@ -163,6 +174,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
     }, []);
 
     const getOrCreateWebSocket = useCallback(async (lane: Lane): Promise<WebSocket> => {
+        if (blockedRef.current) {
+            throw new Error('Gemini is disconnected. Reconnect from the Gemini Live Audio panel to use it again.');
+        }
         const currentConfig = geminiConfigRef.current;
         // Only the socket URL is required. The key sent here is an optional
         // override - the server resolves its own from the environment, .env.local
@@ -466,6 +480,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                 try {
                     ws = await getOrCreateWebSocket(lane);
                 } catch (error) {
+                    // Being disconnected is a decision, not a failure - retrying
+                    // it would just be the reconnection the stop exists to prevent.
+                    if (blockedRef.current) throw error;
                     if (attempt < MAX_RETRIES) {
                         console.log(`🔄 WebSocket creation failed, retrying (${attempt + 1}/${MAX_RETRIES}) in 2 seconds...`);
                         await delay(RETRY_DELAY_MS);
@@ -539,6 +556,10 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         priority: number = Number.MAX_SAFE_INTEGER,
     ): Promise<NarrationResult> => {
         if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+        if (blockedRef.current) {
+            return Promise.reject(new Error(
+                'Gemini is disconnected. Reconnect from the Gemini Live Audio panel to use it again.'));
+        }
 
         return new Promise<NarrationResult>((resolve, reject) => {
             queueRef.current.push({ text, priority, signal, onChunk, resolve, reject });
@@ -560,6 +581,10 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
      * immediately.
      */
     const disconnect = useCallback(() => {
+        // Bar reconnection first, so nothing slips in behind the teardown.
+        blockedRef.current = true;
+        setConnectionsBlocked(true);
+
         const queue = queueRef.current;
         while (queue.length) {
             queue.pop()?.reject(new DOMException('Aborted', 'AbortError'));
@@ -591,9 +616,17 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         syncWsState();
     }, [getLanes, syncWsState]);
 
+    /** Let the tool talk to Gemini again after a disconnect. */
+    const allowConnections = useCallback(() => {
+        blockedRef.current = false;
+        setConnectionsBlocked(false);
+    }, []);
+
     return {
         wsState,
         generateAudioForSentence,
-        disconnect
+        disconnect,
+        allowConnections,
+        connectionsBlocked
     };
 };

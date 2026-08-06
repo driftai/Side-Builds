@@ -663,7 +663,13 @@ export const useAudioEngine = (
             } catch (retryError: any) {
                 if (retryError?.name === 'AbortError') return;
                 console.error(`Error generating audio for sentence ${index}:`, retryError);
-                setError('Failed to generate audio for the selected sentence.');
+                // Being disconnected is not a failure to explain away - say so
+                // plainly, or the reader looks broken when it is simply stopped.
+                const message = typeof retryError?.message === 'string'
+                    && retryError.message.includes('disconnected')
+                    ? retryError.message
+                    : 'Failed to generate audio for the selected sentence.';
+                setError(message);
                 setAppState(AppState.PAUSED);
                 return;
             }
