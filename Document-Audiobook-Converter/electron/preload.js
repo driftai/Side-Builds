@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Close controls window
     closeControls: () => ipcRenderer.send('close-controls'),
 
+    // Press a transport control. The main process forwards this to its own
+    // window and to any browser tab connected over the socket, so the controls
+    // drive whichever copy of the reader is actually playing.
+    audioControl: (command) => ipcRenderer.send('audio-control', command),
+
     // Send command via MessageChannel (for controls window)
     sendCommand: (command) => {
         if (messagePort) {

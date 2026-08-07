@@ -88,8 +88,14 @@ context - `http://localhost` counts - and a browser that supports the API
 (Chrome/Edge). Anywhere else it falls back to a draggable panel inside the page.
 
 **In Electron** the same button opens Electron's own always-on-top window, which
-survives independently of any tab. Verified working: the app registers a
-`Ctrl+Shift+B` global shortcut and a control socket on port 3001.
+survives independently of any tab. The app registers a `Ctrl+Shift+B` global
+shortcut and a control socket on port 3001.
+
+That window is reachable **from a browser tab too**: if the Electron app is
+running when you press detach, the page opens Electron's window rather than a
+PiP one, because that window outlives the tab. Its transport drives whichever
+reader is actually playing - the browser tab pushes its state over the socket,
+and button presses come back the same way.
 
 ```bash
 npm run electron-dev    # vite + electron together

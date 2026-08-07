@@ -54,6 +54,59 @@ let electronWebSocket: WebSocket | null = null;
 // MessageChannel port for direct communication with Electron
 let messageChannelPort: MessagePort | null = null;
 
+/**
+ * Where socket commands are delivered once the reader has mounted.
+ *
+ * The socket is opened at module level, before any component exists, so the
+ * running app registers itself here rather than the connection reaching into it.
+ */
+let remoteCommandHandler: ((command: string) => void) | null = null;
+
+/**
+ * Is the Electron app running, and can this page reach it?
+ *
+ * Probed when the detach button is pressed rather than on load: the reader is
+ * normally used in a browser with no Electron anywhere, and opening sockets to
+ * six ports on every visit just to find that out fills the console with failures
+ * for nothing.
+ */
+const reachElectron = (timeoutMs = 700): Promise<WebSocket | null> => {
+    if (electronWebSocket && electronWebSocket.readyState === WebSocket.OPEN) {
+        return Promise.resolve(electronWebSocket);
+    }
+    return new Promise((resolve) => {
+        let socket: WebSocket;
+        try {
+            socket = new WebSocket('ws://localhost:3001');
+        } catch {
+            resolve(null);
+            return;
+        }
+        const settle = (result: WebSocket | null) => {
+            clearTimeout(timer);
+            resolve(result);
+        };
+        const timer = setTimeout(() => {
+            try { socket.close(); } catch { /* never opened */ }
+            settle(null);
+        }, timeoutMs);
+        socket.onopen = () => {
+            electronWebSocket = socket;
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data?.action === 'audio-control' && data.command) {
+                        remoteCommandHandler?.(data.command);
+                    }
+                } catch { /* not for us */ }
+            };
+            socket.onclose = () => { if (electronWebSocket === socket) electronWebSocket = null; };
+            settle(socket);
+        };
+        socket.onerror = () => settle(null);
+    });
+};
+
 const connectToElectronWebSocket = () => {
     if (electronWebSocket && electronWebSocket.readyState === WebSocket.OPEN) {
         return electronWebSocket;
@@ -70,7 +123,17 @@ const connectToElectronWebSocket = () => {
                 electronWebSocket = ws; // Set global reference only on successful connection
             };
             ws.onmessage = (event) => {
-                // Handle messages silently
+                // Commands pressed on Electron's floating controls. The reader
+                // doing the listening may be this browser tab rather than
+                // Electron's own window, so they have to arrive here too.
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data?.action === 'audio-control' && data.command) {
+                        remoteCommandHandler?.(data.command);
+                    }
+                } catch {
+                    // Not JSON, or not for us.
+                }
             };
             ws.onclose = () => {
                 console.log('❌ Electron app disconnected');
@@ -336,6 +399,50 @@ const App: React.FC = () => {
         }
     }, [appState, currentSentenceIndex, isElectron, sentencesRef]);
 
+    /**
+     * Drive playback here from Electron's floating controls, and keep them
+     * showing what this tab is doing.
+     *
+     * Electron's window is a second copy of the reader; without this the
+     * controls only ever spoke to that copy, so opening them from a browser tab
+     * gave buttons that moved nothing and a display stuck on "Press play".
+     */
+    useEffect(() => {
+        if (isElectron) return;    // in Electron the IPC path below already covers it
+
+        remoteCommandHandler = (command: string) => {
+            if (command === 'play') handlePlay();
+            else if (command === 'pause') handlePause();
+            else if (command === 'skipForward') handleSkipForward();
+            else if (command === 'skipBackward') handleSkipBackward();
+            else console.log('Ignoring unknown control command:', command);
+        };
+        return () => { remoteCommandHandler = null; };
+    }, [isElectron, handlePlay, handlePause, handleSkipForward, handleSkipBackward]);
+
+    useEffect(() => {
+        if (isElectron) return;
+        const socket = electronWebSocket;
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+        const current = sentencesRef.current[currentSentenceIndex];
+        try {
+            socket.send(JSON.stringify({
+                action: 'updateAudioState',
+                args: {
+                    isPlaying: appState === AppState.PLAYING,
+                    currentIndex: currentSentenceIndex,
+                    totalSentences: sentencesRef.current.length,
+                    currentSentence: current
+                        ? current.substring(0, 60) + (current.length > 60 ? '...' : '')
+                        : '',
+                },
+            }));
+        } catch {
+            // The app is not open; the controls simply are not being used.
+        }
+    }, [appState, currentSentenceIndex, isElectron, sentencesRef]);
+
     // Electron integration - listen for commands from floating controls
     useEffect(() => {
         if (isElectron) {
@@ -528,6 +635,15 @@ const App: React.FC = () => {
      */
     const toggleDetachedControls = useCallback(async () => {
         if (isElectron) { sendToElectron('toggleControls'); return; }
+
+        // Prefer Electron's window when its app is running: it belongs to the
+        // app rather than to this page, so it outlives the tab. Its buttons now
+        // drive playback here, not only Electron's own copy of the reader.
+        const electron = await reachElectron();
+        if (electron) {
+            electron.send(JSON.stringify({ action: 'toggleControls' }));
+            return;
+        }
 
         const dpip = (window as any).documentPictureInPicture;
         if (!dpip?.requestWindow) { setFloatingControls(open => !open); return; }

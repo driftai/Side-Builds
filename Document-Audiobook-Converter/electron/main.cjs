@@ -214,7 +214,24 @@ ipcMain.on('audio-control', (event, command) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('execute-audio-command', command);
   }
+
+  // And to anything connected over the socket. Without this the controls could
+  // only ever drive Electron's own window, so opening them from a browser tab
+  // gave you buttons that did nothing to what you were actually listening to.
+  broadcastToExtensions({ action: 'audio-control', command });
 });
+
+/** Send a message to every socket client - typically a browser tab running the reader. */
+function broadcastToExtensions(payload) {
+  const message = JSON.stringify(payload);
+  for (const client of extensionConnections) {
+    try {
+      if (client.readyState === 1) client.send(message);
+    } catch (error) {
+      console.error('Could not reach a socket client:', error.message);
+    }
+  }
+}
 
 ipcMain.on('close-controls', () => {
   console.log('Main process: Received close-controls command');

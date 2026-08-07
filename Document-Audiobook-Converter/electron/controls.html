@@ -141,6 +141,44 @@
             background: #6b7280;
             box-shadow: 0 0 8px rgba(107, 114, 128, 0.6);
         }
+
+        .transport {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .transport-btn {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.10);
+            color: #e5e7eb;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .transport-btn:hover {
+            background: rgba(255, 255, 255, 0.20);
+            color: #fff;
+        }
+
+        .transport-btn.primary {
+            width: 38px;
+            height: 38px;
+            font-size: 15px;
+            background: rgba(59, 130, 246, 0.85);
+            color: #fff;
+        }
+
+        .transport-btn.primary:hover {
+            background: rgba(59, 130, 246, 1);
+        }
     </style>
 </head>
 <body>
@@ -155,6 +193,13 @@
                 <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
             </div>
             <div class="progress-text" id="progress-text">0 / 0</div>
+        </div>
+
+        <!-- The window was a status display with no way to act on what it showed. -->
+        <div class="transport">
+            <button class="transport-btn" id="prev-btn" title="Previous clip">⏮</button>
+            <button class="transport-btn primary" id="play-btn" title="Play or pause">▶</button>
+            <button class="transport-btn" id="next-btn" title="Next clip">⏭</button>
         </div>
 
 
@@ -172,6 +217,11 @@
         window.addEventListener('message', (event) => {
             if (event.data === 'init-port' && event.ports && event.ports[0]) {
                 messagePort = event.ports[0];
+                // The port was taken and started but never read from, so nothing
+                // sent down it ever arrived: the progress bar, the line preview
+                // and the status light all sat on their initial values for the
+                // life of the window, whatever the reader was doing.
+                messagePort.onmessage = (message) => applyState(message.data);
                 messagePort.start();
                 if (window.electronAPI && window.electronAPI.log) window.electronAPI.log('info', 'Controls window: MessageChannel port received');
             }
@@ -179,6 +229,9 @@
 
         // DOM elements
         const closeBtn = document.getElementById('close-btn');
+        const playBtn = document.getElementById('play-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
         const progressFill = document.getElementById('progress-fill');
         const progressText = document.getElementById('progress-text');
         const sentencePreview = document.getElementById('sentence-preview');
@@ -191,9 +244,24 @@
             currentSentence: ''
         };
 
+        /** Take a state update from whichever reader is playing and show it. */
+        function applyState(state) {
+            if (!state || typeof state !== 'object') return;
+            const next = state.audioState || state.state || state;
+            currentState = { ...currentState, ...next };
+            updateUI();
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             setupEventListeners();
+
+            // The main process also pushes state over IPC, which is the route a
+            // browser tab's updates take.
+            if (window.electronAPI && window.electronAPI.onIpcMessage) {
+                window.electronAPI.onIpcMessage('audio-state-update', (event, state) => applyState(state));
+            }
+            updateUI();
         });
 
         // Set up event listeners
@@ -206,6 +274,21 @@
                     if (window.electronAPI && window.electronAPI.log) window.electronAPI.log('error', 'Controls window: electronAPI.closeControls not available');
                 }
             });
+
+            // Transport. The command goes to the main process, which passes it to
+            // its own window and to any browser tab connected over the socket -
+            // so these work whichever one is doing the listening.
+            const send = (command) => {
+                if (window.electronAPI && window.electronAPI.audioControl) {
+                    window.electronAPI.audioControl(command);
+                } else if (window.electronAPI && window.electronAPI.log) {
+                    window.electronAPI.log('error', 'Controls window: audioControl bridge missing');
+                }
+            };
+
+            playBtn.addEventListener('click', () => send(currentState.isPlaying ? 'pause' : 'play'));
+            prevBtn.addEventListener('click', () => send('skipBackward'));
+            nextBtn.addEventListener('click', () => send('skipForward'));
         }
 
         // Update UI based on current state
@@ -229,6 +312,10 @@
             } else {
                 statusIndicator.classList.add('stopped');
             }
+
+            // The one button does both jobs, so it has to say which it is doing.
+            playBtn.textContent = currentState.isPlaying ? '⏸' : '▶';
+            playBtn.title = currentState.isPlaying ? 'Pause' : 'Play';
         }
     </script>
 </body>
