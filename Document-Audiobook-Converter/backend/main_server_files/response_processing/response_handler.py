@@ -50,6 +50,10 @@ class GeminiResponseHandler:
     # Waiting cannot be done inline: the receive loop is what delivers those
     # fragments, so blocking it guarantees none arrive. The completion is
     # deferred instead, leaving the loop free to keep collecting.
+    # Kept short on purpose. Widening it to 1s was tried against the live API:
+    # the turns that came back without a transcript simply moved to different
+    # passages and every turn got slower - so a missing transcript is the session
+    # not reporting one, not a fragment arriving late. This only covers the tail.
     TRANSCRIPT_SETTLE_SECONDS = 0.35
 
     def schedule_turn_completion(self):

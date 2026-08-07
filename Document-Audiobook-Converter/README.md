@@ -37,6 +37,44 @@ reader.
 
 A sophisticated web-based application that converts PDF documents into high-quality audiobooks using Google's Gemini Live API for natural speech synthesis. The system features advanced audio streaming, intelligent sentence completion detection, and seamless preloading capabilities.
 
+## 🧪 **Testing**
+
+Two layers, both quick to run.
+
+**Unit tests** cover the logic that has actually broken here: aligning an edited
+document against the loaded one, the narration markers, stripping rules from a
+stat block, and the streaming scheduler. No API key or server needed.
+
+```bash
+npm test          # once
+npm run test:watch
+```
+
+**Live smoke test** exercises the real narration path against a running backend.
+It checks every turn reaches its end, that the transcript arrives with the audio,
+and that both still hold with two sessions at once. Exits non-zero if a turn
+stalls, so it can gate a change.
+
+```bash
+cd backend
+python main.py                  # in one terminal
+python tests/smoke_turns.py     # in another
+```
+
+A turn reported without a transcript is not a failure: the session does not
+always report what it said, and the saved-audio marker reads *"transcript
+incomplete"* rather than claiming the narration diverged.
+
+**Document fixtures** for checking the three formats extract the same passages:
+
+```bash
+cd backend
+python tests/make_fixtures.py   # writes tests/fixtures/{smoke.txt,smoke.docx,smoke.pdf}
+```
+
+Open each from the reader - all three should give the same passages with no
+errors.
+
 ## 🌟 **Key Features**
 
 - **📄 PDF Processing**: Extract and process text from PDF documents

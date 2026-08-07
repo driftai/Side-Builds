@@ -192,9 +192,12 @@ export class PcmStreamPlayer {
         if (this.stopped) return;
         if (this.finishTimer !== null) clearTimeout(this.finishTimer);
         const remaining = Math.max(0, this.playHeadTime - this.context.currentTime);
-        this.finishTimer = window.setTimeout(() => {
+        // Plain setTimeout rather than window.setTimeout: nothing else in this
+        // class needs a browser, so keeping it off the global leaves it testable
+        // outside one.
+        this.finishTimer = setTimeout(() => {
             this.finishTimer = null;
             if (!this.stopped) this.onFinished();
-        }, remaining * 1000 + 30);
+        }, remaining * 1000 + 30) as unknown as number;
     }
 }

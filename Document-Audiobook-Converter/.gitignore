@@ -54,3 +54,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Generated test documents (see backend/tests/make_fixtures.py)
+backend/tests/fixtures/
