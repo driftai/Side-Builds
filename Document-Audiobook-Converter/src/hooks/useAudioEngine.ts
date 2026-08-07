@@ -156,6 +156,17 @@ export const useAudioEngine = (
     const prefetchQueueRef = useRef<Map<number, PrefetchEntry>>(new Map());
     const activePlayerRef = useRef<PcmStreamPlayer | null>(null);
     /**
+     * Bumped every time playback is torn down - a stop, a jump, a seek.
+     *
+     * Starting a passage involves waiting (for the audio context, for the first
+     * fragment), and anything captured before a wait has to know whether it is
+     * still wanted afterwards. The index and app-state refs cannot answer that:
+     * they are synced by effects, so immediately after a jump they still read as
+     * the passage being abandoned, and audio for it would start playing over the
+     * one just chosen. This changes the moment the teardown happens.
+     */
+    const playbackEpochRef = useRef(0);
+    /**
      * Where playback should go when the current audio ends, when that is not
      * simply the next passage - set when an edit has left the audio being played
      * detached from the document, so the passage it moved to is not skipped.
@@ -188,6 +199,8 @@ export const useAudioEngine = (
             try { currentAudioSourceRef.current.stop(); } catch (e) { }
             currentAudioSourceRef.current = null;
         }
+        // Anything mid-flight is now for a passage nobody is listening to.
+        playbackEpochRef.current += 1;
         activePlayerRef.current?.stop();
         activePlayerRef.current = null;
         nextIndexOverrideRef.current = null;
@@ -560,10 +573,16 @@ export const useAudioEngine = (
     const playStreamed = useCallback(async (
         index: number, record: StreamRecord,
     ): Promise<boolean> => {
+        // Everything below waits at least once, so remember which playback this
+        // belongs to and abandon it if that has been torn down since.
+        const epoch = playbackEpochRef.current;
+        const stillWanted = () => playbackEpochRef.current === epoch;
+
         const audioContext = getAudioContext();
         if (audioContext.state === 'suspended') {
             try { await audioContext.resume(); } catch { return false; }
         }
+        if (!stillWanted()) return false;
         // It finished while we were getting ready - the normal path is better.
         if (record.done) return false;
 
@@ -585,7 +604,10 @@ export const useAudioEngine = (
             });
             if (!streaming) return false;
         }
-        // The listener may have moved on while we waited - a jump, a stop.
+        // The listener may have moved on while we waited - a jump, a stop. The
+        // epoch is what catches a jump: the index ref is synced by an effect and
+        // still reads as this passage for a moment after one.
+        if (!stillWanted()) return false;
         if (appStateRef.current !== AppState.PLAYING || currentIndexRef.current !== index) {
             return false;
         }
@@ -645,6 +667,11 @@ export const useAudioEngine = (
     }, [getAudioContext, sentencesRef, advanceAfterPassage]);
 
     const playSentence = useCallback(async (index: number) => {
+        // Which playback this belongs to. Generating and resuming both wait, and
+        // a jump in the meantime means none of it should be heard.
+        const epoch = playbackEpochRef.current;
+        const stillWanted = () => playbackEpochRef.current === epoch;
+
         if (currentAudioSourceRef.current) {
             currentAudioSourceRef.current.onended = null;
             try { currentAudioSourceRef.current.stop(); } catch (e) { }
@@ -726,6 +753,10 @@ export const useAudioEngine = (
 
         prefetchQueueRef.current.delete(index);
 
+        // Generation may have taken a while; if playback moved on during it this
+        // audio belongs to a passage nobody is waiting for any more.
+        if (!stillWanted()) return;
+
         if (audioBuffer) {
             const audioContext = getAudioContext();
 
@@ -736,6 +767,10 @@ export const useAudioEngine = (
                 await audioContext.resume();
                 consoleLogger.current.logAudio('Audio Context', 'Resumed successfully');
             }
+
+            // Resuming the context waits too, so check once more before anything
+            // is connected to the speakers.
+            if (!stillWanted()) return;
 
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
