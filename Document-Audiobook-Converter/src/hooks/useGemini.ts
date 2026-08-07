@@ -85,6 +85,22 @@ interface Lane {
     turns: number;
     /** True while this lane is narrating; a lane takes one turn at a time. */
     running: boolean;
+    /**
+     * The last passage this lane narrated.
+     *
+     * Kept across a recycle so the replacement session can be told what it is
+     * carrying on from. A session dropped every few passages otherwise starts
+     * cold and can come back at a different pitch and pace, which is audible as
+     * a seam mid-chapter.
+     */
+    lastText?: string;
+    /**
+     * Set only when this lane's session was retired mid-document, and cleared
+     * once the replacement has been told. Distinct from lastText so a session
+     * opened for any other reason - a fresh document, a reconnect after a stop -
+     * is not told it is continuing from something unrelated.
+     */
+    continueFrom?: string;
     /** This lane's connection state, aggregated into the hook's wsState. */
     state: 'disconnected' | 'connecting' | 'connected' | 'error';
 }
@@ -238,6 +254,10 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                     allowModelOverride: true,
                     apiKey: currentConfig.apiKey,
                     instructions: currentConfig.instructions,
+                    // Only set once this lane has narrated something, so the very
+                    // first session of a document is not told it is continuing
+                    // from a passage that does not exist.
+                    continuationHint: lane.continueFrom ?? '',
                     sequentialAudioPlay: false
                 };
                 ws.send(JSON.stringify(setupMessage));
@@ -252,6 +272,8 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                         lane.state = 'connected';
                         lane.socket = ws;
                         lane.connecting = null;
+                        // Used once, by the session that has just been told.
+                        lane.continueFrom = undefined;
                         // Fresh session, fresh context: count from zero however
                         // this connection came about, not only after a recycle.
                         lane.turns = 0;
@@ -486,6 +508,9 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         lane.turns = 0;
         lane.socket = null;
         lane.connecting = null;
+        // Hand the replacement session the passage this one finished on, so it
+        // carries the same voice rather than starting cold mid-chapter.
+        lane.continueFrom = lane.lastText;
         if (ws && ws.readyState === WebSocket.OPEN) {
             console.log(`♻️ Recycling Live session after ${MAX_TURNS_PER_SESSION} passages to keep context clean`);
             try { ws.close(1000, 'context refresh'); } catch { /* already closing */ }
@@ -518,6 +543,7 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
 
                 try {
                     const result = await runTurn(ws, job.text, job.signal, job.onChunk);
+                    lane.lastText = job.text;
                     retireSessionIfExhausted(lane);
                     job.resolve(result);
                     return;
@@ -640,6 +666,19 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         syncWsState();
     }, [getLanes, syncWsState]);
 
+    /**
+     * Forget what the lanes were reading.
+     *
+     * Called when a different document is opened: a session started for a new
+     * book must not be told it is carrying on from the last one's prose.
+     */
+    const resetContinuity = useCallback(() => {
+        for (const lane of getLanes()) {
+            lane.lastText = undefined;
+            lane.continueFrom = undefined;
+        }
+    }, [getLanes]);
+
     /** Let the tool talk to Gemini again after a disconnect. */
     const allowConnections = useCallback(() => {
         blockedRef.current = false;
@@ -651,6 +690,7 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
         generateAudioForSentence,
         disconnect,
         allowConnections,
-        connectionsBlocked
+        connectionsBlocked,
+        resetContinuity
     };
 };

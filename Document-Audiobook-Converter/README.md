@@ -59,6 +59,7 @@ stalls, so it can gate a change.
 cd backend
 python main.py                  # in one terminal
 python tests/smoke_turns.py     # in another
+python tests/test_continuation.py   # config only, no key or server needed
 ```
 
 A turn reported without a transcript used to be common - the session does not

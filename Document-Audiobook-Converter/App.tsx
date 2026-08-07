@@ -349,7 +349,11 @@ const App: React.FC = () => {
     const [voiceControlsCollapsed, setVoiceControlsCollapsed] = useState<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { wsState, generateAudioForSentence, disconnect, allowConnections, connectionsBlocked } = useGemini(geminiConfig);
+    const { wsState, generateAudioForSentence, disconnect, allowConnections, connectionsBlocked, resetContinuity } = useGemini(geminiConfig);
+
+    // A new document starts a new narration; sessions opened for it must not be
+    // told they are carrying on from the last book's prose.
+    useEffect(() => { resetContinuity(); }, [documentId, resetContinuity]);
 
     const {
         appState,

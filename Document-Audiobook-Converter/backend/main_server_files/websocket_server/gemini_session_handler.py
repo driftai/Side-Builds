@@ -222,6 +222,9 @@ async def gemini_session_handler(websocket):
         model_name = client_config["model_name"]
         allow_model_override = client_config["allow_override"]
         instructions = config_data.get("instructions", "")
+        # The passage read just before this session was opened, when the reader
+        # is carrying on from one that was recycled. Context for tone only.
+        continuation_hint = config_data.get("continuationHint", "")
 
         # Additional server-side validation
         from main_server_files.api_configuration.gemini_config import validate_model, ALLOW_CLIENT_MODEL_OVERRIDE, MODEL_VALIDATION_ENABLED, get_allowed_models_list
@@ -250,8 +253,13 @@ async def gemini_session_handler(websocket):
             })
 
         # Create configuration with context and instructions if available
-        config = create_gemini_config(voice_name=voice_name, instructions=instructions)
-        print(f"Created configuration with voice: {voice_name} and instructions: {bool(instructions)}")
+        config = create_gemini_config(
+            voice_name=voice_name, instructions=instructions,
+            continuation_hint=continuation_hint,
+        )
+        print(f"Created configuration with voice: {voice_name} and instructions: {bool(instructions)}"
+              + (f", continuing from {len(continuation_hint)} chars of previous passage"
+                 if continuation_hint else ""))
 
         # Send a message to the client that we're connecting to Gemini
         await connection_monitor.safe_send(json.dumps({

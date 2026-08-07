@@ -143,7 +143,31 @@ DEFAULT_NARRATION_INSTRUCTION = (
 )
 
 
-def create_gemini_config(voice_name="Aoede", context=None, instructions=None):
+# How a fresh session is told what it is carrying on from.
+#
+# A session is dropped and remade every few passages to keep its context clean,
+# which works but leaves the new one reading cold: it has no idea it is partway
+# through a book, so the delivery can arrive at a different pitch and pace from
+# the passage just heard. Handing it the previous passage as *context* - not as
+# something to read - lets it pick up mid-flow. It costs no extra turn and no
+# extra audio, only a slightly longer instruction.
+#
+# The "do not read this aloud" is not decoration: without it the model narrates
+# the example, and the listener hears the previous passage twice.
+CONTINUATION_TEMPLATE = (
+    "\n\nYou are continuing a narration already in progress. "
+    "The passage immediately before this one read:\n\"{previous}\"\n"
+    "Match its voice, pace and tone so the listener hears no seam. "
+    "That passage is context only - do not read it aloud, and do not refer to it. "
+    "Narrate only the text you are given next."
+)
+
+# Long enough to convey the register, short enough not to crowd the instruction.
+CONTINUATION_MAX_CHARS = 400
+
+
+def create_gemini_config(voice_name="Aoede", context=None, instructions=None,
+                         continuation_hint=None):
     """Create configuration for Gemini session with optional context and instructions."""
     # These sampling fields used to sit under a nested "generation_config" key.
     # google-genai deprecated that for live sessions ("Setting
@@ -190,6 +214,13 @@ def create_gemini_config(voice_name="Aoede", context=None, instructions=None):
         instructions.strip() if instructions and instructions.strip()
         else DEFAULT_NARRATION_INSTRUCTION
     )
+
+    # Appended here rather than sent as the instruction itself, so a reader that
+    # set no instructions of its own still gets the narration default underneath.
+    if continuation_hint and continuation_hint.strip():
+        previous = " ".join(continuation_hint.split())[:CONTINUATION_MAX_CHARS]
+        effective_instructions += CONTINUATION_TEMPLATE.format(previous=previous)
+
     base_config["system_instruction"] = {
         "parts": [{"text": effective_instructions}]
     }
