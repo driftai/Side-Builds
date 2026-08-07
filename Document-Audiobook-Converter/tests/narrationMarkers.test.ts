@@ -63,6 +63,25 @@ describe('compareNarration', () => {
         expect(r.label).toMatch(/transcript incomplete/);
     });
 
+    it('judges a one-word clip on its words, not its length', () => {
+        // "Key." is four characters and its audio 0.7s. Judging that by rate
+        // declared a perfect transcript unjudgeable by a fifth of a character.
+        const r = compareNarration('Key.', 'Key.', 0.7);
+        expect(r.level).toBe('match');
+        expect(r.label).toBe('read word for word');
+    });
+
+    it('still trusts a matching transcript on a long clip', () => {
+        const line = 'The fishermen gathered their nets and spoke in low voices about the weather';
+        expect(compareNarration(line, line, 9).level).toBe('match');
+    });
+
+    it('still catches a genuinely truncated transcript on long audio', () => {
+        const source = 'Name: Leon kirumi. Race: Human. Class: Hero, Grand Magician, Tamer. '
+            + 'Level one. Health six hundred. Class skills: Holy Sword Summon.';
+        expect(compareNarration(source, 'Name: Leon', 57).level).toBe('unknown');
+    });
+
     it('still judges a stub transcript when the audio is short too', () => {
         // Here the narration really did stop early, which is worth flagging.
         const source = 'Name: Leon kirumi. Race: Human. Class: Hero, Grand Magician, Tamer.';

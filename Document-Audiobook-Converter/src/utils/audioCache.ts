@@ -75,6 +75,15 @@ export interface DocumentSummary {
  */
 export type CacheEvent =
     | { type: 'changed' }
+    /**
+     * Stored audio was thrown away or told to regenerate.
+     *
+     * Separate from 'changed', which also fires when a clip is saved. The reader
+     * keeps generated buffers in memory, so it has to be told when the copy on
+     * disk has gone - deleting a clip to force a regeneration otherwise replayed
+     * the very audio that was deleted.
+     */
+    | { type: 'removed' }
     | {
         type: 'activity';
         index: number;
@@ -324,6 +333,19 @@ const lcsLength = (a: string[], b: string[]): number => {
  */
 const MIN_CHARS_PER_SECOND = 6;
 
+/**
+ * Below this the rate test means nothing.
+ *
+ * A one-word passage is the case it got wrong: "Key." is four characters and its
+ * audio 0.7s, so six characters a second "expected" 4.2 and declared a perfect
+ * transcript unjudgeable by a fifth of a character. Short clips are mostly the
+ * pause either side of the word, so their rate is meaningless.
+ */
+const MIN_AUDIO_SECONDS_TO_DOUBT = 2.5;
+
+/** How much shorter than the source a transcript must be to look truncated. */
+const TRUNCATED_BELOW_FRACTION = 0.6;
+
 export const compareNarration = (
     sourceText: string,
     spokenText: string,
@@ -346,8 +368,16 @@ export const compareNarration = (
     // audio that was never wrong. If the audio is far too long for the words
     // reported, the transcript is what is missing - say so instead of judging
     // the narration on it.
-    if (audioSeconds && audioSeconds > 0
-        && (spokenText || '').trim().length < audioSeconds * MIN_CHARS_PER_SECOND) {
+    //
+    // Both things have to be true for that to be the explanation: the audio runs
+    // long enough for the rate to mean anything, and the transcript is well short
+    // of the source. A transcript that matches its source needs no excuse
+    // whatever the arithmetic says about its length.
+    const spokenChars = (spokenText || '').trim().length;
+    const looksTruncated = spoken.length < source.length * TRUNCATED_BELOW_FRACTION;
+    if (audioSeconds && audioSeconds >= MIN_AUDIO_SECONDS_TO_DOUBT
+        && looksTruncated
+        && spokenChars < audioSeconds * MIN_CHARS_PER_SECOND) {
         return {
             level: 'unknown', ratio: null, wordDelta: spoken.length - source.length,
             label: 'transcript incomplete - cannot judge this one',
@@ -570,6 +600,7 @@ export const setLiveOnly = async (key: string, liveOnly: boolean): Promise<void>
         if (meta) store.put({ ...meta, liveOnly });
     });
     emit({ type: 'changed' });
+    emit({ type: 'removed' });
 };
 
 export const deleteClip = async (key: string): Promise<void> => {
@@ -578,6 +609,7 @@ export const deleteClip = async (key: string): Promise<void> => {
         t.objectStore(BLOB_STORE).delete(key);
     });
     emit({ type: 'changed' });
+    emit({ type: 'removed' });
 };
 
 export const deleteDocument = async (documentId: string): Promise<number> => {
@@ -589,6 +621,7 @@ export const deleteDocument = async (documentId: string): Promise<number> => {
         }
     });
     emit({ type: 'changed' });
+    emit({ type: 'removed' });
     return clips.length;
 };
 
@@ -598,6 +631,7 @@ export const clearAll = async (): Promise<void> => {
         t.objectStore(BLOB_STORE).clear();
     });
     emit({ type: 'changed' });
+    emit({ type: 'removed' });
 };
 
 /**
@@ -632,6 +666,7 @@ export const enforceLimits = async (): Promise<number> => {
         }
     });
     emit({ type: 'changed' });
+    emit({ type: 'removed' });
     return doomed.size;
 };
 

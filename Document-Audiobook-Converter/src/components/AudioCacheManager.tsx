@@ -94,7 +94,9 @@ const AudioCacheManager: React.FC<Props> = ({ activeDocumentId, activeSentences,
     // announce themselves, so what is on screen matches what is happening.
     useEffect(() => {
         const unsubscribe = subscribe((event: CacheEvent) => {
-            if (event.type === 'changed') {
+            // 'removed' is for the engine, which drops the buffers it is holding;
+            // here it just means the same thing as any other write.
+            if (event.type === 'changed' || event.type === 'removed') {
                 // Totals matter even when collapsed; the listings only when open.
                 void getStats().then(setStats).catch(() => { });
                 if (isExpanded) void refresh();

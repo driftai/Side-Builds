@@ -4,6 +4,7 @@ import { GeminiApiConfig } from '../components/GeminiConfig';
 import {
     makeClipKey, makeLegacyClipKey, adoptLegacyClip, updateClipPosition,
     getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled,
+    subscribe,
 } from '../utils/audioCache';
 import { remapIndex } from '../utils/documentDiff';
 import { narratableText, isNarratable } from '../utils/textProcessing';
@@ -34,6 +35,13 @@ interface PrefetchEntry {
     text: string;
     /** Set once the passage is fully generated and ready to play as one buffer. */
     settled?: boolean;
+    /**
+     * Let this generation finish even when playback has moved past it.
+     *
+     * Set for a passage played as it generated: the listener has heard it, so
+     * cancelling the last of it only means it never gets stored.
+     */
+    keepToCompletion?: boolean;
     /**
      * Fragments for this particular generation, when the bypass is on.
      *
@@ -257,12 +265,36 @@ export const useAudioEngine = (
     const prunePrefetchQueue = useCallback((beforeIndex: number) => {
         for (const [i, entry] of [...prefetchQueueRef.current.entries()]) {
             if (i < beforeIndex) {
-                entry.controller.abort();
-                entry.promise.catch(() => { });
+                // A passage played as it generated is nearly finished and worth
+                // keeping: aborting it here is what stopped it ever reaching the
+                // manager. It was heard, so let it finish and be stored.
+                if (!entry.keepToCompletion) {
+                    entry.controller.abort();
+                    entry.promise.catch(() => { });
+                }
                 prefetchQueueRef.current.delete(i);
             }
         }
     }, []);
+
+    /**
+     * Forget buffers held in memory once the stored copy has gone.
+     *
+     * Deleting a clip to force a regeneration replayed the deleted audio: the
+     * look-ahead was still holding the buffer it had already produced, and never
+     * looked at the store again. Anything already generated is dropped so the
+     * next play goes back to the cache - which is now empty for that passage, so
+     * it regenerates. Work still in flight is left alone.
+     */
+    useEffect(() => subscribe(event => {
+        if (event.type !== 'removed') return;
+        for (const [i, entry] of [...prefetchQueueRef.current.entries()]) {
+            if (!entry.settled) continue;
+            if (i === currentIndexRef.current) continue;   // do not cut off what is playing
+            entry.promise.catch(() => { });
+            prefetchQueueRef.current.delete(i);
+        }
+    }), []);
 
     /**
      * Get audio for one sentence, from the cache when we already have it.
@@ -559,6 +591,11 @@ export const useAudioEngine = (
         }
 
         consoleLogger.current.logAudio('Streaming', `Sentence ${index} while it generates`);
+
+        // Heard, so worth storing: let it run to the end even once playback has
+        // moved on, instead of being cancelled by the look-ahead's tidy-up.
+        const entry = prefetchQueueRef.current.get(index);
+        if (entry) entry.keepToCompletion = true;
 
         const player = new PcmStreamPlayer({
             context: audioContext,
