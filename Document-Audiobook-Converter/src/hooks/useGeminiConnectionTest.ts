@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GeminiApiConfig } from '../types/gemini';
+import { createPcmAudioBuffer, decodeAudioChunk } from '../services/gemini/liveAudio';
+import {
+  createDisconnectMessage,
+  createInitMessage,
+  createTurnMessage,
+  isTurnBoundaryMessage,
+  parseServerMessage
+} from '../services/gemini/liveProtocol';
 
 export type GeminiConnectionTestStatus =
   | 'idle'
@@ -53,7 +61,9 @@ export const useGeminiConnectionTest = ({
         // key stays reserved on the service side after we have gone.
         const ws = testWsRef.current;
         try {
-          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'disconnect' }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(createDisconnectMessage()));
+          }
         } catch { /* socket already going */ }
         setTimeout(() => { try { ws.close(); } catch { /* already closing */ } }, 150);
         testWsRef.current = null;
@@ -102,21 +112,16 @@ export const useGeminiConnectionTest = ({
         setTestMessage('Connected successfully!');
 
         // Send init message to verify API key
-        const initMessage = {
-          type: 'init',
-          voice: config.voice,
-          model: config.model,
+        const initMessage = createInitMessage(config, {
           allowModelOverride: config.allowModelOverride,
-          apiKey: config.apiKey,
           instructions: "Test connection",
-          sequentialAudioPlay: false
-        };
+        });
         ws.send(JSON.stringify(initMessage));
       };
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = parseServerMessage(event.data);
           if (data.is_system_message) {
             setTestMessage(`Server: ${data.text}`);
             // Closed as soon as it has proved the API answers. Holding it open
@@ -186,24 +191,14 @@ export const useGeminiConnectionTest = ({
 
       ws.onopen = () => {
         // Init first
-        ws.send(JSON.stringify({
-          type: 'init',
-          voice: config.voice,
-          model: config.model,
+        ws.send(JSON.stringify(createInitMessage(config, {
           allowModelOverride: config.allowModelOverride,
-          apiKey: config.apiKey,
           instructions: "You are a helpful assistant.",
-          sequentialAudioPlay: false
-        }));
+        })));
 
         // Then send text
         setTimeout(() => {
-          ws.send(JSON.stringify({
-            realtime_input: {
-              media_chunks: [{ mime_type: "text/plain", data: ttsText }],
-              turn_complete: true
-            }
-          }));
+          ws.send(JSON.stringify(createTurnMessage(ttsText)));
         }, 500);
       };
 
@@ -211,7 +206,7 @@ export const useGeminiConnectionTest = ({
 
       ws.onmessage = async (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = parseServerMessage(event.data);
           console.log("TTS Test: Received message", data); // DEBUG LOG
 
           if (data.audio) {
@@ -219,19 +214,13 @@ export const useGeminiConnectionTest = ({
             setTestStatus('Receiving audio...');
 
             try {
-              const audioData = atob(data.audio);
-              const arrayBuffer = new ArrayBuffer(audioData.length);
-              const view = new Uint8Array(arrayBuffer);
-              for (let i = 0; i < audioData.length; i++) {
-                view[i] = audioData.charCodeAt(i);
-              }
-              audioChunks.push(arrayBuffer);
+              audioChunks.push(decodeAudioChunk(data.audio));
               console.log(`TTS Test: Chunk buffered. Total chunks: ${audioChunks.length}`);
 
             } catch (e) {
               console.error("TTS Test: Error buffering audio", e);
             }
-          } else if (data.is_transcription || data.turn_complete) {
+          } else if (isTurnBoundaryMessage(data)) {
             console.log("TTS Test: Turn complete, processing full audio...");
             setTestStatus('Processing audio...');
 
@@ -243,29 +232,11 @@ export const useGeminiConnectionTest = ({
             }
 
             try {
-              // Calculate total length
-              const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.byteLength, 0);
-              const combinedBuffer = new Uint8Array(totalLength);
-              let offset = 0;
-              for (const chunk of audioChunks) {
-                combinedBuffer.set(new Uint8Array(chunk), offset);
-                offset += chunk.byteLength;
-              }
-
-              console.log("TTS Test: Full PCM data assembled", combinedBuffer.byteLength);
-
               if (audioContext.state === 'suspended') {
                 await audioContext.resume();
               }
 
-              // Manual PCM Decoding (Int16 -> Float32)
-              const pcmData = new Int16Array(combinedBuffer.buffer);
-              const audioBuffer = audioContext.createBuffer(1, pcmData.length, 24000);
-              const channelData = audioBuffer.getChannelData(0);
-
-              for (let i = 0; i < pcmData.length; i++) {
-                channelData[i] = pcmData[i] / 32768.0;
-              }
+              const audioBuffer = createPcmAudioBuffer(audioContext, audioChunks);
 
               console.log("TTS Test: Full audio decoded", audioBuffer.duration);
 

@@ -12,7 +12,8 @@
                     "electron-dev":  "concurrently \"npm run dev\" \"wait-on http://localhost:5173 || wait-on http://localhost:5174 || wait-on http://localhost:5175 || wait-on http://localhost:5176 || wait-on http://localhost:5177 || wait-on http://localhost:5178 \u0026\u0026 electron .\"",
                     "build-electron":  "npm run build \u0026\u0026 electron-builder",
                     "test":  "vitest run",
-                    "test:watch":  "vitest"
+                    "test:watch":  "vitest",
+                    "check:size":  "node scripts/check-source-size.mjs"
                 },
     "main":  "electron/main.cjs",
     "homepage":  "./",
