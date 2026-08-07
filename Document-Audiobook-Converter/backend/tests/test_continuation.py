@@ -52,11 +52,14 @@ check("it is told not to read it aloud", "do not read it aloud" in carried.lower
 check("it is told to match the delivery",
       "voice" in carried.lower() and "pace" in carried.lower())
 
-print("\n== a reader's own instructions are respected ==")
+print("\n== a reader's own instructions are style-only ==")
 own = "Read in a slow, low voice."
 mixed = instruction_of(create_gemini_config(instructions=own, continuation_hint=PREVIOUS))
-check("the reader's instruction is kept", mixed.startswith(own), mixed[:50])
-check("the default is not bolted on as well", DEFAULT_NARRATION_INSTRUCTION not in mixed)
+check("the mandatory narration policy stays first",
+      mixed.startswith(DEFAULT_NARRATION_INSTRUCTION), mixed[:50])
+check("the reader's delivery style is kept", own in mixed)
+check("style is explicitly unable to override verbatim narration",
+      "cannot override the verbatim-narration policy" in mixed)
 check("the hint is still appended", PREVIOUS in mixed)
 
 print("\n== a long previous passage is trimmed ==")

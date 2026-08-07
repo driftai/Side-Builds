@@ -12,6 +12,7 @@ vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({
 vi.mock('mammoth/mammoth.browser', () => ({
     default: { extractRawText: vi.fn() },
 }));
+import * as pdfjsLib from 'pdfjs-dist';
 import {
     extractDocumentText,
     getDocumentType,
@@ -33,5 +34,37 @@ describe('document text facade', () => {
             {} as File,
             'epub' as never,
         )).rejects.toThrow('Unsupported document type: epub');
+    });
+
+    it('filters marked-content sentinels and normalizes the extracted PDF text', async () => {
+        const cleanup = vi.fn();
+        const destroy = vi.fn().mockResolvedValue(undefined);
+        vi.mocked(pdfjsLib.getDocument).mockReturnValue({
+            promise: Promise.resolve({
+                numPages: 1,
+                getPage: vi.fn().mockResolvedValue({
+                    getTextContent: vi.fn().mockResolvedValue({
+                        items: [
+                            { type: 'beginMarkedContent', id: 'chapter' },
+                            {
+                                str: 'dition began.', dir: 'ltr', transform: [12, 0, 0, 12, 40, 680],
+                                width: 90, height: 12, fontName: 'Body', hasEOL: true,
+                            },
+                            {
+                                str: 'tra-', dir: 'ltr', transform: [12, 0, 0, 12, 40, 700],
+                                width: 25, height: 12, fontName: 'Body', hasEOL: true,
+                            },
+                        ],
+                    }),
+                    cleanup,
+                }),
+            }),
+            destroy,
+        } as never);
+
+        const file = { arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)) } as unknown as File;
+        await expect(extractDocumentText(file, 'pdf')).resolves.toBe('tradition began.');
+        expect(cleanup).toHaveBeenCalledOnce();
+        expect(destroy).toHaveBeenCalledOnce();
     });
 });

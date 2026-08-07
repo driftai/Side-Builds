@@ -15,7 +15,3 @@ websockets==14.2
 
 # PDF text extraction for documents pushed through the backend
 pdfminer.six==20250506
-
-# PCM -> MP3 conversion used by the transcription path.
-# Requires ffmpeg on PATH if that path is enabled.
-pydub==0.25.1

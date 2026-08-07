@@ -1,4 +1,8 @@
 import React from 'react';
+import {
+    NARRATION_STYLE_PRESETS,
+    STYLE_INSTRUCTION_MAX_CHARS,
+} from '../config/narrationPolicy';
 import type { GeminiApiConfig, GeminiConnectionState } from '../types/gemini';
 import type { PlaybackControlHandlers, VoiceMode } from '../types/playback';
 import { AppState } from '../types/playback';
@@ -225,7 +229,7 @@ const VoiceControlsPanel: React.FC<VoiceControlsPanelProps> = ({
                     <div className="mt-3">
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-sm font-medium text-gray-400">
-                                Instructions (optional)
+                                Delivery style (optional)
                             </label>
                             {geminiConfig?.instructions && (
                                 <button
@@ -236,32 +240,46 @@ const VoiceControlsPanel: React.FC<VoiceControlsPanelProps> = ({
                                 </button>
                             )}
                         </div>
+                        <p className="mb-2 text-xs text-gray-500">
+                            Core read-verbatim rules always stay enabled.
+                        </p>
                         <textarea
                             value={geminiConfig?.instructions || ''}
                             onChange={event => {
-                                if (event.target.value.length <= 8000) {
+                                if (event.target.value.length <= STYLE_INSTRUCTION_MAX_CHARS) {
                                     updateGeminiConfig({
                                         instructions: event.target.value,
                                     });
                                 }
                             }}
-                            placeholder="e.g., 'You are a professional audiobook narrator with clear pronunciation and natural pacing.'"
+                            placeholder="Describe pacing, tone, accent, or pronunciation preferences."
                             rows={2}
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                            maxLength={8000}
+                            maxLength={STYLE_INSTRUCTION_MAX_CHARS}
                         />
                         <div className="flex items-center justify-between mt-1">
                             <div className="text-xs text-gray-500">
-                                {(geminiConfig?.instructions || '').length}/8000
+                                {(geminiConfig?.instructions || '').length}/{STYLE_INSTRUCTION_MAX_CHARS}
                             </div>
-                            <button
-                                onClick={() => updateGeminiConfig({
-                                    instructions: 'You are a professional audiobook narrator with clear pronunciation and natural pacing.',
-                                })}
-                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                            >
-                                Narrator
-                            </button>
+                            <div className="flex flex-wrap justify-end gap-2">
+                                {NARRATION_STYLE_PRESETS.map(preset => (
+                                    <button
+                                        key={preset.label}
+                                        type="button"
+                                        aria-pressed={geminiConfig?.instructions === preset.instructions}
+                                        onClick={() => updateGeminiConfig({
+                                            instructions: preset.instructions,
+                                        })}
+                                        className={`text-xs transition-colors ${
+                                            geminiConfig?.instructions === preset.instructions
+                                                ? 'text-white underline'
+                                                : 'text-blue-400 hover:text-blue-300'
+                                        }`}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 )}

@@ -1,10 +1,22 @@
 import type { GeminiApiConfig, NarrationResult } from '../../types/gemini';
+import { normalizeNarrationStyle } from '../../config/narrationPolicy';
 import { GeminiLane } from './GeminiLane';
 import type { GeminiSchedulerDependencies, LaneConnectionState, LaneJob } from './types';
 
 const LANE_COUNT = 2;
 const DISCONNECTED_MESSAGE =
     'Gemini is disconnected. Reconnect from the Gemini Live Audio panel to use it again.';
+
+const sessionIdentity = (config: GeminiApiConfig | null): string | null => config
+    ? JSON.stringify([
+        config.websocketUrl,
+        config.apiKey,
+        config.model,
+        config.allowModelOverride,
+        config.voice,
+        normalizeNarrationStyle(config.instructions),
+    ])
+    : null;
 
 /** Assigns the lowest document position to each free, exclusively owned lane. */
 export class GeminiLaneScheduler {
@@ -23,7 +35,12 @@ export class GeminiLaneScheduler {
     }
 
     setConfig(config: GeminiApiConfig | null): void {
+        const changed = this.config !== null
+            && sessionIdentity(this.config) !== sessionIdentity(config);
         this.config = config;
+        if (!changed) return;
+        for (const lane of this.lanes) lane.reconfigure();
+        this.syncConnectionState();
     }
 
     generateAudioForSentence(

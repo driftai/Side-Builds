@@ -68,7 +68,14 @@ Not Found"""
 
     return combined_handler
 
-async def initialize_websocket_server(port, gemini_session_handler, cleanup_interval_sec):
+async def initialize_websocket_server(
+    port,
+    gemini_session_handler,
+    cleanup_interval_sec,
+    # Kept literal to avoid a package-import cycle; a contract test locks this
+    # to server_config.DEFAULT_BIND_HOST.
+    host="127.0.0.1",
+):
     """
     Initialize and start the WebSocket server with retries and enhanced configuration for deadline error handling.
     Enhanced timeout settings to reduce deadline expired errors and improve connection stability.
@@ -105,7 +112,7 @@ async def initialize_websocket_server(port, gemini_session_handler, cleanup_inte
                 # Create and start the WebSocket server with enhanced settings for deadline handling
                 server = await websockets.serve(
                     gemini_session_handler,
-                    "0.0.0.0",  # Listen on all interfaces, not just localhost
+                    host,
                     port,
                     ping_interval=5,   # More frequent pings for better connection monitoring
                     ping_timeout=TimeoutConfig.WEBSOCKET_PING_TIMEOUT,   # Use configurable timeout for backend delays
@@ -119,8 +126,12 @@ async def initialize_websocket_server(port, gemini_session_handler, cleanup_inte
                 if server:
                     print("\n=== WebSocket Server Details ===")
                     print("Status: Running")
-                    print(f"Address: ws://localhost:{port}")
-                    print(f"External Address: ws://0.0.0.0:{port}")
+                    print(f"Bound address: ws://{host}:{port}")
+                    if host in {"0.0.0.0", "::"}:
+                        print(
+                            "WARNING: LAN binding is enabled without built-in "
+                            "authentication or TLS. Use only on a trusted network."
+                        )
                     print("Enhanced Configuration for Deadline Error Prevention:")
                     print(f"  - Ping interval: 30s (heartbeat)")
                     print(f"  - Ping timeout: {TimeoutConfig.WEBSOCKET_PING_TIMEOUT}s (deadline handling)")
@@ -182,4 +193,4 @@ async def initialize_websocket_server(port, gemini_session_handler, cleanup_inte
     except Exception as e:
         print(f"\nServer initialization error: {e}")
         traceback.print_exc()
-        return None, None 
+        return None, None

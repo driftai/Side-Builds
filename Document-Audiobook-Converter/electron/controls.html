@@ -197,6 +197,7 @@
 
         <!-- The window was a status display with no way to act on what it showed. -->
         <div class="transport">
+            <button class="transport-btn" id="stop-btn" title="Stop">&#9632;</button>
             <button class="transport-btn" id="prev-btn" title="Previous clip">⏮</button>
             <button class="transport-btn primary" id="play-btn" title="Play or pause">▶</button>
             <button class="transport-btn" id="next-btn" title="Next clip">⏭</button>
@@ -232,6 +233,7 @@
         const playBtn = document.getElementById('play-btn');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
+        const stopBtn = document.getElementById('stop-btn');
         const progressFill = document.getElementById('progress-fill');
         const progressText = document.getElementById('progress-text');
         const sentencePreview = document.getElementById('sentence-preview');
@@ -289,6 +291,7 @@
             playBtn.addEventListener('click', () => send(currentState.isPlaying ? 'pause' : 'play'));
             prevBtn.addEventListener('click', () => send('skipBackward'));
             nextBtn.addEventListener('click', () => send('skipForward'));
+            stopBtn.addEventListener('click', () => send('stop'));
         }
 
         // Update UI based on current state

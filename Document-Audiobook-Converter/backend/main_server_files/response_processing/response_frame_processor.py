@@ -139,35 +139,15 @@ async def process_response_frame(
                     await response_handler.handle_turn_complete()
                 return
 
-            try:
-                injected = await response_handler.inject_completion_indicator(
-                    server_content
-                )
-                if injected:
-                    response_logger.info(
-                        "Successfully injected completion indicator for "
-                        f"connection {connection_id}"
-                    )
-                    return
-
-                # Unknown mid-generation frames are not completion evidence.
-                audio_size = len(
-                    getattr(response_handler.audio_processor, 'audio_data', [])
-                )
-                if audio_size >= response_handler.MIN_MEANINGFUL_AUDIO_BYTES:
-                    completed = await response_handler.check_audio_completion()
-                    if completed:
-                        setattr(response_handler, '_completion_handled', True)
-                        return
-                else:
-                    response_logger.debug(
-                        "No audio data and no completion indicators for "
-                        f"connection {connection_id}"
-                    )
-            except Exception as error:
-                response_logger.warning(
-                    "Error in completion indicator injection/checking: "
-                    f"{error}"
+            # Unknown mid-generation frames are not completion evidence. The
+            # owned idle watchdog will finish a genuinely abandoned turn.
+            audio_size = len(
+                getattr(response_handler.audio_processor, 'audio_data', [])
+            )
+            if audio_size < response_handler.MIN_MEANINGFUL_AUDIO_BYTES:
+                response_logger.debug(
+                    "No audio data and no completion indicators for "
+                    f"connection {connection_id}"
                 )
         else:
             final_attr = getattr(model_turn, 'final', None)
@@ -204,43 +184,15 @@ async def process_response_frame(
         except Exception as error:
             response_logger.warning(f"Error in audio completion check: {error}")
 
-        # Do not force-complete a turn that has not produced meaningful audio.
         pending_audio = len(
             getattr(response_handler.audio_processor, 'audio_data', b'') or b''
         )
-        if pending_audio < response_handler.MIN_MEANINGFUL_AUDIO_BYTES:
-            response_logger.debug(
-                f"Unrecognised frame with only {pending_audio} bytes for "
-                f"connection {connection_id} - waiting for generation rather "
-                "than forcing completion"
-            )
-            return
-
-        response_logger.info(
-            f"Applying absolute fallback completion for connection {connection_id}"
+        response_logger.debug(
+            f"Frame carried {pending_audio} buffered audio bytes for "
+            f"connection {connection_id}; awaiting an explicit completion "
+            "indicator or the idle watchdog"
         )
-        try:
-            injected = await response_handler.inject_completion_indicator(
-                server_content
-            )
-            if injected:
-                response_logger.info(
-                    "Absolute fallback: injected completion indicator for "
-                    f"connection {connection_id}"
-                )
-                return
-
-            if not getattr(response_handler, '_completion_handled', False):
-                setattr(response_handler, '_completion_handled', True)
-                await response_handler.handle_turn_complete()
-                print(
-                    "Absolute fallback completion forced for connection "
-                    f"{connection_id}"
-                )
-        except Exception as error:
-            response_logger.error(
-                f"Critical error in absolute fallback completion: {error}"
-            )
+        return
     except AttributeError as error:
         print(
             f"AttributeError in response parsing for connection "

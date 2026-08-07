@@ -13,6 +13,7 @@ import {
     createStreamRecord,
     prunePrefetchQueue,
     remapPrefetchQueue,
+    waitForStreamAvailability,
 } from './prefetchQueue';
 import {
     PCM_SAMPLE_RATE,
@@ -31,6 +32,7 @@ interface GeminiPlaybackOptions {
     sentencesRef: React.MutableRefObject<string[]>;
     appStateRef: React.MutableRefObject<AppState>;
     currentIndexRef: React.MutableRefObject<number>;
+    playbackEpochRef: React.MutableRefObject<number>;
     setAppState: React.Dispatch<React.SetStateAction<AppState>>;
     setError: React.Dispatch<React.SetStateAction<string | null>>;
     setSpokenCharIndex: React.Dispatch<React.SetStateAction<number | null>>;
@@ -46,6 +48,7 @@ export const useGeminiPlayback = ({
     sentencesRef,
     appStateRef,
     currentIndexRef,
+    playbackEpochRef,
     setAppState,
     setError,
     setSpokenCharIndex,
@@ -55,7 +58,6 @@ export const useGeminiPlayback = ({
     const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const prefetchQueueRef = useRef<Map<number, PrefetchEntry>>(new Map());
     const activePlayerRef = useRef<PcmStreamPlayer | null>(null);
-    const playbackEpochRef = useRef(0);
     const wordTimerRef = useRef<number | null>(null);
     const fillFromRef = useRef<((from: number) => void) | null>(null);
     const logAudio = useCallback((action: string, details: string) => {
@@ -70,12 +72,13 @@ export const useGeminiPlayback = ({
     }, []);
 
     const resetPlayback = useCallback(() => {
+        // Invalidate every suspended/queued attempt before touching its output.
+        playbackEpochRef.current += 1;
         if (currentAudioSourceRef.current) {
             currentAudioSourceRef.current.onended = null;
             try { currentAudioSourceRef.current.stop(); } catch { /* already stopped */ }
             currentAudioSourceRef.current = null;
         }
-        playbackEpochRef.current += 1;
         activePlayerRef.current?.stop();
         activePlayerRef.current = null;
         clearPrefetchQueue(prefetchQueueRef.current);
@@ -84,7 +87,7 @@ export const useGeminiPlayback = ({
             wordTimerRef.current = null;
         }
         setSpokenCharIndex(null);
-    }, [setSpokenCharIndex]);
+    }, [playbackEpochRef, setSpokenCharIndex]);
 
     useEffect(() => subscribe(event => {
         if (event.type !== 'removed') return;
@@ -179,16 +182,7 @@ export const useGeminiPlayback = ({
         }
         if (!stillWanted() || record.done) return false;
 
-        if (record.chunks.length === 0) {
-            const streaming = await new Promise<boolean>(resolve => {
-                const probe = (pcm: ArrayBuffer | null) => {
-                    record.listeners.delete(probe);
-                    resolve(pcm !== null);
-                };
-                record.listeners.add(probe);
-            });
-            if (!streaming) return false;
-        }
+        if (!await waitForStreamAvailability(record, stillWanted)) return false;
         if (!stillWanted()
             || appStateRef.current !== AppState.PLAYING
             || currentIndexRef.current !== index) return false;
@@ -206,7 +200,9 @@ export const useGeminiPlayback = ({
                 record.listeners.delete(listener);
                 if (activePlayerRef.current !== player) return;
                 activePlayerRef.current = null;
-                if (appStateRef.current === AppState.PLAYING) advanceAfterPassage();
+                if (stillWanted()
+                    && appStateRef.current === AppState.PLAYING
+                    && currentIndexRef.current === index) advanceAfterPassage();
             },
         });
         listener = pcm => {
@@ -250,7 +246,8 @@ export const useGeminiPlayback = ({
             logAudio('Skipping', `Sentence ${index} has no speakable text`);
             fillPrefetchQueue(index + 1);
             window.setTimeout(() => {
-                if (appStateRef.current === AppState.PLAYING
+                if (stillWanted()
+                    && appStateRef.current === AppState.PLAYING
                     && currentIndexRef.current === index) advanceAfterPassage();
             }, 200);
             return;
@@ -265,6 +262,11 @@ export const useGeminiPlayback = ({
             setAppState(AppState.PAUSED);
             return;
         }
+        const discardQueued = () => {
+            if (prefetchQueueRef.current.get(index)?.promise === queued) {
+                prefetchQueueRef.current.delete(index);
+            }
+        };
 
         const pending = prefetchQueueRef.current.get(index);
         const stream = pending?.stream;
@@ -277,14 +279,16 @@ export const useGeminiPlayback = ({
             logAudio('Playing', `Sentence ${index}`);
         } catch (error: any) {
             if (error?.name === 'AbortError') return;
+            if (!stillWanted()) return;
             console.warn(`Sentence ${index} failed from queue, regenerating:`, error?.message ?? error);
-            prefetchQueueRef.current.delete(index);
+            discardQueued();
             try {
                 const text = sentencesRef.current[index];
                 if (!text) throw new Error(`No text found for sentence ${index}`);
                 audioBuffer = await requestAudio(index, text);
             } catch (retryError: any) {
                 if (retryError?.name === 'AbortError') return;
+                if (!stillWanted()) return;
                 console.error(`Error generating audio for sentence ${index}:`, retryError);
                 const message = typeof retryError?.message === 'string'
                     && retryError.message.includes('disconnected')
@@ -296,7 +300,7 @@ export const useGeminiPlayback = ({
             }
         }
 
-        prefetchQueueRef.current.delete(index);
+        discardQueued();
         if (!stillWanted() || !audioBuffer) return;
         const audioContext = getAudioContext();
         if (audioContext.state === 'suspended') {
@@ -311,7 +315,9 @@ export const useGeminiPlayback = ({
         source.connect(audioContext.destination);
         currentAudioSourceRef.current = source;
         source.onended = () => {
-            if (appStateRef.current === AppState.PLAYING) advanceAfterPassage();
+            if (stillWanted()
+                && appStateRef.current === AppState.PLAYING
+                && currentIndexRef.current === index) advanceAfterPassage();
         };
         fillPrefetchQueue(index + 1);
         source.start();

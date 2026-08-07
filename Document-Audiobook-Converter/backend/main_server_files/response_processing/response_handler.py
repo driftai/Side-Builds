@@ -29,6 +29,8 @@ class GeminiResponseHandler(ResponseAudioMixin):
         # Fire-and-forget completion tasks capture this sequence and retire when
         # another path has already advanced the turn.
         self._turn_seq = 0
+        self._idle_completion_task = None
+        self._settled_completion_task = None
 
     def _save_response_history(self, text):
         """Route mixin history writes through this module's stable dependency."""
@@ -39,15 +41,91 @@ class GeminiResponseHandler(ResponseAudioMixin):
 
     def schedule_turn_completion(self):
         """End the turn shortly, so trailing transcription is not cut off."""
+        self._cancel_idle_completion()
+        self._cancel_settled_completion()
         seq = self._turn_seq
 
         async def finish_when_settled():
-            await asyncio.sleep(self.TRANSCRIPT_SETTLE_SECONDS)
-            if not self._turn_still_current(seq):
+            try:
+                await asyncio.sleep(self.TRANSCRIPT_SETTLE_SECONDS)
+                if not self._turn_still_current(seq):
+                    return
+                self._settled_completion_task = None
+                await self.handle_turn_complete()
+            except asyncio.CancelledError:
                 return
-            await self.handle_turn_complete()
 
-        asyncio.create_task(finish_when_settled())
+        self._settled_completion_task = asyncio.create_task(
+            finish_when_settled()
+        )
+
+    def _cancel_task(self, attribute):
+        """Cancel one owned timer without cancelling the task running it."""
+        task = getattr(self, attribute, None)
+        setattr(self, attribute, None)
+        if (
+            task is not None
+            and task is not asyncio.current_task()
+            and not task.done()
+        ):
+            task.cancel()
+
+    def _cancel_idle_completion(self):
+        self._cancel_task('_idle_completion_task')
+
+    def _cancel_settled_completion(self):
+        self._cancel_task('_settled_completion_task')
+
+    def cancel_pending_tasks(self):
+        """Release completion timers when the owning connection closes."""
+        self._cancel_idle_completion()
+        self._cancel_settled_completion()
+
+    def schedule_idle_completion(self):
+        """Restart the single hang watchdog after receiving real audio."""
+        self._cancel_idle_completion()
+        audio_size = len(getattr(self.audio_processor, 'audio_data', b'') or b'')
+        if (
+            audio_size < self.MIN_MEANINGFUL_AUDIO_BYTES
+            or self.last_audio_time is None
+        ):
+            return
+
+        seq = self._turn_seq
+
+        async def finish_after_idle():
+            try:
+                while self._turn_still_current(seq):
+                    last_audio_time = self.last_audio_time
+                    if last_audio_time is None:
+                        return
+                    remaining = (
+                        self._completion_silence_threshold()
+                        - (time.time() - last_audio_time)
+                    )
+                    if remaining > 0:
+                        await asyncio.sleep(remaining)
+                    if not self._turn_still_current(seq):
+                        return
+                    if self.last_audio_time != last_audio_time:
+                        continue
+                    completed = await self.check_audio_completion()
+                    if completed:
+                        self._idle_completion_task = None
+                        return
+                    audio_size = len(
+                        getattr(self.audio_processor, 'audio_data', b'') or b''
+                    )
+                    if audio_size < self.MIN_MEANINGFUL_AUDIO_BYTES:
+                        self._idle_completion_task = None
+                        return
+                    # Timer resolution can wake a fraction early. Recompute the
+                    # remaining silence rather than dropping the only watchdog.
+                    await asyncio.sleep(0)
+            except asyncio.CancelledError:
+                return
+
+        self._idle_completion_task = asyncio.create_task(finish_after_idle())
 
     def _turn_still_current(self, seq):
         """True if the turn a deferred task was scheduled for is still active."""
@@ -102,28 +180,6 @@ class GeminiResponseHandler(ResponseAudioMixin):
 
     # 24kHz 16-bit mono PCM: 48000 bytes = one second.
     MIN_MEANINGFUL_AUDIO_BYTES = 4800
-    SHORT_UTTERANCE_BYTES = 24000
-    TINY_UTTERANCE_BYTES = 14400
-
-    def _should_check_completion_immediately(self, audio_size):
-        """Whether a short real utterance should run the hang check now."""
-        return (
-            self.MIN_MEANINGFUL_AUDIO_BYTES
-            <= audio_size
-            < self.SHORT_UTTERANCE_BYTES
-        )
-
-    def _should_force_completion_aggressively(self, audio_size):
-        """Whether a tiny utterance should schedule the legacy short check."""
-        return (
-            self.MIN_MEANINGFUL_AUDIO_BYTES
-            <= audio_size
-            < self.TINY_UTTERANCE_BYTES
-        )
-
-    def _should_force_large_completion_fast(self, audio_size):
-        """Whether a large buffer should schedule the legacy large check."""
-        return audio_size > 250000
 
     async def handle_turn_complete(self):
         """Handle turn completion from Gemini."""
@@ -151,6 +207,7 @@ class GeminiResponseHandler(ResponseAudioMixin):
 
             self._mark_completion_started()
             self._turn_seq += 1
+            self.cancel_pending_tasks()
 
             print(
                 "Processing turn complete with "
@@ -180,6 +237,7 @@ class GeminiResponseHandler(ResponseAudioMixin):
             print(f"Error processing transcription: {error}")
             return f"[Transcription error: {str(error)[:50]}...]"
         finally:
+            self.last_audio_time = None
             self._mark_completion_finished()
 
     async def check_audio_completion(self):
@@ -200,7 +258,7 @@ class GeminiResponseHandler(ResponseAudioMixin):
             silence_duration = time.time() - self.last_audio_time
             threshold = self._completion_silence_threshold()
             if audio_size > 0:
-                if silence_duration > threshold:
+                if silence_duration >= threshold:
                     print(
                         "Hang guard: completing turn after "
                         f"{silence_duration:.1f}s of silence with "
@@ -211,67 +269,11 @@ class GeminiResponseHandler(ResponseAudioMixin):
                     return True
                 return False
 
-            if silence_duration > threshold:
+            if silence_duration >= threshold:
                 print(
                     f"Hang guard: no audio at all for {silence_duration:.1f}s"
                 )
             return False
         except Exception as error:
             print(f"Error in audio completion check: {error}")
-            return False
-
-    async def inject_completion_indicator(self, server_content):
-        """Inject a missing completion indicator when enough audio is buffered."""
-        try:
-            if hasattr(self.audio_processor, 'audio_data'):
-                audio_size = len(self.audio_processor.audio_data)
-                if audio_size > 1000:
-                    print(
-                        "Injecting completion indicator for "
-                        f"{audio_size} bytes of audio data"
-                    )
-                    current_turn_complete = getattr(
-                        server_content, 'turn_complete', None
-                    )
-                    current_final = getattr(server_content, 'final', None)
-                    current_finished = getattr(server_content, 'finished', None)
-                    current_complete = getattr(server_content, 'complete', None)
-                    if (
-                        current_turn_complete
-                        or current_final
-                        or current_finished
-                        or current_complete
-                    ):
-                        print(
-                            "Completion indicator already present: "
-                            f"turn_complete={current_turn_complete}, "
-                            f"final={current_final}, "
-                            f"finished={current_finished}, "
-                            f"complete={current_complete}"
-                        )
-                        return False
-
-                    try:
-                        server_content.turn_complete = True
-                        print(
-                            "Successfully injected turn_complete=True into "
-                            "server_content"
-                        )
-                        return True
-                    except (AttributeError, TypeError):
-                        try:
-                            setattr(server_content, 'turn_complete', True)
-                            print(
-                                "Successfully set turn_complete=True using setattr"
-                            )
-                            return True
-                        except Exception as secondary_error:
-                            print(
-                                "Failed to inject completion indicator: "
-                                f"{secondary_error}"
-                            )
-                            return False
-            return False
-        except Exception as error:
-            print(f"Error injecting completion indicator: {error}")
             return False

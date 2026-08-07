@@ -13,6 +13,7 @@ interface ElectronAudioBridgeOptions {
     sentencesRef: React.MutableRefObject<string[]>;
     onPlay: () => void;
     onPause: () => void;
+    onStop: () => void;
     onSkipForward: () => void;
     onSkipBackward: () => void;
 }
@@ -20,6 +21,24 @@ interface ElectronAudioBridgeOptions {
 const summariseSentence = (sentence: string | undefined): string => {
     if (!sentence) return '';
     return sentence.substring(0, 60) + (sentence.length > 60 ? '...' : '');
+};
+
+type ElectronCommandHandlers = Pick<
+    ElectronAudioBridgeOptions,
+    'onPlay' | 'onPause' | 'onStop' | 'onSkipForward' | 'onSkipBackward'
+>;
+
+export const dispatchAudioControlCommand = (
+    command: AudioControlCommand | string,
+    handlers: ElectronCommandHandlers,
+): boolean => {
+    if (command === 'play') handlers.onPlay();
+    else if (command === 'pause') handlers.onPause();
+    else if (command === 'stop') handlers.onStop();
+    else if (command === 'skipForward') handlers.onSkipForward();
+    else if (command === 'skipBackward') handlers.onSkipBackward();
+    else return false;
+    return true;
 };
 
 /**
@@ -34,6 +53,7 @@ export const useElectronAudioBridge = ({
     sentencesRef,
     onPlay,
     onPause,
+    onStop,
     onSkipForward,
     onSkipBackward,
 }: ElectronAudioBridgeOptions): void => {
@@ -49,13 +69,16 @@ export const useElectronAudioBridge = ({
 
     useEffect(() => {
         const handleCommand = (command: AudioControlCommand | string) => {
-            if (command === 'play') onPlay();
-            else if (command === 'pause') onPause();
-            else if (command === 'skipForward') onSkipForward();
-            else if (command === 'skipBackward') onSkipBackward();
-            else console.log('Ignoring unknown control command:', command);
+            const handled = dispatchAudioControlCommand(command, {
+                onPlay,
+                onPause,
+                onStop,
+                onSkipForward,
+                onSkipBackward,
+            });
+            if (!handled) console.log('Ignoring unknown control command:', command);
         };
 
         return subscribeToAudioCommands(handleCommand);
-    }, [onPlay, onPause, onSkipForward, onSkipBackward]);
+    }, [onPlay, onPause, onStop, onSkipForward, onSkipBackward]);
 };

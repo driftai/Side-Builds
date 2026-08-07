@@ -8,6 +8,10 @@ CLEANUP_INTERVAL_SEC = 60
 # Default WebSocket server port
 DEFAULT_PORT = 9083
 
+# Safe default for a desktop-local service. LAN access must be requested with
+# ``python backend/main.py --host 0.0.0.0``.
+DEFAULT_BIND_HOST = "127.0.0.1"
+
 # Default status server port (WebSocket port + 1)
 STATUS_PORT = DEFAULT_PORT + 1
 
@@ -30,7 +34,7 @@ FORCE_IPV4 = True
 # leaving this on roughly doubles API calls per sentence and was exhausting the
 # quota. The sentinel is still sent when this is off. Set True to restore
 # transcription for clients that actually consume the text.
-TRANSCRIBE_GENERATED_AUDIO = False 
+TRANSCRIBE_GENERATED_AUDIO = False
 # Fill in a transcript when the Live session did not report one itself.
 #
 # The session usually says what it spoke alongside the audio, at no extra cost.

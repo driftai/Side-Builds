@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GeminiLaneScheduler } from '../src/hooks/gemini/GeminiLaneScheduler';
+import { TURN_IDLE_TIMEOUT_MS } from '../src/hooks/gemini/GeminiLane';
 import type { GeminiApiConfig } from '../src/types/gemini';
 
 class FakeWebSocket {
@@ -123,5 +124,157 @@ describe('GeminiLaneScheduler', () => {
         await Promise.resolve();
 
         expect(turnTexts(firstLane)).toEqual(['first', 'urgent']);
+    });
+
+    it('retires sessions when their effective narration configuration changes', async () => {
+        const scheduler = new GeminiLaneScheduler({
+            getAudioContext: () => new FakeAudioContext() as unknown as AudioContext,
+            onStateChange: vi.fn(),
+            onBlockedChange: vi.fn(),
+        });
+        scheduler.setConfig(config);
+
+        const first = scheduler.generateAudioForSentence('first');
+        await vi.advanceTimersByTimeAsync(301);
+        const firstSocket = FakeWebSocket.instances[0];
+        firstSocket.message({ audio: 'AAA=' });
+        firstSocket.message({ is_transcription: true, text: 'first' });
+        await first;
+        await Promise.resolve();
+
+        scheduler.setConfig({ ...config, instructions: 'Use a Southern cadence.' });
+        expect(firstSocket.readyState).toBe(FakeWebSocket.CLOSED);
+
+        const second = scheduler.generateAudioForSentence('second');
+        await vi.advanceTimersByTimeAsync(301);
+        const secondSocket = FakeWebSocket.instances.at(-1)!;
+        expect(secondSocket).not.toBe(firstSocket);
+        expect(JSON.parse(secondSocket.sent[0]).instructions).toBe('Use a Southern cadence.');
+        secondSocket.message({ audio: 'AAA=' });
+        secondSocket.message({ is_transcription: true, text: 'second' });
+        await second;
+
+        scheduler.setConfig({
+            ...config,
+            instructions: '  Use a   Southern cadence.  ',
+        });
+        expect(secondSocket.readyState).toBe(FakeWebSocket.OPEN);
+    });
+
+    it('respects model override config and retires the session when it changes', async () => {
+        const scheduler = new GeminiLaneScheduler({
+            getAudioContext: () => new FakeAudioContext() as unknown as AudioContext,
+            onStateChange: vi.fn(),
+            onBlockedChange: vi.fn(),
+        });
+        scheduler.setConfig(config);
+
+        const first = scheduler.generateAudioForSentence('first');
+        await vi.advanceTimersByTimeAsync(301);
+        const firstSocket = FakeWebSocket.instances[0];
+        expect(JSON.parse(firstSocket.sent[0]).allowModelOverride).toBe(true);
+        firstSocket.message({ audio: 'AAA=' });
+        firstSocket.message({ is_transcription: true, text: 'first' });
+        await first;
+
+        scheduler.setConfig({ ...config, allowModelOverride: false });
+        expect(firstSocket.readyState).toBe(FakeWebSocket.CLOSED);
+
+        const second = scheduler.generateAudioForSentence('second');
+        await vi.advanceTimersByTimeAsync(301);
+        const secondSocket = FakeWebSocket.instances.at(-1)!;
+        expect(secondSocket).not.toBe(firstSocket);
+        expect(JSON.parse(secondSocket.sent[0]).allowModelOverride).toBe(false);
+        secondSocket.message({ audio: 'AAA=' });
+        secondSocket.message({ is_transcription: true, text: 'second' });
+        await second;
+    });
+
+    it('retires an idle turn socket before the lane accepts another job', async () => {
+        const scheduler = new GeminiLaneScheduler({
+            getAudioContext: () => new FakeAudioContext() as unknown as AudioContext,
+            onStateChange: vi.fn(),
+            onBlockedChange: vi.fn(),
+        });
+        scheduler.setConfig(config);
+
+        const first = scheduler.generateAudioForSentence('first');
+        const firstFailure = first.then(
+            () => { throw new Error('Expected the first job to time out'); },
+            error => error as Error,
+        );
+        await vi.advanceTimersByTimeAsync(301);
+        const firstSocket = FakeWebSocket.instances[0];
+
+        await vi.advanceTimersByTimeAsync(TURN_IDLE_TIMEOUT_MS);
+        expect((await firstFailure).message).toBe('Timeout waiting for audio response');
+        expect(firstSocket.readyState).toBe(FakeWebSocket.CLOSED);
+
+        const second = scheduler.generateAudioForSentence('second');
+        await vi.advanceTimersByTimeAsync(301);
+        const secondSocket = FakeWebSocket.instances.at(-1)!;
+        expect(secondSocket).not.toBe(firstSocket);
+        expect(turnTexts(secondSocket)).toEqual(['second']);
+
+        // Even if a test transport delivers stale data after close, the old
+        // turn listener is gone and the new job only observes its new socket.
+        firstSocket.message({ audio: 'AAA=' });
+        firstSocket.message({ is_transcription: true, text: 'stale first' });
+        secondSocket.message({ audio: 'AAA=' });
+        secondSocket.message({ is_transcription: true, text: 'second' });
+        await expect(second).resolves.toMatchObject({ spokenText: 'second' });
+    });
+
+    it('retires a socket after a non-timeout turn error', async () => {
+        const scheduler = new GeminiLaneScheduler({
+            getAudioContext: () => new FakeAudioContext() as unknown as AudioContext,
+            onStateChange: vi.fn(),
+            onBlockedChange: vi.fn(),
+        });
+        scheduler.setConfig(config);
+
+        const failed = scheduler.generateAudioForSentence('missing audio');
+        const failure = failed.then(
+            () => { throw new Error('Expected the turn to fail'); },
+            error => error as Error,
+        );
+        await vi.advanceTimersByTimeAsync(301);
+        const failedSocket = FakeWebSocket.instances[0];
+        failedSocket.message({ is_transcription: true, text: 'missing audio' });
+
+        expect((await failure).message).toBe('No audio data received.');
+        expect(failedSocket.readyState).toBe(FakeWebSocket.CLOSED);
+
+        const next = scheduler.generateAudioForSentence('next');
+        await vi.advanceTimersByTimeAsync(301);
+        const nextSocket = FakeWebSocket.instances.at(-1)!;
+        expect(nextSocket).not.toBe(failedSocket);
+        nextSocket.message({ audio: 'AAA=' });
+        nextSocket.message({ is_transcription: true, text: 'next' });
+        await expect(next).resolves.toMatchObject({ spokenText: 'next' });
+    });
+
+    it('uses the latest config when it changes during the connection delay', async () => {
+        const scheduler = new GeminiLaneScheduler({
+            getAudioContext: () => new FakeAudioContext() as unknown as AudioContext,
+            onStateChange: vi.fn(),
+            onBlockedChange: vi.fn(),
+        });
+        scheduler.setConfig(config);
+        const result = scheduler.generateAudioForSentence('first');
+        scheduler.setConfig({ ...config, instructions: 'Latest style.' });
+
+        await vi.advanceTimersByTimeAsync(301);
+        const socket = FakeWebSocket.instances[0];
+        expect(JSON.parse(socket.sent[0]).instructions).toBe('Latest style.');
+        socket.message({ audio: 'AAA=' });
+        socket.message({ is_transcription: true, text: 'first' });
+        await result;
+    });
+
+    it('waits beyond the backend watchdog plus transcription fallback', () => {
+        expect(TURN_IDLE_TIMEOUT_MS).toBe(60_000);
+        expect(TURN_IDLE_TIMEOUT_MS).toBeGreaterThan(20_000 + 30_000);
+        expect(TURN_IDLE_TIMEOUT_MS).toBeLessThan(75_000);
     });
 });

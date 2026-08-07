@@ -4,6 +4,7 @@ import sys
 import websockets
 from ..websocket_server import initialize_websocket_server
 from ..port_management.port_handler import is_port_in_use
+from .server_config import DEFAULT_BIND_HOST, DEFAULT_PORT
 
 async def _cleanup_server_tasks(cleanup_task):
     """Helper function to cleanup server tasks."""
@@ -30,10 +31,23 @@ async def initialize_main_server(gemini_session_handler, cleanup_interval_sec=60
         
         # Parse command line arguments
         parser = argparse.ArgumentParser(description='Start Main server on specified port')
-        parser.add_argument('--port', type=int, default=9083, help='Port to run server on')
+        parser.add_argument(
+            '--host',
+            default=DEFAULT_BIND_HOST,
+            help=(
+                'Interface to bind (default: 127.0.0.1). Use 0.0.0.0 only '
+                'for deliberate access from a trusted LAN.'
+            ),
+        )
+        parser.add_argument('--port', type=int, default=DEFAULT_PORT, help='Port to run server on')
         args = parser.parse_args()
-        
+
+        host = args.host.strip()
         port = args.port
+
+        if not host:
+            print('Invalid empty host. Use 127.0.0.1 for local-only access.')
+            return None, None
         
         # Validate port before proceeding
         if port < 1024 or port > 65535:
@@ -46,7 +60,12 @@ async def initialize_main_server(gemini_session_handler, cleanup_interval_sec=60
         
         # Initialize the WebSocket server using the component
         try:
-            server, cleanup_task = await initialize_websocket_server(port, gemini_session_handler, cleanup_interval_sec)
+            server, cleanup_task = await initialize_websocket_server(
+                port,
+                gemini_session_handler,
+                cleanup_interval_sec,
+                host=host,
+            )
         except Exception as e:
             print(f"Failed to initialize WebSocket server: {e}")
             return None, None
@@ -72,4 +91,4 @@ async def initialize_main_server(gemini_session_handler, cleanup_interval_sec=60
         raise
     except Exception as e:
         print(f"\nServer initialization error: {str(e)}")
-        return None, None 
+        return None, None

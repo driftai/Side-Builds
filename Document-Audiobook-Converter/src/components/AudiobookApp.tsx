@@ -82,6 +82,7 @@ const AudiobookApp: React.FC = () => {
         handleStop,
         handleSkipForward,
         handleSkipBackward,
+        handleJumpToSentence: seekToSentence,
         error,
         setError,
         voiceMode,
@@ -136,6 +137,7 @@ const AudiobookApp: React.FC = () => {
         sentencesRef,
         onPlay: handlePlay,
         onPause: handlePause,
+        onStop: handleStop,
         onSkipForward: handleSkipForward,
         onSkipBackward: handleSkipBackward,
     });
@@ -152,13 +154,12 @@ const AudiobookApp: React.FC = () => {
     } = useDetachedControls(fileName, currentSentenceIndex);
 
     const handleJumpToSentence = useCallback((index: number) => {
-        if (index < 0 || index >= sentencesRef.current.length) return;
-        setCurrentSentenceIndex(index);
+        if (!seekToSentence(index)) return;
         requestAnimationFrame(() => {
             document.getElementById(`sentence-${index}`)
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
-    }, [sentencesRef, setCurrentSentenceIndex]);
+    }, [seekToSentence]);
 
     const handleGeminiConfigChange = useCallback((config: GeminiApiConfig) => {
         setGeminiConfig(config);
@@ -211,9 +212,7 @@ const AudiobookApp: React.FC = () => {
                             currentSentenceIndex={currentSentenceIndex}
                             appState={appState}
                             onSentenceClick={index => {
-                                handleStop();
-                                setCurrentSentenceIndex(index);
-                                setAppState(AppState.PLAYING);
+                                seekToSentence(index, 'play');
                             }}
                             sessionStartTime={sessionStartTime}
                             spokenCharIndex={spokenCharIndex}

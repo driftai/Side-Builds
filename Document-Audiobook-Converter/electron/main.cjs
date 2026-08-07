@@ -148,6 +148,8 @@ function createControlsWindow() {
   controlsWindow.once('ready-to-show', () => {
     console.log('Controls window ready, showing...');
     controlsWindow.show();
+    // A browser may have published this before the controls window existed.
+    controlsWindow.webContents.send('audio-state-update', audioState);
 
     // Send MessageChannel port to controls window
     if (messageChannel) {

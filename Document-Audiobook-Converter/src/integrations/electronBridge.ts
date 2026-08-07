@@ -1,6 +1,7 @@
 export type AudioControlCommand =
     | 'play'
     | 'pause'
+    | 'stop'
     | 'skipForward'
     | 'skipBackward';
 
@@ -62,6 +63,26 @@ export const isElectronRuntime = electronAPI !== null;
 let electronWebSocket: WebSocket | null = null;
 let messageChannelPort: MessagePort | null = null;
 let remoteCommandHandler: ((command: AudioControlCommand | string) => void) | null = null;
+let latestAudioState: AudioStateSnapshot | null = null;
+
+const sendAudioStateToSocket = (
+    socket: WebSocket,
+    state: AudioStateSnapshot,
+): void => {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    try {
+        socket.send(JSON.stringify({
+            action: 'updateAudioState',
+            args: state,
+        }));
+    } catch {
+        // Electron closed between the ready-state check and the send.
+    }
+};
+
+const publishLatestAudioState = (socket: WebSocket): void => {
+    if (latestAudioState) sendAudioStateToSocket(socket, latestAudioState);
+};
 
 const deliverSocketCommand = (event: MessageEvent) => {
     try {
@@ -109,6 +130,7 @@ export const reachElectron = (timeoutMs = 700): Promise<WebSocket | null> => {
             socket.onclose = () => {
                 if (electronWebSocket === socket) electronWebSocket = null;
             };
+            publishLatestAudioState(socket);
             settle(socket);
         };
         socket.onerror = () => settle(null);
@@ -133,6 +155,7 @@ const connectToElectronWebSocket = (): WebSocket | null => {
             socket.onopen = () => {
                 console.log(`✅ Electron app connected on port ${port}`);
                 electronWebSocket = socket;
+                publishLatestAudioState(socket);
             };
             socket.onmessage = deliverSocketCommand;
             socket.onclose = () => {
@@ -236,6 +259,7 @@ export const toggleElectronControls = () => {
 
 /** Publish the reader's current transport state over the active bridge. */
 export const publishAudioState = (state: AudioStateSnapshot) => {
+    latestAudioState = state;
     if (isElectronRuntime && electronAPI) {
         electronAPI.updateAudioState(state);
         return;
@@ -244,14 +268,7 @@ export const publishAudioState = (state: AudioStateSnapshot) => {
     const socket = electronWebSocket;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
-    try {
-        socket.send(JSON.stringify({
-            action: 'updateAudioState',
-            args: state,
-        }));
-    } catch {
-        // Electron is not open; detached controls simply are not in use.
-    }
+    sendAudioStateToSocket(socket, state);
 };
 
 /**
@@ -273,16 +290,15 @@ export const subscribeToAudioCommands = (
         _event: any,
         command: string,
     ) => handler(command);
-    const handleIpcMessage = (_event: any, ...args: any[]) => {
-        handler(String(args[0] ?? ''));
-    };
 
     electronAPI.onAudioCommand(handleAudioCommand);
-    electronAPI.onIpcMessage?.('execute-audio-command', handleIpcMessage);
 
     return () => {
-        electronAPI.removeAllListeners();
-        electronAPI.removeIpcListeners?.('execute-audio-command');
+        if (electronAPI.removeIpcListeners) {
+            electronAPI.removeIpcListeners('execute-audio-command');
+        } else {
+            electronAPI.removeAllListeners();
+        }
     };
 };
 

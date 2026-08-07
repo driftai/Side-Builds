@@ -290,6 +290,18 @@ class DispatchTests(unittest.IsolatedAsyncioTestCase):
 
 
 class FacadeTests(unittest.TestCase):
+    def test_websocket_server_defaults_to_loopback(self):
+        from main_server_files.server_initialization.server_config import (
+            DEFAULT_BIND_HOST,
+        )
+        from main_server_files.websocket_server.websocket_server_handler import (
+            initialize_websocket_server,
+        )
+
+        host = inspect.signature(initialize_websocket_server).parameters['host']
+        self.assertEqual(DEFAULT_BIND_HOST, '127.0.0.1')
+        self.assertEqual(host.default, DEFAULT_BIND_HOST)
+
     def test_public_async_signatures_are_compatible(self):
         from main_server_files.server_initialization.main_entry import (
             gemini_session_handler,

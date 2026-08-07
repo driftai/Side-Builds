@@ -21,6 +21,12 @@ export interface ClipMeta {
     spokenText: string;
     voice: string;
     model: string;
+    /** Normalized delivery guidance used when this audio was generated. */
+    styleInstructions?: string;
+    /** Missing on clips made before narration policy became part of identity. */
+    narrationPolicyVersion?: string;
+    /** Missing on clips made under an older cache-key normalization scheme. */
+    cacheNormalizationVersion?: string;
     bytes: number;
     durationSec: number;
     sampleRate: number;

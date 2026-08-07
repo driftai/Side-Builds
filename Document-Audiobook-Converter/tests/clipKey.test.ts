@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { makeClipKey, makeLegacyClipKey, makeDocumentId } from '../src/utils/audioCache';
+import {
+    isClipNarrationIdentityCompatible,
+    NARRATION_CACHE_NORMALIZATION_VERSION,
+} from '../src/utils/audioCache/identity';
+import { NARRATION_POLICY_VERSION } from '../src/config/narrationPolicy';
 
 /**
  * Clips are found by the words they narrate, not by where those words sit.
@@ -46,6 +51,30 @@ describe('makeClipKey', () => {
         expect(await makeClipKey({ documentId, text, voice, model: 'other-model' })).not.toBe(base);
     });
 
+    it('separates delivery styles and policy versions', async () => {
+        const documentId = await makeDocumentId('book.txt');
+        const base = await makeClipKey({ documentId, text, voice, model });
+        const styled = await makeClipKey({
+            documentId, text, voice, model, styleInstructions: 'Read slowly.',
+        });
+        const anotherPolicy = await makeClipKey({
+            documentId, text, voice, model, policyVersion: 'strict-verbatim-v3',
+        });
+        expect(styled).not.toBe(base);
+        expect(anotherPolicy).not.toBe(base);
+    });
+
+    it('normalizes style whitespace before deriving identity', async () => {
+        const documentId = await makeDocumentId('book.txt');
+        const plain = await makeClipKey({
+            documentId, text, voice, model, styleInstructions: 'slow and steady',
+        });
+        const spaced = await makeClipKey({
+            documentId, text, voice, model, styleInstructions: '  slow\n and   steady ',
+        });
+        expect(spaced).toBe(plain);
+    });
+
     it('separates documents that happen to share a line', async () => {
         const one = await makeClipKey({ documentId: await makeDocumentId('one.txt'), text, voice, model });
         const two = await makeClipKey({ documentId: await makeDocumentId('two.txt'), text, voice, model });
@@ -59,6 +88,31 @@ describe('makeClipKey', () => {
         expect(legacy).not.toBe(await makeClipKey({ documentId, text, voice, model }));
         // Position still distinguishes them under the old scheme.
         expect(await makeLegacyClipKey({ documentId, index: 5, voice, model })).not.toBe(legacy);
+    });
+});
+
+describe('legacy narration identity', () => {
+    const current = {
+        styleInstructions: 'Read steadily.',
+        narrationPolicyVersion: NARRATION_POLICY_VERSION,
+        cacheNormalizationVersion: NARRATION_CACHE_NORMALIZATION_VERSION,
+    };
+
+    it('refuses clips that cannot prove their policy and style', () => {
+        expect(isClipNarrationIdentityCompatible({})).toBe(false);
+        expect(isClipNarrationIdentityCompatible(current, {
+            styleInstructions: 'Use a Southern cadence.',
+        })).toBe(false);
+        expect(isClipNarrationIdentityCompatible({
+            ...current,
+            narrationPolicyVersion: 'strict-verbatim-v1',
+        }, { styleInstructions: current.styleInstructions })).toBe(false);
+    });
+
+    it('allows adoption only when every narration identity field matches', () => {
+        expect(isClipNarrationIdentityCompatible(current, {
+            styleInstructions: '  Read\n steadily. ',
+        })).toBe(true);
     });
 });
 

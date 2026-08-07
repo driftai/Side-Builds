@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import type { GeminiApiConfig } from '../types/gemini';
 import { AppState, type VoiceMode } from '../types/playback';
 import { remapIndex } from '../utils/documentDiff';
 import { speakWithPersistentVoice } from './audioEngine/browserSpeech';
-import type { AudioState, GenerateAudioForSentence } from './audioEngine/types';
+import { getNarrationIdentity } from './audioEngine/narrationIdentity';
+import { performPlaybackSeek } from './audioEngine/playbackSeek';
+import type {
+    AudioState,
+    GenerateAudioForSentence,
+    PlaybackSeekMode,
+} from './audioEngine/types';
 import { useGeminiPlayback } from './audioEngine/useGeminiPlayback';
 
 // Preserve the hook's original public surface for existing callers.
@@ -15,8 +21,8 @@ export const useAudioEngine = (
     documentId: string | null = null,
     documentName: string = '',
 ): AudioState => {
-    const [appState, setAppState] = useState<AppState>(AppState.IDLE);
-    const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
+    const [appState, setAppStateValue] = useState<AppState>(AppState.IDLE);
+    const [currentSentenceIndex, setCurrentSentenceIndexValue] = useState(-1);
     const [error, setError] = useState<string | null>(null);
     const [smoothPlayback, setSmoothPlayback] = useState(true);
     const [voiceMode, setVoiceMode] = useState<VoiceMode>('browser');
@@ -40,11 +46,21 @@ export const useAudioEngine = (
     const appStateRef = useRef(appState);
     const currentIndexRef = useRef(-1);
     const voiceModeRef = useRef(voiceMode);
+    const playbackEpochRef = useRef(0);
     const startedTokenRef = useRef<string | null>(null);
     const nextIndexOverrideRef = useRef<number | null>(null);
 
-    useEffect(() => { appStateRef.current = appState; }, [appState]);
-    useEffect(() => { currentIndexRef.current = currentSentenceIndex; }, [currentSentenceIndex]);
+    const setAppState = useCallback((next: SetStateAction<AppState>) => {
+        const resolved = typeof next === 'function' ? next(appStateRef.current) : next;
+        appStateRef.current = resolved;
+        setAppStateValue(resolved);
+    }, []);
+    const setCurrentSentenceIndex = useCallback((next: SetStateAction<number>) => {
+        const resolved = typeof next === 'function' ? next(currentIndexRef.current) : next;
+        currentIndexRef.current = resolved;
+        setCurrentSentenceIndexValue(resolved);
+    }, []);
+
     useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
     /**
@@ -73,6 +89,7 @@ export const useAudioEngine = (
         sentencesRef,
         appStateRef,
         currentIndexRef,
+        playbackEpochRef,
         setAppState,
         setError,
         setSpokenCharIndex,
@@ -81,8 +98,8 @@ export const useAudioEngine = (
 
     const resetPlaybackState = useCallback(() => {
         console.log('[Audio] Reset: Playback state cleared');
-        window.speechSynthesis.cancel();
         geminiPlayback.resetPlayback();
+        window.speechSynthesis.cancel();
         nextIndexOverrideRef.current = null;
         startedTokenRef.current = null;
     }, [geminiPlayback.resetPlayback]);
@@ -156,32 +173,45 @@ export const useAudioEngine = (
         resetPlaybackState();
         setAppState(AppState.READY);
         setCurrentSentenceIndex(-1);
-    }, [resetPlaybackState]);
+    }, [resetPlaybackState, setAppState, setCurrentSentenceIndex]);
 
     const handlePlay = useCallback(() => {
-        if (appState === AppState.READY || appState === AppState.IDLE) {
+        const state = appStateRef.current;
+        if (state === AppState.READY || state === AppState.IDLE) {
             setAppState(AppState.PLAYING);
             setCurrentSentenceIndex(0);
-        } else if (appState === AppState.PAUSED) {
+        } else if (state === AppState.PAUSED) {
             setAppState(AppState.PLAYING);
         }
-    }, [appState]);
+    }, [setAppState, setCurrentSentenceIndex]);
 
     const handlePause = useCallback(() => {
-        if (appState !== AppState.PLAYING) return;
+        if (appStateRef.current !== AppState.PLAYING) return;
         resetPlaybackState();
         setAppState(AppState.PAUSED);
-    }, [appState, resetPlaybackState]);
+    }, [resetPlaybackState, setAppState]);
+
+    const handleJumpToSentence = useCallback((
+        index: number,
+        mode: PlaybackSeekMode = 'preserve',
+    ) => performPlaybackSeek({
+        targetIndex: index,
+        sentenceCount: sentencesRef.current.length,
+        mode,
+        currentState: appStateRef.current,
+        stopPlayback: resetPlaybackState,
+        syncIndex: setCurrentSentenceIndex,
+        syncState: setAppState,
+        restartPlaybackEffect: () => setPlayNonce(nonce => nonce + 1),
+    }), [resetPlaybackState, setAppState, setCurrentSentenceIndex]);
 
     const handleSkipBackward = useCallback(() => {
-        if (currentSentenceIndex > 0) setCurrentSentenceIndex(previous => previous - 1);
-    }, [currentSentenceIndex]);
+        handleJumpToSentence(currentIndexRef.current - 1);
+    }, [handleJumpToSentence]);
 
     const handleSkipForward = useCallback(() => {
-        if (currentSentenceIndex < sentencesRef.current.length - 1) {
-            setCurrentSentenceIndex(previous => previous + 1);
-        }
-    }, [currentSentenceIndex]);
+        handleJumpToSentence(currentIndexRef.current + 1);
+    }, [handleJumpToSentence]);
 
     // Stop the outgoing engine before the playback effect starts the same passage
     // on the newly selected engine.
@@ -191,6 +221,22 @@ export const useAudioEngine = (
         previousVoiceModeRef.current = voiceMode;
         resetPlaybackState();
     }, [voiceMode, resetPlaybackState]);
+
+    const narrationIdentity = useMemo(
+        () => getNarrationIdentity(geminiConfig),
+        [geminiConfig?.allowModelOverride, geminiConfig?.instructions,
+            geminiConfig?.model, geminiConfig?.voice],
+    );
+    const previousNarrationIdentityRef = useRef(narrationIdentity);
+    useEffect(() => {
+        if (previousNarrationIdentityRef.current === narrationIdentity) return;
+        previousNarrationIdentityRef.current = narrationIdentity;
+        if (voiceModeRef.current !== 'gemini') return;
+        resetPlaybackState();
+        if (appStateRef.current === AppState.PLAYING) {
+            setPlayNonce(nonce => nonce + 1);
+        }
+    }, [narrationIdentity, resetPlaybackState]);
 
     // The token prevents unrelated callback identity changes from restarting a
     // passage that is already in progress.
@@ -209,7 +255,14 @@ export const useAudioEngine = (
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (voiceMode === 'browser') {
                 if (!window.speechSynthesis.speaking) window.speechSynthesis.cancel();
-                speakBrowser(sentences[currentSentenceIndex], selectedVoiceURI, advanceAfterPassage);
+                const epoch = playbackEpochRef.current;
+                speakBrowser(sentences[currentSentenceIndex], selectedVoiceURI, () => {
+                    if (playbackEpochRef.current === epoch
+                        && appStateRef.current === AppState.PLAYING
+                        && currentIndexRef.current === currentSentenceIndex) {
+                        advanceAfterPassage();
+                    }
+                });
             } else {
                 void geminiPlayback.playSentence(currentSentenceIndex);
             }
@@ -230,6 +283,7 @@ export const useAudioEngine = (
         handleStop,
         handleSkipForward,
         handleSkipBackward,
+        handleJumpToSentence,
         error,
         setError,
         smoothPlayback,

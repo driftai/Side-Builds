@@ -4,6 +4,7 @@ import { AppState, type SentenceIndexSetter, type VoiceMode } from '../../types/
 
 export const PCM_SAMPLE_RATE = 24000;
 export const PREFETCH_DEPTH = 4;
+export type PlaybackSeekMode = 'preserve' | 'play';
 
 export type GenerateAudioForSentence = (
     text: string,
@@ -38,6 +39,7 @@ export interface AudioState {
     handleStop: () => void;
     handleSkipForward: () => void;
     handleSkipBackward: () => void;
+    handleJumpToSentence: (index: number, mode?: PlaybackSeekMode) => boolean;
     error: string | null;
     setError: (error: string | null) => void;
     smoothPlayback: boolean;

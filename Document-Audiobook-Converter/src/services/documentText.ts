@@ -1,6 +1,13 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readDocxFile, readTextFile } from './documentReaders';
+import {
+    combinePdfPages,
+    extractPdfPageText,
+    isPdfTextItemLike,
+    type PdfPageText,
+} from './pdfTextLayout';
+import { normalizeTextbookText } from '../utils/textbookNormalization';
 
 /**
  * Extensions understood by every document-entry path.
@@ -36,13 +43,13 @@ export const extractDocumentText = async (
     file: File,
     fileType: SupportedDocumentType,
 ): Promise<string> => {
-    if (fileType === 'txt') return readTextFile(file);
-    if (fileType === 'docx') return readDocxFile(file);
+    if (fileType === 'txt') return normalizeTextbookText(await readTextFile(file));
+    if (fileType === 'docx') return normalizeTextbookText(await readDocxFile(file));
     if (fileType !== 'pdf') {
         throw new Error(`Unsupported document type: ${String(fileType)}`);
     }
 
-    let fullText = '';
+    const pages: PdfPageText[] = [];
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
     const pdf = await loadingTask.promise;
@@ -51,23 +58,12 @@ export const extractDocumentText = async (
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
             const page = await pdf.getPage(pageNumber);
             const content = await page.getTextContent();
-            let pageText = '';
-
-            // Honour pdf.js end-of-line markers. Flattening every item with a
-            // space welds headings onto the paragraph below and creates enormous
-            // pseudo-sentences.
-            for (const item of content.items as Array<{ str?: unknown; hasEOL?: boolean }>) {
-                if (typeof item.str !== 'string') continue;
-                pageText += item.str;
-                pageText += item.hasEOL ? '\n' : ' ';
-            }
-
-            fullText += `${pageText}\n`;
+            pages.push(extractPdfPageText(content.items.filter(isPdfTextItemLike)));
             page.cleanup();
         }
     } finally {
         await loadingTask.destroy();
     }
 
-    return fullText;
+    return normalizeTextbookText(combinePdfPages(pages));
 };

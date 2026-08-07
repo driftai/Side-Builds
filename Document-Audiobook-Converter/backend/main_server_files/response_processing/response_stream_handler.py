@@ -400,6 +400,7 @@ async def receive_from_gemini(
                 "is_error": True,
             }))
     finally:
+        response_handler.cancel_pending_tasks()
         stats = usage_monitor.get_stats()
         print(f"\nConnection {connection_id} usage statistics:")
         print(f"  Requests: {stats['requests']}")

@@ -9,7 +9,9 @@ import {
 } from '../../services/gemini/liveProtocol';
 import type { GeminiLaneDependencies, LaneConnectionState, LaneJob } from './types';
 
-const TURN_IDLE_TIMEOUT_MS = 15000;
+// Covers the backend's 20s no-audio watchdog plus its 30s transcription
+// fallback, while remaining inside the backend's 75s outer response timeout.
+export const TURN_IDLE_TIMEOUT_MS = 60000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 const MAX_TURNS_PER_SESSION = 6;
@@ -23,6 +25,7 @@ const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolv
 export class GeminiLane {
     public running = false;
     private socket: WebSocket | null = null;
+    private openingSocket: WebSocket | null = null;
     private connecting: Promise<WebSocket> | null = null;
     private turns = 0;
     private lastText?: string;
@@ -64,6 +67,9 @@ export class GeminiLane {
                     return;
                 } catch (error) {
                     const typedError = error as Error;
+                    if (typedError.name !== 'AbortError') {
+                        this.retireSocketAfterTurnFailure(socket);
+                    }
                     const socketDropped = typedError.message
                         ?.includes('WebSocket closed during audio generation');
                     if (typedError.name !== 'AbortError' && socketDropped && attempt < MAX_RETRIES) {
@@ -83,12 +89,17 @@ export class GeminiLane {
 
     disconnect(): void {
         const socket = this.socket;
+        const openingSocket = this.openingSocket;
         this.socket = null;
+        this.openingSocket = null;
         this.connecting = null;
         this.turns = 0;
         // The scheduler updates the aggregate once after all lanes have been
         // torn down, matching the original all-at-once disconnect transition.
         this.state = 'disconnected';
+        if (openingSocket && openingSocket !== socket) {
+            try { openingSocket.close(1000, 'disconnected by user'); } catch { /* already closed */ }
+        }
         if (!socket || socket.readyState !== WebSocket.OPEN) return;
         try {
             socket.send(JSON.stringify(createDisconnectMessage()));
@@ -98,6 +109,21 @@ export class GeminiLane {
         setTimeout(() => {
             try { socket.close(1000, 'disconnected by user'); } catch { /* already closed */ }
         }, 150);
+    }
+
+    /** Retire a session whose system instruction no longer matches config. */
+    reconfigure(): void {
+        const sockets = new Set([this.socket, this.openingSocket]);
+        this.socket = null;
+        this.openingSocket = null;
+        this.connecting = null;
+        this.turns = 0;
+        this.resetContinuity();
+        this.state = 'disconnected';
+        for (const socket of sockets) {
+            if (!socket || socket.readyState === WebSocket.CLOSED) continue;
+            try { socket.close(1000, 'narration configuration changed'); } catch { /* already closed */ }
+        }
     }
 
     resetContinuity(): void {
@@ -116,16 +142,22 @@ export class GeminiLane {
                 'Gemini is disconnected. Reconnect from the Gemini Live Audio panel to use it again.',
             );
         }
-        const config = this.dependencies.getConfig();
-        if (!config?.websocketUrl) throw new Error('Gemini WebSocket URL must be configured.');
         if (this.socket?.readyState === WebSocket.OPEN) return this.socket;
         if (this.connecting) return this.connecting;
 
         window.dispatchEvent(new CustomEvent('closeGeminiTestConnection'));
         await delay(300);
+        if (this.dependencies.isBlocked()) {
+            throw new Error(
+                'Gemini is disconnected. Reconnect from the Gemini Live Audio panel to use it again.',
+            );
+        }
+        const config = this.dependencies.getConfig();
+        if (!config?.websocketUrl) throw new Error('Gemini WebSocket URL must be configured.');
 
         const connectionPromise = new Promise<WebSocket>((resolve, reject) => {
             const socket = new WebSocket(config.websocketUrl);
+            this.openingSocket = socket;
             let sessionReady = false;
             const initTimeout = setTimeout(() => {
                 if (sessionReady) return;
@@ -137,7 +169,7 @@ export class GeminiLane {
             socket.onopen = () => {
                 this.setState('connecting');
                 socket.send(JSON.stringify(createInitMessage(config, {
-                    allowModelOverride: true,
+                    allowModelOverride: config.allowModelOverride,
                     instructions: config.instructions,
                     continuationHint: this.continueFrom ?? '',
                 })));
@@ -146,10 +178,15 @@ export class GeminiLane {
                 try {
                     const message = parseServerMessage(event.data as string);
                     if (!sessionReady && isSessionReadyMessage(message)) {
+                        if (this.openingSocket !== socket) {
+                            socket.close(1000, 'superseded configuration');
+                            return;
+                        }
                         clearTimeout(initTimeout);
                         sessionReady = true;
+                        this.openingSocket = null;
                         this.socket = socket;
-                        this.connecting = null;
+                        if (this.connecting === connectionPromise) this.connecting = null;
                         this.continueFrom = undefined;
                         this.turns = 0;
                         this.setState('connected');
@@ -161,17 +198,23 @@ export class GeminiLane {
             };
             socket.onerror = () => {
                 clearTimeout(initTimeout);
-                this.socket = null;
-                this.connecting = null;
-                this.setState('error');
+                const owned = this.socket === socket || this.openingSocket === socket;
+                if (this.openingSocket === socket) this.openingSocket = null;
+                if (this.socket === socket) this.socket = null;
+                if (this.connecting === connectionPromise) this.connecting = null;
+                if (owned) this.setState('error');
                 reject(new Error('WebSocket connection error'));
             };
             socket.onclose = () => {
-                if (this.socket === socket || this.socket === null) this.setState('disconnected');
+                clearTimeout(initTimeout);
+                const owned = this.socket === socket || this.openingSocket === socket;
+                if (this.openingSocket === socket) this.openingSocket = null;
                 if (this.socket === socket) {
                     this.socket = null;
-                    this.connecting = null;
                 }
+                if (this.connecting === connectionPromise) this.connecting = null;
+                if (owned) this.setState('disconnected');
+                if (!sessionReady) reject(new Error('WebSocket closed during initialization'));
             };
         });
 
@@ -265,7 +308,12 @@ export class GeminiLane {
             job.signal?.addEventListener('abort', onAbort);
             socket.addEventListener('message', onMessage);
             socket.addEventListener('close', onClose);
-            socket.send(JSON.stringify(createTurnMessage(job.text.trim())));
+            try {
+                socket.send(JSON.stringify(createTurnMessage(job.text.trim())));
+            } catch (error) {
+                finish();
+                reject(error as Error);
+            }
         });
     }
 
@@ -277,11 +325,31 @@ export class GeminiLane {
         this.socket = null;
         this.connecting = null;
         this.continueFrom = this.lastText;
+        this.setState('disconnected');
         if (socket?.readyState === WebSocket.OPEN) {
             console.log(
                 `Recycling Live session after ${MAX_TURNS_PER_SESSION} passages to keep context clean`,
             );
             try { socket.close(1000, 'context refresh'); } catch { /* already closing */ }
         }
+    }
+
+    /**
+     * A failed turn has no trustworthy server-side boundary. Retire its
+     * untagged socket before the lane is released so delayed output cannot be
+     * observed by the next job.
+     */
+    private retireSocketAfterTurnFailure(socket: WebSocket): void {
+        if (this.socket === socket) {
+            this.socket = null;
+            this.connecting = null;
+            this.turns = 0;
+            this.continueFrom = this.lastText;
+            this.setState('disconnected');
+        }
+        if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+            return;
+        }
+        try { socket.close(1000, 'retiring failed turn'); } catch { /* already closing */ }
     }
 }
