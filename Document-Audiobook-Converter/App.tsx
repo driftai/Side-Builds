@@ -278,6 +278,8 @@ const App: React.FC = () => {
      * only the controls move.
      */
     const [pipWindow, setPipWindow] = useState<Window | null>(null);
+    /** Detached controls shrunk to just the transport and the clip number. */
+    const [pipCompact, setPipCompact] = useState(false);
     const [lastEdit, setLastEdit] = useState<{ at: number; changed: number } | null>(null);
     const [geminiConfig, setGeminiConfig] = useState<GeminiApiConfig | null>(null);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -553,8 +555,11 @@ const App: React.FC = () => {
             }
             win.document.body.style.margin = '0';
             win.document.body.style.background = '#111827';
+            // Without a title of its own the window is labelled with the origin,
+            // which is how it ended up reading "localhost:5173".
+            win.document.title = 'Audiobook controls';
             // Closed from its own title bar as well as from the button.
-            win.addEventListener('pagehide', () => setPipWindow(null));
+            win.addEventListener('pagehide', () => { setPipWindow(null); setPipCompact(false); });
             setPipWindow(win);
         } catch (error) {
             // Refused (no gesture, already open elsewhere): keep the in-page panel.
@@ -565,6 +570,26 @@ const App: React.FC = () => {
 
     // Never leave the detached window behind when the reader goes away.
     useEffect(() => () => { try { pipWindow?.close(); } catch { /* already gone */ } }, [pipWindow]);
+
+    // Keep the window's own label useful as reading moves along.
+    useEffect(() => {
+        if (!pipWindow) return;
+        const position = currentSentenceIndex >= 0 ? ` - Clip #${currentSentenceIndex}` : '';
+        pipWindow.document.title = `${fileName || 'Audiobook'}${position}`;
+    }, [pipWindow, fileName, currentSentenceIndex]);
+
+    /** Shrink the detached window to the transport alone, or restore it. */
+    const togglePipCompact = useCallback(() => {
+        // Worked out before the state is set, not inside the updater: React runs
+        // updaters more than once, and resizing a window is not something to do
+        // twice per click.
+        const next = !pipCompact;
+        setPipCompact(next);
+        try {
+            // Resizing can be refused; the layout still adapts either way.
+            pipWindow?.resizeTo(next ? 232 : 320, next ? 96 : 168);
+        } catch { /* size is the browser's to give */ }
+    }, [pipCompact, pipWindow]);
 
     const handleUploadClick = useCallback(async () => {
         // Prefer a handle we can re-read, so later edits to the file show up
@@ -1037,18 +1062,30 @@ const App: React.FC = () => {
                 Rendered through a portal, so these are the same controls driving
                 the same playback - the audio stays in this page either way. */}
             {pipWindow && createPortal(
-                <div className="w-full h-full bg-gray-900 text-white flex flex-col justify-between p-3 font-sans">
+                <div className={`w-full h-full bg-gray-900 text-white flex flex-col justify-between font-sans ${pipCompact ? 'p-1.5' : 'p-3'}`}>
                     <div className="flex items-baseline justify-between gap-2">
                         <span className="text-[11px] text-gray-400 whitespace-nowrap">
                             Clip #{currentSentenceIndex >= 0 ? currentSentenceIndex : '-'} of {sentencesRef.current.length}
                         </span>
-                        <span className="text-[10px] text-gray-600 truncate">{fileName}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                            {!pipCompact && <span className="text-[10px] text-gray-600 truncate">{fileName}</span>}
+                            <button
+                                onClick={togglePipCompact}
+                                title={pipCompact ? 'Expand' : 'Minimise to the transport only'}
+                                aria-label={pipCompact ? 'Expand controls' : 'Minimise controls'}
+                                className="shrink-0 text-gray-500 hover:text-white text-xs leading-none px-1"
+                            >
+                                {pipCompact ? '▣' : '▁'}
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-xs text-blue-300/90 italic my-2 leading-snug line-clamp-3">
-                        {currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
-                            ? sentencesRef.current[currentSentenceIndex]
-                            : 'Press play to start listening.'}
-                    </p>
+                    {!pipCompact && (
+                        <p className="text-xs text-blue-300/90 italic my-2 leading-snug line-clamp-3">
+                            {currentSentenceIndex >= 0 && currentSentenceIndex < sentencesRef.current.length
+                                ? sentencesRef.current[currentSentenceIndex]
+                                : 'Press play to start listening.'}
+                        </p>
+                    )}
                     <PlayerControls
                         appState={appState}
                         currentSentenceIndex={currentSentenceIndex}

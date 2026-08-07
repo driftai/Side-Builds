@@ -3,7 +3,18 @@ import { GeminiApiConfig } from '../components/GeminiConfig';
 
 // A turn is one request/response cycle on the shared socket. The server marks
 // the end of every turn with an `is_transcription` message.
-const TURN_TIMEOUT_MS = 60000;
+//
+// Measured from the last thing the server said rather than from the start of
+// the turn. A flat ceiling has to be generous enough for the longest passage,
+// which meant a turn that died early still sat there for the full minute before
+// anything was retried - a minute of silence for a passage that normally takes
+// five seconds. Audio streams continuously while a turn is healthy, so a gap
+// this long means it has stopped, whatever its total length.
+//
+// Longer than the server's own 20s hang guard on purpose: when a turn stalls the
+// server should be the one to notice and close it out, and this only takes over
+// if the server itself is stuck.
+const TURN_IDLE_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 const PCM_SAMPLE_RATE = 24000;
@@ -368,11 +379,21 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                 chunks.length = 0;
             };
 
-            const timer = setTimeout(() => {
+            let timer = setTimeout(() => {
                 if (finished) return;
                 finish();
                 reject(new Error("Timeout waiting for audio response"));
-            }, TURN_TIMEOUT_MS);
+            }, TURN_IDLE_TIMEOUT_MS);
+
+            /** Restart the idle clock; the turn is still alive. */
+            const heard = () => {
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    if (finished) return;
+                    finish();
+                    reject(new Error("Timeout waiting for audio response"));
+                }, TURN_IDLE_TIMEOUT_MS);
+            };
 
             const onClose = () => {
                 if (finished) return;
@@ -390,6 +411,8 @@ export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
                     console.error("Failed to parse server message:", e);
                     return;
                 }
+
+                heard();
 
                 if (data.audio) {
                     if (!aborted) {
