@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GeminiApiConfig } from '../components/GeminiConfig';
+import type { GeminiApiConfig, NarrationResult } from '../types/gemini';
+import { AppState, type SentenceIndexSetter, type VoiceMode } from '../types/playback';
 import {
     makeClipKey, makeLegacyClipKey, adoptLegacyClip, updateClipPosition,
     getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled,
@@ -9,7 +10,9 @@ import {
 import { remapIndex } from '../utils/documentDiff';
 import { narratableText, isNarratable } from '../utils/textProcessing';
 import { PcmStreamPlayer } from '../utils/streamingPlayer';
-import type { NarrationResult } from './useGemini';
+
+// Preserve the hook's original public surface for existing callers.
+export { AppState } from '../types/playback';
 
 /** Sample rate of the PCM the Live API returns. */
 const PCM_SAMPLE_RATE = 24000;
@@ -53,20 +56,11 @@ interface PrefetchEntry {
     stream?: StreamRecord;
 }
 
-export enum AppState {
-    IDLE,
-    PROCESSING,
-    READY,
-    PLAYING,
-    PAUSED,
-    ERROR,
-}
-
 interface AudioState {
     appState: AppState;
     setAppState: (state: AppState) => void;
     currentSentenceIndex: number;
-    setCurrentSentenceIndex: React.Dispatch<React.SetStateAction<number>>;
+    setCurrentSentenceIndex: SentenceIndexSetter;
     sentencesRef: React.MutableRefObject<string[]>;
     handlePlay: () => void;
     handlePause: () => void;
@@ -77,8 +71,8 @@ interface AudioState {
     setError: (error: string | null) => void;
     smoothPlayback: boolean;
     setSmoothPlayback: (smooth: boolean) => void;
-    voiceMode: 'browser' | 'gemini';
-    setVoiceMode: React.Dispatch<React.SetStateAction<'browser' | 'gemini'>>;
+    voiceMode: VoiceMode;
+    setVoiceMode: React.Dispatch<React.SetStateAction<VoiceMode>>;
     selectedVoiceURI: string | null;
     setSelectedVoiceURI: (uri: string | null) => void;
     selectedGeminiVoice: string;
@@ -107,7 +101,7 @@ export const useAudioEngine = (
     const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
     const [error, setError] = useState<string | null>(null);
     const [smoothPlayback, setSmoothPlayback] = useState<boolean>(true);
-    const [voiceMode, setVoiceMode] = useState<'browser' | 'gemini'>('browser');
+    const [voiceMode, setVoiceMode] = useState<VoiceMode>('browser');
     // Restore the last voice on load. App.tsx has always written this on change,
     // but nothing ever read it back, so every reload dropped you onto the system
     // default and the choice had to be made again.

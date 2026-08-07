@@ -1,5 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { GeminiApiConfig } from '../components/GeminiConfig';
+import type {
+    GeminiApiConfig,
+    GeminiConnectionState,
+    NarrationResult,
+} from '../types/gemini';
+
+// Preserve the hook's established result type export.
+export type { NarrationResult } from '../types/gemini';
 
 // A turn is one request/response cycle on the shared socket. The server marks
 // the end of every turn with an `is_transcription` message.
@@ -62,11 +69,6 @@ const LANE_COUNT = 2;
  * saying. The spoken text lets the app compare narration against the source and
  * flag passages that drifted - it is empty if the session reported nothing.
  */
-export interface NarrationResult {
-    buffer: AudioBuffer;
-    spokenText: string;
-}
-
 /**
  * One generation lane: its own socket, its own Gemini session, and its own
  * serialised turn chain.
@@ -149,7 +151,7 @@ const decodeAudioChunk = (base64: string): ArrayBuffer => {
 };
 
 export const useGemini = (geminiConfig: GeminiApiConfig | null) => {
-    const [wsState, setWsState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+    const [wsState, setWsState] = useState<GeminiConnectionState>('disconnected');
     const geminiConfigRef = useRef<GeminiApiConfig | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
 

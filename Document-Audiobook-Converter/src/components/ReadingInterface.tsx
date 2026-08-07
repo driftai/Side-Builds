@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppState } from '../hooks/useAudioEngine';
+import { AppState } from '../types/playback';
 
 interface ReadingInterfaceProps {
     sentences: string[];

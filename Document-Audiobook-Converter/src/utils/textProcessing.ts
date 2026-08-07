@@ -203,29 +203,6 @@ export const splitIntoSentences = (text: string): string[] => {
         .filter(s => s.length > 0 && hasSpeakableContent(s));
 };
 
-export const handleTxtFile = async (file: File): Promise<string> => {
-    const reader = new FileReader();
-    return new Promise<string>((resolve, reject) => {
-        reader.onload = (e) => {
-            const textContent = e.target?.result as string;
-            resolve(textContent);
-        };
-        reader.onerror = () => reject(new Error('Failed to read text file'));
-        reader.readAsText(file);
-    });
-};
-
-// mammoth's browser bundle. Previously this was a global provided by a
-// <script> tag pointing at mammoth 1.4.2 on cdnjs, which meant .docx support
-// silently depended on a network fetch and on a build from 2021.
-import mammoth from 'mammoth/mammoth.browser';
-
-export const handleDocxFile = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-};
-
 // --- what can actually be spoken -------------------------------------------
 
 /**
@@ -251,3 +228,12 @@ export const narratableText = (text: string): string =>
 /** Is there anything here worth sending to be spoken? */
 export const isNarratable = (text: string): boolean =>
     /[\p{L}\p{N}]/u.test(narratableText(text));
+
+/**
+ * Compatibility exports for callers that used the former mixed-responsibility
+ * module. New document-loading code should import `documentReaders` directly.
+ */
+export {
+    readDocxFile as handleDocxFile,
+    readTextFile as handleTxtFile,
+} from '../services/documentReaders';
