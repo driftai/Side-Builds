@@ -184,18 +184,89 @@ export const makeDocumentId = (fileName: string): Promise<string> =>
     sha256(`name:${fileName.trim().toLowerCase()}`);
 
 /**
- * Identity for one clip: document, position, voice and model.
+ * Identity for one clip: document, the words it narrates, voice and model.
  *
- * Deliberately not the sentence text. Including it meant an edit produced a new
- * key, so the old clip lingered invisibly at the same position rather than being
- * shown as out of date. One clip per position per voice keeps the manager a true
- * picture of what is stored, and stale audio is surfaced by its marker instead
- * of hidden.
+ * Keyed on the text rather than the position. Position was the obvious choice
+ * and it is wrong for the way this tool is used: the document is edited while it
+ * is being read, and inserting a single line renumbers every passage below it,
+ * so every one of them missed its clip and was generated again - eighty calls to
+ * add one sentence to an eighty-clip document. Keyed on the text, a passage
+ * carries its audio with it however far it moves.
+ *
+ * Editing a passage still produces a different key, which is correct: the words
+ * changed, so the old audio narrates something the document no longer says. That
+ * clip stays in the store under its own key until it is cleared, and the manager
+ * shows it as no longer matching any passage.
  */
 export const makeClipKey = async (args: {
+    documentId: string; text: string; voice: string; model: string;
+}): Promise<string> =>
+    sha256([args.documentId, normaliseForKey(args.text), args.voice, args.model].join(' '));
+
+/**
+ * Text reduced to what is actually narrated, so trivial differences do not
+ * orphan a clip. Re-indenting a paragraph or changing its line wrapping must not
+ * cost a regeneration.
+ */
+const normaliseForKey = (text: string): string => text.replace(/\s+/g, ' ').trim();
+
+/**
+ * The key a clip would have had under the old position-based scheme.
+ *
+ * Only used to adopt clips generated before the change, so an existing library
+ * is not thrown away. Nothing writes these.
+ */
+export const makeLegacyClipKey = async (args: {
     documentId: string; index: number; voice: string; model: string;
 }): Promise<string> =>
     sha256([args.documentId, args.index, args.voice, args.model].join(' '));
+
+/**
+ * Record where a clip's passage now sits in the document.
+ *
+ * Clips are found by their words, so one still matches after an edit has moved
+ * it - but the manager lists them by position and "Go to" jumps by it, and both
+ * would be pointing at where the passage used to be.
+ */
+export const updateClipPosition = async (key: string, index: number): Promise<void> => {
+    try {
+        await tx([META_STORE], 'readwrite', async t => {
+            const store = t.objectStore(META_STORE);
+            const meta = await req<ClipMeta | undefined>(store.get(key));
+            if (!meta || meta.index === index) return;
+            store.put({ ...meta, index });
+        });
+    } catch (error) {
+        // Cosmetic only - never worth failing playback over.
+        console.warn('Could not update stored clip position:', error);
+    }
+};
+
+/**
+ * Move a clip stored under the old position-based key onto its text-based one.
+ *
+ * Without this, changing the scheme would silently abandon every clip already
+ * generated and charge for them all again.
+ */
+export const adoptLegacyClip = async (legacyKey: string, key: string): Promise<boolean> => {
+    try {
+        return await tx([META_STORE, BLOB_STORE], 'readwrite', async t => {
+            const metaStore = t.objectStore(META_STORE);
+            const blobStore = t.objectStore(BLOB_STORE);
+            const meta = await req<ClipMeta | undefined>(metaStore.get(legacyKey));
+            const blob = await req<ArrayBuffer | undefined>(blobStore.get(legacyKey));
+            if (!meta || !blob) return false;
+            metaStore.put({ ...meta, key });
+            blobStore.put(blob, key);
+            metaStore.delete(legacyKey);
+            blobStore.delete(legacyKey);
+            return true;
+        });
+    } catch (error) {
+        console.warn('Could not adopt a clip stored under the old key:', error);
+        return false;
+    }
+};
 
 // --- comparing narration against the source ---------------------------------
 

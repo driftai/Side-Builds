@@ -1,7 +1,10 @@
 import type React from 'react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GeminiApiConfig } from '../components/GeminiConfig';
-import { makeClipKey, getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled } from '../utils/audioCache';
+import {
+    makeClipKey, makeLegacyClipKey, adoptLegacyClip, updateClipPosition,
+    getClip, putClip, audioBufferToPcm16, noteActivity, isSavingEnabled, isStreamingEnabled,
+} from '../utils/audioCache';
 import { remapIndex } from '../utils/documentDiff';
 import { narratableText, isNarratable } from '../utils/textProcessing';
 import { PcmStreamPlayer } from '../utils/streamingPlayer';
@@ -284,25 +287,34 @@ export const useAudioEngine = (
         // opposite of what turning saving off is for.
         if (documentId && saving) {
             try {
-                key = await makeClipKey({ documentId, index, voice, model });
-                const hit = await getClip(key, context);
-                // A stored clip only counts when it was made from the text this
-                // passage currently holds. Editing the document leaves the old
-                // audio in place so the manager can show the mismatch, but it
-                // must never be played as though it were current.
-                if (hit && hit.meta.text === text) {
+                // Found by its words, so a passage keeps its audio however far an
+                // edit above has moved it.
+                key = await makeClipKey({ documentId, text, voice, model });
+                let hit = await getClip(key, context);
+
+                if (!hit) {
+                    // Clips generated before this keying change are stored under
+                    // the old position-based key; take them over rather than
+                    // paying to generate them all again.
+                    const legacyKey = await makeLegacyClipKey({ documentId, index, voice, model });
+                    const legacy = await getClip(legacyKey, context);
+                    if (legacy && legacy.meta.text === text && await adoptLegacyClip(legacyKey, key)) {
+                        consoleLogger.current.logAudio(
+                            'Adopted', `Sentence ${index} from the previous cache layout`);
+                        hit = legacy;
+                    }
+                }
+
+                if (hit) {
                     consoleLogger.current.logAudio(
                         'Cache hit',
                         `Sentence ${index} (${hit.meta.durationSec.toFixed(1)}s, no API call)`,
                     );
+                    // The manager lists and jumps by position, so keep it current
+                    // when a passage has shifted.
+                    if (hit.meta.index !== index) void updateClipPosition(key, index);
                     noteActivity(index, text, 'hit');
                     return hit.buffer;
-                }
-                if (hit) {
-                    consoleLogger.current.logAudio(
-                        'Source changed',
-                        `Sentence ${index} - stored audio is for older text, regenerating`,
-                    );
                 }
             } catch (error) {
                 console.warn(`Cache lookup failed for sentence ${index}, generating:`, error);

@@ -5,7 +5,10 @@ import websockets
 import hashlib
 import time
 from main_server_files.transcription.transcription_handler import transcribe_audio
-from main_server_files.server_initialization.server_config import TRANSCRIBE_GENERATED_AUDIO
+from main_server_files.server_initialization.server_config import (
+    TRANSCRIBE_GENERATED_AUDIO,
+    TRANSCRIBE_WHEN_SESSION_SILENT,
+)
 from google import genai
 
 # Optimized audio processing settings for stable streaming
@@ -341,11 +344,19 @@ class AudioProcessor:
                 # Use transcribed text if available, otherwise provide a fallback message
                 if not TRANSCRIBE_GENERATED_AUDIO:
                     # The session's own output transcription: what the model
-                    # actually spoke, gathered free alongside the audio. Empty
-                    # when the model produced no speech, which is itself worth
-                    # reporting.
+                    # actually spoke, gathered free alongside the audio.
                     message_text = self.spoken_text.strip()
                     is_error = False
+
+                    # It does not always report one. Rather than leave that
+                    # passage's marker unable to judge it, transcribe the audio
+                    # we just produced - but only in that case, so the cost falls
+                    # on the shortfall instead of on every passage.
+                    if not message_text and TRANSCRIBE_WHEN_SESSION_SILENT:
+                        print("Session reported no transcript; transcribing the audio instead")
+                        recovered = await transcribe_audio(self.audio_data, self.client)
+                        if recovered:
+                            message_text = recovered.replace("GEMINI: ", "").strip()
                 elif transcribed_text:
                     cleaned_text = transcribed_text.replace("GEMINI: ", "")
                     print(f"Transcribed text: {cleaned_text[:50]}...")

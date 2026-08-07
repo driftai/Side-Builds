@@ -31,3 +31,12 @@ FORCE_IPV4 = True
 # quota. The sentinel is still sent when this is off. Set True to restore
 # transcription for clients that actually consume the text.
 TRANSCRIBE_GENERATED_AUDIO = False 
+# Fill in a transcript when the Live session did not report one itself.
+#
+# The session usually says what it spoke alongside the audio, at no extra cost.
+# Roughly one passage in three comes back without it, and that clip's marker then
+# cannot judge whether the narration matched the source - which is the whole
+# point of storing the transcript. This transcribes only those passages, so the
+# cost lands on the gap rather than on everything, unlike TRANSCRIBE_GENERATED_AUDIO
+# above which ran on every turn and doubled the calls.
+TRANSCRIBE_WHEN_SESSION_SILENT = True

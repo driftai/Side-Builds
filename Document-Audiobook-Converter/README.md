@@ -61,9 +61,11 @@ python main.py                  # in one terminal
 python tests/smoke_turns.py     # in another
 ```
 
-A turn reported without a transcript is not a failure: the session does not
-always report what it said, and the saved-audio marker reads *"transcript
-incomplete"* rather than claiming the narration diverged.
+A turn reported without a transcript used to be common - the session does not
+always report what it said. Those passages are now transcribed from their own
+audio as a fallback, so the smoke test should show `0 without a transcript`.
+If one still slips through, its marker reads *"transcript incomplete"* rather
+than claiming the narration diverged.
 
 **Document fixtures** for checking the three formats extract the same passages:
 
@@ -74,6 +76,25 @@ python tests/make_fixtures.py   # writes tests/fixtures/{smoke.txt,smoke.docx,sm
 
 Open each from the reader - all three should give the same passages with no
 errors.
+
+## 🖥️ **Detached playback controls**
+
+Two routes, depending on how you run it.
+
+**In a browser** the controls detach into a Document Picture-in-Picture window: a
+real always-on-top window you can drag anywhere on the desktop, with a minimise
+button. It belongs to the page, so closing the tab closes it. Needs a secure
+context - `http://localhost` counts - and a browser that supports the API
+(Chrome/Edge). Anywhere else it falls back to a draggable panel inside the page.
+
+**In Electron** the same button opens Electron's own always-on-top window, which
+survives independently of any tab. Verified working: the app registers a
+`Ctrl+Shift+B` global shortcut and a control socket on port 3001.
+
+```bash
+npm run electron-dev    # vite + electron together
+npm run electron        # electron alone, against a dev server already running
+```
 
 ## 🌟 **Key Features**
 

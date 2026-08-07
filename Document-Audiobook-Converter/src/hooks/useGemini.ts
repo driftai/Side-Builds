@@ -11,10 +11,11 @@ import { GeminiApiConfig } from '../components/GeminiConfig';
 // five seconds. Audio streams continuously while a turn is healthy, so a gap
 // this long means it has stopped, whatever its total length.
 //
-// Longer than the server's own 20s hang guard on purpose: when a turn stalls the
-// server should be the one to notice and close it out, and this only takes over
-// if the server itself is stuck.
-const TURN_IDLE_TIMEOUT_MS = 30000;
+// Fifteen seconds is a long silence for a stream that normally delivers a
+// fragment every fraction of a second, so a healthy turn never approaches it -
+// while a dead one is given up on in a quarter of the time the original flat
+// minute took.
+const TURN_IDLE_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 const PCM_SAMPLE_RATE = 24000;

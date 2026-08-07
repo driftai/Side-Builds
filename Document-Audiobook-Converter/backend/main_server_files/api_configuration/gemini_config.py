@@ -205,7 +205,13 @@ def create_gemini_config(voice_name="Aoede", context=None, instructions=None):
 # gemini-1.5-pro and gemini-1.5-flash. Only models that report
 # bidiGenerateContent in models.list can serve a Live session.
 MAIN_MODEL = "gemini-2.5-flash-native-audio-preview-09-2025"
-TRANSCRIPTION_MODEL = "gemini-2.0-flash"  # Text-only model for transcription (generateContent)
+# Used only to fill in a transcript the Live session did not report itself.
+#
+# Was gemini-2.0-flash, which answers 429 RESOURCE_EXHAUSTED on this key -
+# measured 2026-08-07, while 2.5-flash answered normally. The feature was
+# recorded as "quota-blocked" when it was really pinned to a model this key
+# cannot call.
+TRANSCRIPTION_MODEL = "gemini-2.5-flash"
 
 # Allowed models for client override - only models that support live audio functionality
 ALLOWED_MODELS = [
@@ -227,7 +233,9 @@ TRANSCRIPTION_CONFIG = {
     "temperature": 0.0,  # Deterministic for speed
     "top_k": 1,
     "top_p": 1.0,        # Greedy decoding for speed
-    "max_output_tokens": 512,  # Reduced for faster processing
+    # A passage is a sentence or two; this is generous for one, and stops a
+    # confused response running on and costing far more than the audio did.
+    "max_output_tokens": 512,
 }
 
 # Alias MODEL to MAIN_MODEL for backward compatibility
