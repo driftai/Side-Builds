@@ -1,0 +1,86 @@
+Piano Auto Player v0.6.21 - COLLAPSIBLE AI CONVERSION PANEL
+
+- UI-only update. The v0.6.19 musical core and all v0.6.20 cookie-retention/library-transfer behavior are preserved unchanged.
+- Media / Spotify → Piano is now a native collapsible/expandable disclosure, collapsed by default to keep Sheet Finder compact.
+- Renames the old EXPERIMENTAL badge to AI-Conversion.
+- Keeps URL input, conversion route, retained YouTube session controls, engine/quality choices, Hi-Fi confidence, diagnostics/session bridge, alternate-source search, status, and retries inside the expandable body.
+- Adds a compact summary row with a disclosure arrow and AI audio-to-piano subtitle.
+- No model, timing, pitch, sustain, range, playback, provider, library, or cookie-storage logic changed.
+
+Piano Auto Player v0.6.20 - SESSION RETENTION + LIBRARY TRANSFER
+
+- Keeps the v0.6.19 musical core unchanged. No pitch, timing, sustain, fusion, range, or playback-default logic was modified.
+- YouTube Live Session imports are retained atomically outside the project tree and become the saved session used by later Automatic conversions; DevTools expiry timestamps and Netscape #HttpOnly_ account cookies are preserved correctly.
+- The running transcriber reloads the retained session before each YouTube download, so cookie updates made by another local process are picked up without restarting the app.
+- When yt-dlp successfully refreshes/rotates cookies during an authenticated conversion, the updated cookie file is promoted back into the retained session instead of being discarded with the temp job folder.
+- Fixes the session-status UI wrapper bug and shows whether a retained session is active without storing raw cookie text in browser localStorage.
+- Song + Recording Library now supports Export all (ZIP), per-song Export (.piano-song.json), and Import of library ZIPs or one/multiple individual song JSON files.
+- Library ZIPs contain only song records and a manifest; YouTube cookies/session secrets are never included. Re-importing an existing song ID replaces that library record.
+
+Piano Auto Player v0.6.19 - TEXTURE-BOUNDARY HYSTERESIS
+
+- Preserves the v0.6.18 golden 95% path and narrows the remaining repeated jump issue to sparse/dense timing-boundary flicker.
+- A single cluster that briefly flips texture classification inside an otherwise stable run is now treated as a density blip rather than a real timing boundary.
+- This removes the pair of immediate timing resets that can make one exposed note jump relative to its neighbors even when pitch and sustain are correct.
+- Persistent sparse/dense transitions and genuine phrase gaps are unchanged.
+- The rule is universal and contains no song, URL, timestamp, or event-number special case.
+- Adds diagnostics for texture flicker resets suppressed.
+
+Piano Auto Player v0.6.18 - SPARSE TIMING CONTINUITY
+
+- Fixes repeated timing "jumps" inside exposed/arpeggiated passages introduced by v0.6.17's per-cluster sparse timing resets.
+- Consecutive sparse attacks now use their own tighter slew-limited timing curve instead of each attack independently adopting a new offset.
+- Real sparse/dense texture boundaries and genuine phrase gaps can still reset timing immediately, so dense timing bias does not bleed into an exposed passage.
+- Keeps the v0.6.17 conservative 75/25 sparse timing anchor, sparse missing-note rescue, and all proven dense/later-song behavior unchanged.
+- The rule is texture-driven and contains no song title, URL, timestamp, or event-number special case.
+
+Piano Auto Player v0.6.17 - SPARSE-PASSAGE FIDELITY GUARD
+
+- Preserves v0.6.16 behavior for dense/chordal material.
+- Restores the lighter v0.6.8-style 75/25 timing blend only for automatically detected exposed/low-density passages.
+- Prevents the acoustic onset sensor and relative-timing slew from over-correcting sparse attacks.
+- Adds an acoustic-confirmed sparse missing-attack rescue for Basic Pitch notes that Transkun omitted entirely.
+- Does not hard-code Sparkle, an intro timestamp, or an event range.
+
+Piano Auto Player v0.6.16 - RELATIVE PACING CONTINUITY
+
+- Fixes local timing jumps caused by independently correcting adjacent attack clusters by different amounts.
+- Dense passages now use a slew-limited timing-correction curve, so a delayed attack cannot make the immediately following key arrive prematurely relative to it.
+- The allowed correction change scales with the actual inter-onset gap; very fast passages receive the strongest continuity protection.
+- Genuine phrase gaps reset the correction naturally instead of dragging timing bias across rests.
+- Keeps acoustic onset sensing as evidence, but prevents its per-cluster corrections from distorting local rhythm.
+- Preserves v0.6.15 target-key alias handling, v0.6.14 acoustic reattack arbitration, v0.6.13 release-safe note-offs, and source-space pitch fusion.
+- Adds diagnostics for relative timing jumps softened, phrase timing resets, and raw/stabilized correction-step size.
+- No new setup or model download is required.
+
+Piano Auto Player v0.6.15 - TARGET-KEY ALIAS LIFECYCLE
+
+- Fixes a post-fusion 61-key alias problem that could reintroduce white/black same-key jumps or over-held target notes after source-space sustain repair had already finished.
+- Same-onset octave-fold collisions now choose one representative rather than unioning their release tails.
+- Genuine in-range C2-C7 notes outrank folded edge-octave aliases when both map onto the same target key.
+- A folded alias can no longer manufacture a second press while the native target note is already active.
+- When an older folded alias overlaps a later native note, its hold is trimmed before control passes to the native key instead of layering underneath it.
+- The rule is target-pitch agnostic and applies to white and black keys; diagnostics report both separately.
+- Preserves v0.6.14 acoustic reattack arbitration, v0.6.13 release-safe note-offs, v0.6.12 acoustic pacing, and 88-key exact playback.
+- No new setup or model download is required.
+
+Piano Auto Player v0.6.14 - ACOUSTIC REATTACK ARBITER
+
+- Fixes audible same-key "jumping" where a fragmented sustain can release and immediately re-press the same target key.
+- Restores continuity-first stitching when one model hears a new same-pitch onset but the other explicitly spans it as one held note.
+- Uses the existing source-waveform onset peaks as an independent arbiter: a real acoustic attack protects an intentional re-strike instead of letting continuity swallow it.
+- Keeps dual-model onset agreement and strong velocity jumps as hard reattack protections.
+- Adds a narrow micro-gap deglitch for tiny unsupported release/repress boundaries.
+- Preserves v0.6.13 release-safe note-offs, v0.6.12 acoustic attack pacing, source-space pitch fusion, and target-layout adaptation.
+- Adds diagnostics for acoustic reattacks protected, continuity jumps suppressed, and micro-gap jumps suppressed.
+- No new setup or model download is required.
+
+Piano Auto Player v0.6.13 - RELEASE-SAFE ATTACK TIMING
+
+- Fixes the v0.6.12 regression where delayed onset corrections could also drag note-offs later and make sustained notes smear into following phrases.
+- Attack corrections now move key-down timing only; Transkun's absolute release remains anchored to the source timeline.
+- Basic Pitch can no longer lengthen Transkun note-offs from lingering pedal/resonance energy.
+- Basic Pitch release differences remain diagnostic evidence, while the existing cross-model sustain stitcher is the only path allowed to join a proven false release/repress split.
+- Keeps v0.6.12 acoustic onset sensing, v0.6.10 coherent chord timing, v0.6.9 pedal-aware reattack protection, v0.6.8 sustain continuity, and v0.6.7 source-space pitch fusion.
+- Adds diagnostics for guarded release overhangs and ignored secondary release tails.
+- No new setup or model download is required.

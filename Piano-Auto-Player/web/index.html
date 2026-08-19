@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Piano Auto Player</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LOCALHOST STUDIO</p>
+        <h1>Piano Auto Player</h1>
+        <p class="sub">Find a sheet across multiple hosts, paste one manually, or record your own performance with exact timing.</p>
+      </div>
+      <div class="status-chip" id="statusChip" data-state="idle"><span class="dot"></span><span id="statusText">Ready</span></div>
+    </header>
+
+    <section class="hero-grid">
+      <article class="panel player-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">SHEET PLAYER</p><input id="titleInput" class="title-input" value="Untitled sheet" aria-label="Song title"></div>
+          <button class="ghost" id="saveSongBtn">Save song</button>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-track" title="Drag to seek to an event">
+            <div id="progressBar" class="progress-bar"></div>
+            <input id="eventSeekRange" class="progress-seek" type="range" min="1" max="1" value="1" step="1" aria-label="Seek by event">
+          </div>
+          <div class="progress-meta"><span id="progressText">0 / 0 events</span><span id="currentToken">—</span></div>
+          <div class="seek-controls">
+            <button type="button" id="seekStartBtn" title="First event">↤</button>
+            <button type="button" data-seek-delta="-100">−100</button><button type="button" data-seek-delta="-10">−10</button><button type="button" data-seek-delta="-1">−1</button>
+            <label class="seek-number"><span>Event</span><input id="eventSeekInput" type="number" min="1" value="1" step="1"><b id="eventSeekTotal">/ 0</b></label>
+            <button type="button" id="seekGoBtn" class="primary">Go</button>
+            <button type="button" data-seek-delta="1">+1</button><button type="button" data-seek-delta="10">+10</button><button type="button" data-seek-delta="100">+100</button>
+            <button type="button" id="seekEndBtn" title="Last event">↦</button>
+          </div>
+        </div>
+        <textarea id="sheetInput" spellcheck="false" placeholder="Paste a piano sheet here…\n\nExample: t r w [4o] p s g f d -- [1o] u i o"></textarea>
+        <div class="sheet-stats" id="sheetStats"><span>0 events</span><span>0 notes</span><span>0 chords</span><span>0 pauses</span></div>
+        <div class="transport">
+          <button class="primary" id="playBtn">▶ Play</button><button id="pauseBtn">Ⅱ Pause</button><button class="danger" id="stopBtn">■ Stop</button>
+          <label class="check"><input type="checkbox" id="dryRun"> Dry run</label>
+          <label class="check preview-check" title="Play only through the built-in practice piano; no keys are sent outside this page."><input type="checkbox" id="internalPlay"> Internal play</label>
+        </div>
+        <p class="emergency">Emergency stop: <kbd>F7</kbd></p>
+      </article>
+
+      <aside class="panel controls-panel">
+        <div class="panel-head compact"><div><p class="eyebrow">PLAYBACK</p><h2>Controls</h2></div></div>
+        <details class="control-disclosure target-window-disclosure">
+          <summary><span>Target window</span><small>select / refresh</small></summary>
+          <label class="field compact-target"><span class="sr-only">Target window</span><div class="row"><select id="windowSelect" title="Playback target window"><option value="Roblox">Roblox</option></select><button id="refreshWindowsBtn" title="Refresh open windows">↻</button></div></label>
+        </details>
+        <label class="field"><span>Input route</span><select id="inputMode"><option value="foreground">Foreground — reliable</option><option value="virtual_target">Virtual Target — no foreground steal (experimental)</option></select></label>
+        <label class="field"><span>Piano layout</span><select id="pianoLayout"><option value="61">61-key — C2–C7 (standard)</option><option value="88">88-key — A0–C8 (Ctrl extensions)</option></select></label>
+        <label class="field"><span>Internal piano sound <b id="pianoSoundStatus">sampled</b></span><select id="pianoSound"><option value="acoustic_grand">Acoustic Grand Piano</option><option value="bright_acoustic">Bright Acoustic Piano</option><option value="electric_grand">Electric Grand Piano</option><option value="honky_tonk">Honky-tonk Piano</option><option value="legacy_synth">Legacy Synth (offline)</option></select><small>Sampled presets load from the web on first use; Legacy Synth stays fully offline.</small></label>
+        <label class="check wide"><input type="checkbox" id="autoFocus" checked> Auto-focus target before playback</label>
+        <label class="field"><span>Sheet timing unit <b id="intervalValue">115 ms</b></span><input type="range" id="intervalRange" min="25" max="500" value="115" step="5"></label>
+        <label class="field"><span>Base key hold <b id="holdValue">18 ms</b></span><input type="range" id="holdRange" min="2" max="100" value="18" step="1"></label>
+        <label class="check wide"><input type="checkbox" id="adaptiveHold" checked> Adaptive hold / legato from the gap to the next note</label>
+        <label class="field"><span>Note gate <b id="gateValue">58%</b></span><input type="range" id="gateRange" min="20" max="80" value="58" step="1"></label>
+        <label class="field"><span>Black-key Shift lead <b id="blackLeadValue">6 ms</b></span><input type="range" id="blackLeadRange" min="0" max="20" value="6" step="1"></label>
+        <label class="field"><span>Mixed-chord spread <b id="chordSpreadValue">4 ms</b></span><input type="range" id="chordSpreadRange" min="0" max="16" value="4" step="1"></label>
+        <label class="field"><span>Start countdown <b id="countdownValue">3.0 s</b></span><input type="range" id="countdownRange" min="0" max="8" value="3" step="0.5"></label>
+        <label class="field"><span>Global play speed <b id="globalSpeedValue">1.00×</b></span><input type="range" id="globalSpeedRange" min="0.25" max="3" value="1" step="0.05"></label>
+        <div class="speed-presets" aria-label="Global playback speed presets"><button type="button" data-speed="0.5">0.5×</button><button type="button" data-speed="1" class="active">1×</button><button type="button" data-speed="1.5">1.5×</button><button type="button" data-speed="2">2×</button><button type="button" data-speed="3">3×</button></div>
+        <details class="hint-card help-disclosure">
+          <summary><strong>Playback notes &amp; timing help</strong><span>expand</span></summary>
+          <div class="help-disclosure-body"><p><strong>Expressive sheet timing:</strong> Adjacent notes are quick; spaces, bars and paragraph breaks add progressively longer gaps. Imported source duration/BPM scales that rhythm instead of flattening every key to one interval.</p><p>Shifted black keys get a short modifier lead so Roblox can register Shift before the note. Mixed black/white chords use a tiny stagger instead of corrupting the white keys.</p><p><strong>Foreground mode:</strong> after Play, use the countdown to click the piano/game area so the chat textbox is not active.</p><p><strong>Virtual Target:</strong> does not call SetForegroundWindow. It mirrors Roblox activation/focus messages inside the selected window queue, then posts the piano keys there while your real keyboard and mouse remain with Edge, Discord, or whatever window you are actually using. For the best recipient detection, click the Roblox piano once before starting, then return to your other app. This is the cleanest single-desktop experiment, but Roblox can still reject it if the client requires Raw Input or checks the real OS foreground state.</p><p><strong>Global play speed:</strong> scales the entire sheet or recorded performance while preserving the timing shape and expressive defaults.</p><p><strong>Transcribed sustain:</strong> audio-to-piano performances keep independent note-on/note-off timing, so one key can stay held while later notes begin. The Note gate remains the fallback for sheets and older timed performances without note-span data.</p><p><strong>Internal play:</strong> routes the same parsed timeline to the built-in practice piano only. The selected sampled piano sound, Play, Pause, Stop, seek, chords, note holds, and global speed remain active, but no keys are sent to Roblox or any external window.</p><p><strong>Piano layout:</strong> the practice keyboard redraws to match the selected 61-key or 88-key target. 88-key preserves A0–C8 MIDI pitches and uses the game’s Ctrl+1 through Ctrl+J out-of-range layer for the 27 edge notes.</p><p><strong>Internal piano sound:</strong> choose an acoustic, electric, or honky-tonk sampled preset for auditioning. If a sampled preset cannot load, the tool falls back to the local Legacy Synth.</p></div>
+        </details>
+      </aside>
+    </section>
+
+    <section class="panel recorder-panel">
+      <div class="panel-head recorder-head">
+        <div><p class="eyebrow">CUSTOM PERFORMANCE</p><h2>Practice Piano + Timing Recorder</h2><p class="muted flush">Click the piano or use your physical keyboard while recording. The keyboard follows the selected 61/88-key layout and internal piano sound; Replay follows the selected playback route, including Internal play.</p></div>
+        <div class="record-actions"><button class="record" id="recordBtn">● Record</button><button id="recordStopBtn">■ Finish</button><button class="primary" id="replayRecordingBtn">▶ Replay recording</button><button class="ghost" id="clearRecordingBtn">Clear</button><button class="ghost" id="saveRecordingBtn">Save recording</button></div>
+      </div>
+      <div class="record-meta"><span id="recordState">Ready to record</span><span id="pianoVisualMeta">61-key C2–C7 · Acoustic Grand Piano</span><span id="recordStats">0 notes · 0.00 s</span></div>
+      <div id="practicePiano" class="piano" aria-label="Virtual piano keyboard"></div>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel search-panel">
+        <div class="panel-head compact"><div><p class="eyebrow">SHEET FINDER</p><h2>Search multiple sheet hosts</h2></div><span class="source-pill">multi-source</span></div>
+        <form id="searchForm" class="search-row"><input id="searchInput" placeholder="Attack on Titan, song title, artist…" autocomplete="off"><button class="primary" type="submit">Search all</button></form>
+        <div id="providerFilters" class="provider-filters"></div>
+        <details id="mediaConversionDisclosure" class="youtube-piano-card media-conversion-card">
+          <summary class="media-conversion-summary"><span><strong>Media / Spotify → Piano <span class="mini-badge ai-conversion-badge">AI-Conversion</span></strong><small>AI audio-to-piano conversion</small></span></summary>
+          <div class="media-conversion-body">
+          <p class="media-conversion-intro">Paste YouTube, Spotify, or a supported public media page. The media path transcribes live audio into timed piano; sheet/MIDI hosts stay separate in the Sheet Finder instead of silently replacing the recording.</p>
+          <form id="youtubePianoForm" class="search-row"><input id="youtubePianoUrl" placeholder="YouTube, Spotify, Audio.com, SoundCloud, Vimeo…" autocomplete="off"><button id="youtubePianoBtn" class="primary" type="submit" title="Transcribe to piano">Convert to piano</button></form>
+          <details class="youtube-access-disclosure"><summary>Media route <span>Live source</span></summary><label class="field"><span>Conversion route</span><select id="mediaRouteMode"><option value="live">Live source — exact pasted audio/video (recommended)</option><option value="fallback">Live source + alternate recording fallback</option></select><small>Live source always transcribes the submitted recording. It never swaps in a retained sheet or MIDI. Spotify links resolve metadata, then use a public audio/video recording because Spotify audio itself is not downloaded.</small></label></details>
+          <details class="youtube-access-disclosure"><summary>YouTube access <span>Automatic</span></summary><label class="field"><span>Access mode</span><select id="youtubeAccessMode"><option value="auto">Automatic — retained session first, then anonymous fallbacks</option><option value="session">Live session — imported browser cookies</option><option value="chrome">Chrome session (explicit cookies)</option><option value="edge">Edge session (explicit cookies)</option><option value="firefox">Firefox session (explicit cookies)</option><option value="anonymous">Anonymous only</option></select><small>When you paste replacement cookies through Import YouTube session, they are retained locally and become the saved session used by future Automatic conversions. Successful yt-dlp session refreshes are retained too.</small><small id="youtubeSessionState">Saved session: checking…</small></label></details>
+          <details class="youtube-access-disclosure"><summary>Transcription engine <span>Auto Hi-Fi</span></summary><label class="field"><span>Engine</span><select id="youtubeEngineMode"><option value="auto_hifi">Auto Hi-Fi — Transkun + Basic Pitch model consensus (recommended)</option><option value="transkun">Piano specialist — Transkun V2</option><option value="basic_pitch">Basic Pitch — current precision consensus</option></select><small>Auto Hi-Fi transcribes both model families in full 88-key source space first, reconciles only high-confidence pitch disagreements, then adapts the finished result to the selected 61/88-key target. This prevents target-range folding from corrupting model consensus. Basic Pitch remains the safe fallback when the specialist is unavailable or model agreement is implausible. Run setup-hifi-piano.bat once to enable the specialist.</small></label></details>
+          <details class="youtube-access-disclosure"><summary>Transcription quality <span>Rhythm accurate</span></summary><label class="field"><span>Cleanup mode</span><select id="youtubeQualityMode"><option value="rhythm_accurate">Rhythm accurate — precision consensus (recommended)</option><option value="rhythm_clean">Rhythm clean — single decode / faster</option><option value="rhythm_clean_sensitive">Rhythm clean — v0.5.0 sensitivity</option><option value="rhythm">Rhythm preserve — maximum sensitivity</option><option value="piano_clean">Piano clean — cleaner solo piano</option><option value="balanced">Balanced — middle ground</option><option value="raw">Raw Basic Pitch — model defaults</option></select><small>Rhythm accurate keeps the onset-anchored, one-inference 3-pass consensus as the source of truth. A low-threshold recovery view is evidence-only: only high-confidence repeated-note holes or strongly supported chord tones may be restored, under a hard rescue budget. Harmonic CQT adds octave-specific spectral evidence so weak accidental pitches can be rejected without treating every same pitch-class harmonic as the played key. Dense re-attacks and legitimate large piano chords remain protected.</small></label></details>
+          <details id="hifiConfidenceDisclosure" class="alternate-source-disclosure hifi-confidence-disclosure"><summary>Hi-Fi confidence sensors <span id="hifiConfidenceSummary">awaiting Auto Hi-Fi conversion</span></summary><div class="alternate-source-body"><div id="hifiConfidenceMetrics" class="muted flush">Run an Auto Hi-Fi conversion to populate agreement and onset sensors.</div><div id="hifiConfidenceHeatmap" class="hifi-confidence-map" role="img" aria-label="Five-second model-family agreement heatmap"></div><div id="hifiConfidenceWorst" class="muted flush"></div><small class="hifi-sensor-note">v0.6.21 leaves the proven v0.6.19 musical core unchanged: the heatmap remains tied to raw model predictions, while texture-boundary hysteresis, timing, pitch, sustain, range adaptation, and playback behavior are preserved as this update keeps session retention and library transfer intact while adding compact Media / Spotify → Piano UI controls.</small></div></details>
+          <details class="alternate-source-disclosure"><summary>YouTube diagnostics &amp; session bridge <span>inspect</span></summary><div class="alternate-source-body"><div class="result-actions" style="margin-bottom:8px;gap:6px;"><button id="runDiagnosticsBtn" class="ghost small" type="button">Run YouTube diagnostics</button><button id="openSessionModalBtn" class="ghost small" type="button">Import / replace YouTube session</button><button id="clearSessionBtn" class="ghost small" type="button" style="display:none;">Clear saved session</button></div><div id="youtubeDiagOutput" class="muted" style="white-space:pre-wrap;font-family:monospace;font-size:11px;background:rgba(0,0,0,0.2);padding:8px;border-radius:4px;display:none;"></div></div></details>
+          <details class="alternate-source-disclosure"><summary>Alternate public source <span>DuckDuckGo-style search</span></summary><div class="alternate-source-body"><div class="search-row"><input id="alternateSourceQuery" placeholder="Song title or artist…" autocomplete="off"><button id="alternateSourceBtn" type="button">Find alternate</button></div><div id="alternateSourceMessage" class="muted flush">Automatic opens this when a source fails or Spotify needs a public audio copy; exact matches can continue straight into conversion.</div><div id="alternateSourceResults" class="alternate-source-results"></div></div></details>
+          <div id="youtubePianoMessage" class="muted flush">Checking optional transcription tools…</div><div id="youtubeRetryActions" class="result-actions"></div>
+          </div>
+        </details>
+        <div id="searchMessage" class="muted">Each provider is queried independently. One host timing out will not cancel results from the others.</div>
+        <div id="searchResults" class="result-list"></div>
+      </article>
+
+      <article class="panel library-panel">
+        <div class="panel-head compact"><div><p class="eyebrow">LOCAL</p><h2>Song + Recording Library</h2></div><div class="result-actions library-actions"><button class="ghost small" id="importLibraryBtn">Import</button><button class="ghost small" id="exportLibraryBtn">Export all</button><button class="ghost small" id="refreshLibraryBtn">Refresh</button></div></div>
+        <input id="importLibraryInput" class="sr-only" type="file" accept=".zip,.json,.piano-song.json,application/zip,application/json" multiple>
+        <div id="libraryList" class="result-list"></div>
+      </article>
+    </section>
+
+    <section class="panel notation-panel">
+      <div class="panel-head compact"><div><p class="eyebrow">COMPATIBILITY</p><h2>Notation this build understands</h2></div></div>
+      <div class="notation-grid"><div><code>abc</code><span>Virtual Piano quick run</span></div><div><code>a b c</code><span>Virtual Piano spaced phrasing</span></div><div><code>[abc]</code><span>Simultaneous chord</span></div><div><code>[a b c]</code><span>Host-aware: chord on grid sheets, fast run on Virtual Piano</span></div><div><code>- _ |</code><span>Host-aware rests / bars</span></div><div><code>A ! @</code><span>Shifted black-key characters</span></div></div>
+    </section>
+
+    <!-- previous checkpoint: Astro Piano Auto Player v0.5.5 -->
+    <footer><span>Piano Auto Player v0.6.21</span><span>Bound to 127.0.0.1 only</span></footer>
+  </main>
+
+  <template id="resultTemplate"><div class="result-item"><div class="result-copy"><strong class="result-title"></strong><span class="result-sub"></span></div><div class="result-actions"></div></div></template>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

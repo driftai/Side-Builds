@@ -1,0 +1,64 @@
+# Virtual Environments & Packages
+.youtube-piano-venv/
+.piano-hifi-venv/
+.venv/
+venv/
+env/
+ENV/
+node_modules/
+
+# Python Bytecode & Caches
+__pycache__/
+*.py[cod]
+*.class
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Sensitive User Data & Session Credentials
+data/youtube_session.txt
+data/session_cookies.txt
+data/songs.json
+*.piano-song.json
+*.jsonl
+*.cookie
+*.cookies
+
+# Saved Media, Downloads & Temporary Artifacts
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.webm
+*.opus
+*.aac
+recordings/
+downloads/
+temp/
+tmp/
+*.tmp
+*.log
+
+# Model Weights & Checkpoint Caches
+models/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Environment & Local Secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# IDE & OS Metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

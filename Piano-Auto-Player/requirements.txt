@@ -1,0 +1,2 @@
+# No third-party packages required for the core player.
+# Optional YouTube-to-Piano tools are isolated in .youtube-piano-venv by setup-youtube-piano.bat.
