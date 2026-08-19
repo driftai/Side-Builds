@@ -13,7 +13,7 @@
 * **Layout Support:** Full support for standard **61-key (C2–C7)** and **88-key (A0–C8)** piano keyboard layouts with black-key Shift lead and mixed-chord spread timing.
 * **Zero-Setup Internal Piano:** High-fidelity sampled Acoustic Grand Piano preview running directly in the browser via Web Audio API.
 * **Robotic Playback Engine:** Precise Windows keyboard automation with Foreground and Virtual Target window routing, auto-focus countdown, and emergency killswitch (F7).
-* **Persistent YouTube Session Bridge:** Local, opt-in cookie session bridge to unlock bot-challenged and account-gated YouTube media streams without third-party tracking.
+* **Persistent YouTube Session Bridge:** Local, opt-in cookie session bridge to unlock bot-challenged and account-gated YouTube media streams with locally retained authentication state.
 * **Song Library Transfer:** Export and import complete song library packages (.piano-song.json or ZIP archives) to backup or sync between machines.
 
 ---
@@ -21,7 +21,7 @@
 ## Architecture & Isolation
 
 Piano Auto Player uses a **modular, dependency-isolated design**:
-1. **Core Web & Server (Zero Dependencies):** Standard Python library only (http.server, 	hreading, json, ctypes). No third-party packages required to search sheets, load MIDI, or play piano.
+1. **Core Web & Server (Zero Dependencies):** Standard Python library only (http.server, threading, json, ctypes). No third-party packages required to search sheets, load MIDI, or play piano.
 2. **AI Transcription Engine (.youtube-piano-venv):** Isolated Python 3.10 environment containing Basic Pitch, yt-dlp nightly, and WPC token helper.
 3. **Hi-Fi Neural Engine (.piano-hifi-venv):** Isolated Python environment running PyTorch with automatic NVIDIA CUDA 12.8 GPU acceleration (or CPU fallback) and Transkun V2 inference.
 
