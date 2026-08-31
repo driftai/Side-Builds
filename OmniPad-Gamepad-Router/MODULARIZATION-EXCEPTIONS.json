@@ -1,0 +1,11 @@
+{
+  "max_lines": 450,
+  "excluded_paths": [
+    ".venv",
+    "drivers",
+    "__pycache__",
+    "tests"
+  ],
+  "extensions": [".py", ".js", ".mjs", ".cjs"],
+  "legacy_exceptions": {}
+}

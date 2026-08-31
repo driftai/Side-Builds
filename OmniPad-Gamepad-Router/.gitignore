@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing & linting caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime logs & state
+*.log
+logs/
+*.pid
+
+# Temporary & scratch files
+*.tmp
+*.temp
+scratch/
+tmp/
+
+# Local environment configs & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Cloudflare quick tunnel & daemon state
+.cloudflared/
+tunnel_token*
+
+# IDE & editor metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows OS junk
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Profiles storage (keep .gitkeep, ignore custom created profiles)
+profiles/*.json
+!profiles/.gitkeep
+

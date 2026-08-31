@@ -1,0 +1,63 @@
+[Version]
+Signature = "$WINDOWS NT$"
+Class = HIDClass
+ClassGuid = {745A17A0-74D3-11D0-B6FE-00A0C90F57DA}
+Provider = %ManufacturerName%
+CatalogFile = OmniPadVirtualKeyboard.cat
+DriverVer = 08/29/2026,1.1.2.0
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+OmniPadVirtualKeyboard.sys = 1,,
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64.10.0...18362
+
+[Standard.NTamd64.10.0...18362]
+%DeviceDesc% = OmniPadVK_Install, Root\OmniPadVirtualKeyboard
+
+[OmniPadVK_Install.NT]
+CopyFiles = DriverCopy
+Include = MsHidKmdf.inf
+Needs = MsHidKmdf.NT
+
+[DriverCopy]
+OmniPadVirtualKeyboard.sys
+
+[OmniPadVK_Install.NT.HW]
+AddReg = OmniPadVK_Install.NT.HW.AddReg
+Include = MsHidKmdf.inf
+Needs = MsHidKmdf.NT.HW
+
+[OmniPadVK_Install.NT.HW.AddReg]
+HKR,,"LowerFilters",0x00010000,"vhf"
+
+[OmniPadVK_Install.NT.Services]
+Include = MsHidKmdf.inf
+Needs = MsHidKmdf.NT.Services
+AddService = OmniPadVirtualKeyboard,0,OmniPadVK_Service
+
+[OmniPadVK_Service]
+DisplayName = %ServiceName%
+ServiceType = 1
+StartType = 3
+ErrorControl = 1
+ServiceBinary = %13%\OmniPadVirtualKeyboard.sys
+
+[OmniPadVK_Install.NT.Wdf]
+KmdfService = OmniPadVirtualKeyboard,OmniPadVK_Wdf
+
+[OmniPadVK_Wdf]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+ManufacturerName = "DriftAI"
+DiskName = "OmniPad Virtual Keyboard Installation Media"
+DeviceDesc = "OmniPad Virtual Keyboard"
+ServiceName = "OmniPad Virtual Keyboard Driver"

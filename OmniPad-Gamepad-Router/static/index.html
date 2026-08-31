@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniPad — Remote Gamepad Router</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=1.2.8">
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=1.2.8">
+</head>
+<body>
+
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="dash-header glass">
+      <div class="brand-area">
+        <div class="brand-logo">🎮</div>
+        <div class="brand-text">
+          <h1>OMNIPAD</h1>
+          <p>Remote 2-Player Gamepad Router</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Room Code -->
+        <div class="room-pill">
+          <span class="room-pill-label">Room</span>
+          <span class="room-pill-code" id="room-code-display">SF6-ROOM</span>
+          <button class="btn btn-secondary btn-sm" id="copy-room-code-btn" title="Copy Room Code">Copy</button>
+        </div>
+
+        <!-- Badges -->
+        <span class="badge badge-green" id="server-status-badge">
+          <span class="status-dot"></span> Online
+        </span>
+        <span class="badge badge-green" id="vigem-status-badge">
+          <span class="status-dot"></span> Checking ViGEm...
+        </span>
+        <span class="badge badge-yellow" id="vhf-status-badge" title="Virtual Keyboard HID (VHF) driver status">
+          <span class="status-dot"></span> Checking VHF...
+        </span>
+        <span class="badge badge-muted" id="tunnel-status-badge">
+          <span class="status-dot"></span> Tunnel Offline
+        </span>
+
+        <!-- Global Panic Button -->
+        <button class="btn btn-danger btn-sm" id="global-panic-btn" title="Emergency release all held buttons and center all axes across all controllers">
+          ⚠️ Panic Release All
+        </button>
+      </div>
+    </header>
+
+    <!-- Network Banner (LAN & Cloudflare Quick Tunnel) -->
+    <section class="network-banner">
+      <!-- Local Network Card -->
+      <div class="network-card glass">
+        <div class="net-info">
+          <h3>Local LAN Link</h3>
+          <div class="net-url" id="lan-url-display">Detecting LAN IP...</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="lan-qr-btn">Show QR</button>
+      </div>
+
+      <!-- Cloudflare Tunnel Card -->
+      <div class="network-card glass">
+        <div class="net-info">
+          <h3>Public Quick Tunnel (Cross-City)</h3>
+          <div class="net-url" id="tunnel-url-display">Click 'Start Quick Tunnel' to enable public link</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" id="tunnel-qr-btn" style="display: none;">Show QR</button>
+          <button class="btn btn-primary btn-sm" id="tunnel-toggle-btn">Start Quick Tunnel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Running Game Target -->
+    <section class="target-card glass">
+      <div class="target-header">
+        <div>
+          <h2>Game Target</h2>
+          <p>Attach the router to a game that is already running. No process injection.</p>
+        </div>
+        <div class="target-actions">
+          <button class="btn btn-secondary btn-sm" id="target-refresh-btn">Refresh Running Apps</button>
+          <button class="btn btn-secondary btn-sm" id="target-foreground-btn">Select Foreground</button>
+          <button class="btn btn-danger btn-sm" id="target-clear-btn">Clear Target</button>
+        </div>
+      </div>
+      <div class="target-status" id="target-status">No game target selected.</div>
+      <div class="target-controls">
+        <label for="target-select">Running window</label>
+        <select id="target-select">
+          <option value="">Select a running game...</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="target-attach-btn">Attach</button>
+      </div>
+      <label class="target-gate"><input type="checkbox" id="target-gate-checkbox" checked> Only route remote input while this target is foreground</label>
+    </section>
+
+    <!-- Slot Cards Grid -->
+    <main class="slots-grid" id="slots-container">
+      <!-- Slot cards injected dynamically by dashboard.js -->
+    </main>
+  </div>
+
+  <!-- QR Code Modal -->
+  <div class="modal-backdrop" id="qr-modal">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="qr-modal-title" style="font-size: 1.1rem; font-weight: 700;">Join Link QR Code</h3>
+        <button class="btn btn-secondary btn-sm" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="qr-box">
+        <div id="qr-canvas-container" class="qr-canvas"></div>
+        <div class="qr-url-text" id="qr-url-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/qrcode.min.js?v=1.2.22"></script>
+  <script src="/static/js/gamepad_viz.js?v=1.2.22"></script>
+  <script src="/static/js/dashboard_targets.js?v=1.2.22"></script>
+  <script src="/static/js/dashboard_tunnel.js?v=1.2.22"></script>
+  <script src="/static/js/dashboard_slots.js?v=1.2.22"></script>
+  <script src="/static/js/dashboard.js?v=1.2.22"></script>
+</body>
+</html>
