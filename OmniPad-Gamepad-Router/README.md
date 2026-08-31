@@ -1,154 +1,323 @@
-# 🎮 OmniPad Gamepad Router (v1.1.2-dev)
+# 🎮 OmniPad Gamepad Router
 
-**OmniPad** is a lightweight Windows server and real-time web controller engine for **remote 2-player local multiplayer**. A friend can connect from a browser on another PC, phone, or tablet and stream controller or keyboard input into a game already running on the host PC.
+**OmniPad** is a lightweight Windows server and real-time web controller engine for turning a PC game into a remotely playable local multiplayer session. A friend can connect from a browser on another PC, phone, or tablet and control a dedicated Player 2 virtual controller while Player 1 continues using the host's own keyboard or controller.
 
----
-
-## 🚀 Core capabilities
-
-- Remote 2-player local co-op / versus over LAN or the Internet.
-- Browser controller with USB/Bluetooth gamepad support through the Gamepad API.
-- Keyboard Fighter mode with raw `KeyboardEvent.code` preservation.
-- Native Xbox 360 and DualShock 4 virtual controllers through ViGEmBus.
-- Running-game window targeting using HWND/PID discovery; no DLL/process injection.
-- Cloudflare Quick Tunnel for cross-city sessions without port forwarding.
-- 250 ms stuck-input watchdog and panic release.
-- SOCD cleaning for fighting-game inputs.
-- **True Virtual Keyboard HID development path:** OmniPad now includes an initial Windows KMDF/VHF source driver and a Python IOCTL bridge so the host can expose a genuinely separate virtual keyboard device.
+The project is designed as a **barebones server + web UI**, not a monolithic compiled application.
 
 ---
 
-## 🕹️ Output modes
+## 🚀 What OmniPad does
+
+- Remote 2-player local co-op / versus over **LAN or the Internet**.
+- Browser-based **keyboard, touchscreen, and gamepad** control.
+- Native **Xbox 360 and DualShock 4** virtual controllers through ViGEmBus.
+- Optional **separate virtual keyboard HID** development path using Windows VHF/KMDF.
+- Running-game discovery and target attachment using Windows HWND/PID APIs, without DLL injection or game-memory patching.
+- **Cloudflare Quick Tunnel** support for cross-city play without manual port forwarding.
+- Low-latency keyboard and mouse-camera input transport.
+- Touchscreen virtual gamepad with multiple ergonomic layouts.
+- Physical keyboard-type presets for keyboards that do not match the default key arrangement.
+- Background keyboard helper for local/LAN unfocused gameplay.
+- Stuck-input watchdog, panic release, SOCD cleaning, target liveness gating, and remote-player isolation.
+- Live observer/monitor mode so another browser tab can watch authoritative remote input state without stealing control.
+
+---
+
+## 🧩 Control surfaces
+
+OmniPad separates the **input surface** from the **output backend**. A remote user can therefore use a keyboard, browser touchscreen, or real gamepad while the host chooses how that input appears to the game.
+
+### Keyboard
+
+The browser preserves `KeyboardEvent.code` identities and translates them through the selected keyboard/profile mapping.
+
+Supported physical keyboard schemes currently include:
+
+- **Standard PC**
+- **65% Compact**
+- **Arrowless / 60%**
+- **ESDF + IJKL**
+- **WASD + HJKL Camera**
+
+Keyboard movement uses progressive analog ramping for WASD-style movement rather than only instant digital snaps. Keydown/keyup transitions are flushed immediately in addition to the regular transport loop to reduce perceived input latency.
+
+### Touchscreen
+
+Mobile browsers can use a full virtual gamepad directly in the `/play` page.
+
+The controller exposes:
+
+- **LS / L3** — movement and left-stick click
+- **RS / R3** — camera and right-stick click
+- **A / ✕**
+- **B / ○**
+- **X / □**
+- **Y / △**
+- **LB / L1**
+- **RB / R1**
+- **LT / L2**
+- **RT / R2**
+- **D-Pad**
+- **START / OPTIONS**
+- **BACK / SHARE**
+- **GUIDE / PS**
+- **TOUCHPAD**
+
+Four touchscreen layouts are available and can be changed live:
+
+1. **Classic Landscape**
+2. **Twin-Stick Landscape**
+3. **PlayStation Landscape**
+4. **Compact Thumbs**
+
+Layouts persist locally in the browser, and switching layouts resets active pointers/sticks so a layout change cannot leave stuck input behind.
+
+### Mouse camera
+
+When camera control is enabled, the browser provides a dedicated right-stick camera pad. Pointer-lock support allows mouse movement to drive the virtual **RS** while staying confined to the camera-control surface.
+
+The camera pad includes:
+
+- bounded movement area
+- dynamic reticle/stick visualization
+- adjustable sensitivity
+- safe release back to center
+- detached/pop-out camera control support
+- direct low-latency dispatch rather than slow multi-frame decay
+
+This makes mouse camera movement usable for games whose Player 2 camera is represented by the controller's right stick.
+
+---
+
+## 🎮 Output backends
 
 | Mode | Backend | Purpose | Status |
 |---|---|---|---|
-| Xbox 360 | ViGEmBus | Native XInput Player 2 controller | Working |
-| DualShock 4 | ViGEmBus | Native DS4/DirectInput Player 2 controller | Working |
-| Keyboard 2 (Target-Locked) | Windows `SendInput` | Compatibility keyboard bridge | Working |
-| **Virtual Keyboard HID (VHF)** | **KMDF + VHF** | **Separate Windows HID keyboard device** | **Development / test** |
-| Noop | Diagnostic | Input pipeline testing without hardware | Working |
+| Xbox 360 | ViGEmBus | Native XInput Player 2 controller | ✅ Working |
+| DualShock 4 | ViGEmBus | Native DS4 / DirectInput Player 2 controller | ✅ Working |
+| Keyboard 2 | Windows `SendInput` | Target-locked compatibility keyboard bridge | ✅ Working |
+| Virtual Keyboard HID (VHF) | KMDF + VHF | Separate Windows HID keyboard device | 🧪 Development / test |
+| Noop | Diagnostic | Input-pipeline testing without hardware | ✅ Working |
 
-### Why the VHF backend matters
+### Controller naming parity
 
-`SendInput` injects keyboard events into Windows' normal keyboard path. It does not create another physical-looking keyboard identity. For software that distinguishes devices through Raw Input/HID, that can prevent a remote keyboard from behaving as Player 2.
+The web UI uses dual Xbox / PlayStation terminology so users can understand either controller family:
 
-Microsoft's Virtual HID Framework is the supported architecture for a software HID source driver. A KMDF driver supplies a HID report descriptor, creates a VHF device, and submits input reports through `VhfReadReportSubmit`. Windows then exposes the virtual device through the normal HID stack. See Microsoft's VHF documentation for the framework and report-submission model.
+- **LT / L2**, **RT / R2**
+- **LB / L1**, **RB / R1**
+- **A / ✕**, **B / ○**, **X / □**, **Y / △**
+- **START / OPTIONS**, **BACK / SHARE**, **GUIDE / PS**
+- **LS / L3**, **RS / R3**
 
-OmniPad's new VHF backend uses a standard 8-byte boot keyboard report:
-
-`[modifiers, reserved, key0, key1, key2, key3, key4, key5]`
-
-The browser continues to transmit physical `KeyboardEvent.code` values. The host converts those DOM codes to USB HID usage IDs and sends the resulting report to the VHF driver.
-
----
-
-## 🧩 Virtual Keyboard HID — current implementation
-
-The source lives under `drivers/virtual-keyboard/`:
-
-- `OmniPadVirtualKeyboard.c` — KMDF/VHF source driver.
-- `OmniPadVirtualKeyboard.h` — IOCTL and report contract.
-- `OmniPadVirtualKeyboard.inf` — root-enumerated HID installation package.
-- `OmniPadVirtualKeyboard.vcxproj` / `.sln` — WDK build project.
-- `build-driver.ps1` — Debug x64 build helper.
-- `install-driver.ps1` — WDK `devcon` installation helper.
-- `remove-driver.ps1` — clean removal helper.
-- `router/vhf_keyboard.py` — Python user-mode bridge and DOM→HID translation.
-- `tests/test_vhf_keyboard.py` — descriptor-independent report construction tests.
-
-The driver does **not** capture or filter the host's physical keyboard. It creates an additional virtual HID keyboard specifically for OmniPad's remote-player output.
-
-### Development installation
-
-The driver is source-first and no unsigned `.sys` is committed to the repository.
-
-1. Install Visual Studio 2022 with C++ desktop development and a matching WDK.
-2. Build `drivers/virtual-keyboard/OmniPadVirtualKeyboard.sln` as x64 Debug, or run `build-driver.ps1`.
-3. Windows x64 requires kernel driver signing. For development, Microsoft documents test-signing as the development path. Test mode requires administrator access and a reboot.
-4. From an elevated PowerShell prompt, run `install-driver.ps1` after the driver has been built.
-5. Verify the device appears in Device Manager and then restart OmniPad.
-6. In the OmniPad dashboard, select **Virtual Keyboard HID (VHF)** for Player 2. The backend is advertised as available only when the device handle can actually be opened.
-
-Do not enable Windows Test Mode on a production machine unless you intentionally accept the development-driver tradeoffs.
-
-### Driver protocol
-
-The host opens:
-
-`\\.\OmniPadVirtualKeyboard`
-
-and sends `IOCTL_OMNIPAD_SET_KEYBOARD_REPORT` with one 8-byte keyboard report. The KMDF driver passes that report to `VhfReadReportSubmit` using report ID `0`.
-
-This keeps the network protocol unchanged: browser → WebSocket → slot state → output backend.
+The keyboard overlay also shows these controller labels directly on mapped keys, making it obvious what a keyboard key becomes on the virtual controller.
 
 ---
 
-## 🎯 Running-game target attachment
+## 🛡️ Target attachment and safety
 
-1. Open the dashboard at `http://localhost:8000/`.
-2. Click **Refresh Running Apps** or **Select Foreground** with the game focused.
-3. Select the running game and click **Attach**.
-4. With the foreground gate enabled, remote output is released automatically whenever the selected target is not foreground.
-5. This is an OS-level window guard. OmniPad does not inject DLLs or patch game memory.
+1. Open the host dashboard at `http://localhost:8000/`.
+2. Use **Refresh Running Apps** or **Select Foreground** to discover the running game.
+3. Select the game and attach it as the target.
+4. OmniPad continuously checks target process liveness.
+5. If the selected game exits, controller output is immediately neutralized.
 
-The target gate applies to the VHF keyboard backend as well as virtual gamepads and the SendInput backend.
+For virtual gamepad output, the target only needs to be **running**; the game does not have to remain the foreground application. This allows the host to screen-share, use Discord, OBS, or another window without the remote controller stopping.
+
+Keyboard injection remains stricter and requires the selected target to be the **foreground window**.
+
+OmniPad does not inject DLLs, patch game memory, or modify the target game's executable.
 
 ---
 
-## 🌐 Remote connection
+## 🌐 Remote play
 
 ### LAN
 
-Start `start_router.bat`, then share the generated `/play?code=...` LAN URL.
+Start `start_router.bat`, then share the generated `/play?code=...` URL with the other player.
 
-### Internet
+### Internet / Cloudflare
 
-Start `start_with_tunnel.bat`, then share the generated `https://*.trycloudflare.com/play?code=...` URL.
+Start `start_with_tunnel.bat`, then share the generated:
 
-The remote user needs only a modern browser for keyboard/touch control. A browser gamepad can be a Bluetooth or USB controller connected to their device.
+`https://<temporary-tunnel>.trycloudflare.com/play?code=<ROOM>`
+
+The remote player only needs a modern browser. Their Bluetooth/USB controller can be exposed through the browser Gamepad API, or they can use the built-in keyboard/touch surfaces.
 
 > [!WARNING]
-> Cloudflare Quick Tunnels create temporary public URLs without account authentication. Share the tunnel URL and room code only with intended players and stop the tunnel when the session ends.
+> Cloudflare Quick Tunnels create temporary public URLs without account authentication. Treat the tunnel URL and room code as bearer credentials, share them only with intended players, and stop the tunnel when finished.
+
+### Remote-player security boundary
+
+Cloudflare/player sessions are intentionally limited to the public player surface:
+
+- `/play` and the player WebSocket are remotely accessible.
+- Host management, target discovery/selection, tunnel management, background-helper APIs, and slot-management mutations are restricted to local/private-network clients.
+- Remote status responses redact local IPs, process IDs, executable paths, window titles, tunnel paths, and room-management details.
+- Observer browser tabs are read-only and cannot inject input.
+- Attempts to spoof the privileged background-helper source from a remote client are rejected.
+- When no room code is supplied, OmniPad generates a fresh cryptographically random room code for the server session.
+
+For the complete security boundary and rationale, see [`SECURITY.md`](SECURITY.md).
 
 ---
 
+## 🪟 Local background keyboard helper
 
-## 🪟 Background keyboard capture while the browser is unfocused
-
-A normal browser page cannot keep receiving physical keyboard events after another application takes keyboard focus. OmniPad therefore includes an optional Windows companion for screen-share/gameplay setups where the /play page should remain open in the background.
+A normal browser page cannot continue capturing the host's physical keyboard after another application takes focus. OmniPad therefore includes an optional Windows background helper for local/LAN use.
 
 The helper is located at:
 
 `static/tools/background_keyboard_helper.py`
 
-It uses a native global keyboard listener and forwards only OmniPad's supported game-control keys. It does **not** suppress local key delivery and does not log typed text. It sends the same raw key codes plus the WASD/arrow/action controller mapping used by OmniPad's controller-keyboard presets.
+It forwards only OmniPad-supported gameplay keys and does not suppress the host keyboard or record general typing. The helper can send the same key identities and controller mappings used by the browser keyboard surface.
 
-On the computer whose keyboard should control the remote slot:
-
-`python -m pip install -r requirements.txt`
+Example:
 
 `python static/tools/background_keyboard_helper.py --play-url "http://HOST:8000/play?code=YOUR-ROOM"`
 
-For a Cloudflare HTTPS play URL, pass that full URL and the helper automatically uses `wss://`.
+For an HTTPS Cloudflare player URL, the helper automatically derives the correct `wss://` WebSocket endpoint.
 
-The browser may stay open in the background while the helper runs. Press `Ctrl+Alt+F8` to pause/resume global capture, or `Ctrl+C` to stop the helper.
+Hotkeys:
 
----
+- `Ctrl+Alt+F8` — pause/resume capture
+- `Ctrl+C` — stop the helper
 
-## 🧪 Testing
-
-Run `run_tests.bat` for the existing smoke suite and the driver-independent VHF report tests.
-
-The VHF driver itself must be built and tested on Windows with the WDK. The Python report tests can run without a driver because they validate the browser-code → HID-usage conversion independently.
-
-Important game-compatibility note: a separate HID device is **necessary but not sufficient** for every game. Whether a game exposes multiple keyboard devices to Player 1/Player 2 depends on that game's input architecture. Raw Input is the Windows API that can identify distinct keyboard devices; games must still choose to use that capability.
+> [!NOTE]
+> Background-routing controls are intentionally hidden from public Cloudflare player sessions. The native helper is a local/LAN capability.
 
 ---
 
-## 📌 Development status
+## 🧪 Testing and verification
 
-**v1.1.2-dev** is the first OmniPad release where the VHF path is wired through the full stack instead of being only a placeholder:
+OmniPad includes a dedicated regression ring covering routing, networking, target safety, touchscreen, keyboard surfaces, background capture, VHF, security boundaries, and live server behavior.
+
+Current verification baseline:
+
+- **17 / 17 test suites passing**
+- **0 security-test failures** in the dedicated security suites
+- **38 covered source files** within the strict **450-line modularization limit**
+- Full historical secret scan reported **0 secret/token/private-key matches** in the audited history
+
+Important suites include:
+
+- `tests/test_security.py`
+- `tests/test_security_boundaries.py`
+- `tests/test_websocket_security.py`
+- `tests/test_targeting.py`
+- `tests/test_player_websocket_join.py`
+- `tests/test_touch_controller.py`
+- `tests/test_touch_controller_layouts.py`
+- `tests/test_surface_output_routing.py`
+- `tests/test_surface_combinations_e2e.py`
+- `tests/test_backend_transitions.py`
+- `tests/test_background_keyboard_helper.py`
+- `tests/test_server_live.py`
+- `tests/test_vhf_keyboard.py`
+- `tests/smoke_test.py`
+
+Run `run_tests.bat` for the standard local test sequence.
+
+The VHF driver path additionally requires a real Windows WDK environment for native compilation/install testing.
+
+---
+
+## ⌨️ Virtual Keyboard HID / VHF
+
+The optional VHF path is intended for games or software that distinguish keyboard devices through Raw Input/HID rather than accepting ordinary Windows injected keyboard events.
+
+Source lives under:
+
+`drivers/virtual-keyboard/`
+
+The stack is:
 
 `Remote Keyboard → WebSocket → OmniPad → HID usage translation → KMDF/VHF → Windows HID keyboard`
 
-The remaining validation is native Windows driver compilation/installation and real multi-keyboard game testing. The existing SendInput backend remains available as the no-driver fallback.
+The driver creates an additional virtual keyboard device; it does **not** capture, inspect, or replace the host's physical keyboard.
+
+The current report format is an 8-byte boot-keyboard report:
+
+`[modifiers, reserved, key0, key1, key2, key3, key4, key5]`
+
+The VHF implementation is still a development/test path. Real game compatibility depends on whether the target game supports multiple keyboard devices through Raw Input/HID.
+
+---
+
+## 🧱 Architecture
+
+OmniPad uses a modular pipeline:
+
+`Control Surface → WebSocket / local input → SlotManager → Profile / Key Mapping → Output Backend → Target Game`
+
+The main components are:
+
+- `server.py` — FastAPI/Uvicorn server and lifecycle.
+- `router/slot_manager.py` — player slots, state normalization, watchdogs and routing.
+- `router/targeting.py` — running-game discovery and target safety predicates.
+- `router/security.py` — local/private request gates and public-session containment.
+- `router/controller.py` — virtual controller lifecycle.
+- `router/backends/` — Xbox 360, DS4, keyboard, VHF and diagnostic backends.
+- `router/profiles.py` — game/profile mappings.
+- `router/tunnel.py` — Cloudflare Quick Tunnel lifecycle.
+- `static/js/` — browser controller, layouts, mouse camera, touch controller, monitoring and transport.
+- `drivers/virtual-keyboard/` — optional KMDF/VHF keyboard device source.
+- `tests/` — regression and security test ring.
+
+The project enforces a strict source-file size ceiling to keep individual modules reviewable and maintainable. See [`MODULARIZATION.md`](MODULARIZATION.md) and [`MODULARIZATION-MAP.md`](MODULARIZATION-MAP.md).
+
+---
+
+## 🔧 Requirements
+
+Typical Windows host requirements:
+
+- Windows 10/11
+- Python 3.x
+- Node.js for browser/JavaScript checks
+- ViGEmBus for Xbox 360 / DS4 virtual controllers
+- Modern browser for remote players
+- Optional Visual Studio + Windows Driver Kit for VHF development
+- Optional `cloudflared` for Internet play through Quick Tunnels
+
+See the repository launcher scripts and `requirements.txt` for the current setup path.
+
+---
+
+## 📁 Repository layout
+
+```text
+OmniPad-Gamepad-Router/
+├── server.py
+├── config.py
+├── VERSION
+├── requirements.txt
+├── control.bat
+├── start_router.bat
+├── start_with_tunnel.bat
+├── router/
+├── static/
+├── profiles/
+├── drivers/
+├── tests/
+├── tools/
+├── SECURITY.md
+├── LAST-VERIFICATION.md
+├── MODULARIZATION.md
+└── MODULARIZATION-MAP.md
+```
+
+Runtime directories, virtual environments, caches, logs and machine-specific tunnel state are intentionally excluded from version control.
+
+---
+
+## 📌 Current status
+
+**OmniPad Gamepad Router is a working Windows remote-input router with a public-ready, security-hardened player path.**
+
+The main tested path is:
+
+`Remote browser / controller / touchscreen / keyboard → WebSocket → OmniPad Slot 1 → ViGEm Xbox 360 / DS4 → Player 2`
+
+The host keeps their normal Player 1 input independent from the remote Player 2 slot.
+
+For the latest verified security and regression status, see [`LAST-VERIFICATION.md`](LAST-VERIFICATION.md).
