@@ -1,0 +1,4 @@
+# Optional: copy this file to NUVIO_PATH.txt and put the absolute path to a custom local Nuvio installation on the next line.
+# Example: D:\Apps\NuvioTVSmart
+# By default no path is needed: the launcher resolves .\nuvio relative to the Nuvio-Onion-Wrapper folder itself.
+# The launcher also accepts a custom path as its first argument or via the NUVIO_PATH environment variable.

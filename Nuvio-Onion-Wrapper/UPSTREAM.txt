@@ -1,0 +1,2 @@
+Upstream: https://github.com/NuvioMedia/NuvioTVSmart
+License: GPL-3.0 (see upstream LICENSE)

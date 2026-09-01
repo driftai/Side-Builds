@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>WatchParty Standalone</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">WatchParty <span>Standalone</span></div>
+    <button class="room-pill" id="roomPill" type="button" title="Copy join code">No room</button>
+  </header>
+  <main>
+    <section id="lobby" class="panel lobby">
+      <h1>Watch together.</h1>
+      <p class="muted">Create a room, then use the local link on this PC or the LAN link when you want other devices to join.</p>
+      <label>Your name<input id="nameInput" maxlength="32" placeholder="Guest"></label>
+      <div class="row">
+        <button id="createBtn">Create room</button>
+        <input id="roomInput" maxlength="32" placeholder="ROOM NUMBER / ID">
+        <button id="joinBtn" class="secondary">Join</button>
+      </div>
+      <p class="hint">YouTube is the first provider. External media supports direct HLS (.m3u8) and media-file URLs, plus host-side inspection of compatible watch pages. The resolved playable URL is what gets synchronized to the room; source discovery runs only on the host.</p>
+    </section>
+
+    <section id="app" hidden>
+      <div class="grid">
+        <div class="maincol">
+          <div class="player panel" id="playerHost"><div id="player"></div></div>
+          <div class="controls panel">
+            <div class="source-row">
+              <input id="sourceInput" placeholder="Paste a YouTube URL or video ID">
+              <button id="loadBtn">Load YouTube</button>
+            </div>
+            <div class="source-row external-source-row">
+              <input id="mediaSourceInput" placeholder="External: Miruro watch page or direct .m3u8/.mp4 URL">
+              <button id="resolveMediaBtn" class="secondary">Find Media</button>
+            </div>
+            <div id="mediaSourceResults" class="media-results" hidden>
+              <div class="media-result-row">
+                <select id="mediaSourceSelect" aria-label="Resolved media source"></select>
+                <button id="loadMediaBtn">Use Source</button>
+              </div>
+            </div>
+            <div class="smallrow">
+              <span id="sourceModeLabel">YouTube</span>
+              <span id="mediaMeta"></span>
+              <span id="syncStatus">Connecting…</span>
+              <button id="syncBtn" class="secondary">Sync me</button>
+              <button id="copyBtn" class="secondary">Copy room link</button>
+              <button id="copyLanBtn" class="secondary" hidden>Copy LAN link</button><button id="deleteRoomBtn" class="danger" hidden>Delete room</button>
+            </div>
+          </div>
+        </div>
+        <aside class="side panel">
+          <div class="sidehead"><h2>Room</h2><span id="hostBadge"></span></div>
+          <div id="members" class="members"></div><p class="hint host-handoff-hint">The room owner can reclaim host automatically when they return. The current host can also transfer host manually.</p>
+          <hr>
+          <h2>Chat</h2>
+          <div id="chat" class="chat"></div>
+          <form id="chatForm" class="chatform"><input id="chatInput" maxlength="500" placeholder="Message…"><button>Send</button></form>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

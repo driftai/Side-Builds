@@ -1,0 +1,28 @@
+# WatchParty local/runtime state
+.runtime/
+
+# Logs and generated runtime artifacts
+*.log
+*.pid
+*.active
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Downloaded/local tool binaries
+# Cloudflared is installed per-user outside the repository.
+tools/*.exe
+
+# Test artifacts and dependencies
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+
+# Local editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

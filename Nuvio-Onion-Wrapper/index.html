@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nuvio</title>
+  <link rel="stylesheet" href="/wrapper/assets/wrapper.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <button id="backNav" class="nav-btn nav-back" title="Go Back (Esc / Backspace / Mouse 4)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Back</span>
+      </button>
+      <button id="homeNav" class="nav-btn nav-home" title="Go to Home Screen">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </button>
+      <div class="brand">
+        <strong>Nuvio</strong>
+        <span>Web</span>
+      </div>
+    </div>
+    <nav class="header-right">
+      <button id="reload" class="nav-btn" title="Reload app">↻ Reload</button>
+      <button id="full" class="nav-btn" title="Toggle Fullscreen">⛶ Fullscreen</button>
+    </nav>
+  </header>
+  <main>
+    <div id="status">Starting…</div>
+    <iframe id="app" title="Nuvio" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" referrerpolicy="origin-when-cross-origin"></iframe>
+  </main>
+  <script src="/wrapper/assets/wrapper.js"></script>
+</body>
+</html>

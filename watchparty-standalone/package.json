@@ -1,0 +1,30 @@
+{
+  "name": "watchparty-standalone-media-base",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "start:lan": "set HOST=0.0.0.0&& node server.js",
+    "test:architecture": "node scripts/CHECK-ARCHITECTURE.mjs",
+    "test:architecture:watch": "node scripts/WATCH-ARCHITECTURE.mjs",
+    "test": "npm run test:architecture && node tests/smoke/run.js --full",
+    "test:smoke": "npm run test:architecture && node tests/smoke/run.js",
+    "test:browser": "npm run test:architecture && npx playwright test",
+    "test:browser:hls": "node tests/smoke/run-browser-hls-fixture.js",
+    "test:integration": "npm run test:architecture && node tests/smoke/run.js --integration",
+    "test:youtube-live": "node tests/smoke/run-live-youtube.js",
+    "test:media-live": "node tests/smoke/run-live-media.js",
+    "test:media-page-live": "node tests/smoke/run-live-media-page.js",
+    "test:headed": "npm run test:architecture && npx playwright test --headed",
+    "test:debug": "npm run test:architecture && npx playwright test --debug"
+  },
+  "dependencies": {
+    "hls.js": "1.7.0",
+    "playwright": "^1.62.1",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

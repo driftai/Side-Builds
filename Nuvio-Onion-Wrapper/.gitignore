@@ -1,0 +1,33 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local wrapper configuration and secrets
+nuvio-wrapper.properties
+nuvio-wrapper.local.properties
+NUVIO_PATH.txt
+local.properties
+nuvio/local.properties
+nuvio/nuvio.env.js
+.env
+.env.*
+!.env.example
+
+# User-installed Nuvio runtime: never commit this tree, keep only the .gitkeep placeholder
+nuvio/*
+!nuvio/.gitkeep
+
+# Runtime logs
+*.log
+build-nuvio.log
+
+# Build outputs & heavy dependencies
+node_modules/
+dist/
+
+# OS / Editor artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
