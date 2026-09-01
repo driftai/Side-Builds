@@ -1,83 +1,113 @@
 # WatchParty Standalone — General Media Watch-Party Engine
 
-A lightweight personal watch-party server with authoritative room state, synchronized playback, chat, LAN/remote sharing, YouTube playback, and host-authorized external media discovery.
+A lightweight standalone watch-party server for watching media together with synchronized playback, chat, LAN/remote sharing, YouTube, direct HLS/media sources, and host-authorized public watch-page media discovery.
 
-## Upstream project
+## What this project is
 
-Related upstream project:
+**WatchParty Standalone is an independent implementation.** It is not a fork or bundled copy of the upstream WatchParty application.
+
+Upstream reference:
 
 **WatchParty — https://github.com/howardchung/watchparty**
 
-The upstream WatchParty project is a separate, broader watch-together website with synchronized playback, rooms, chat, YouTube, HLS, internet video files, and additional features.
+The upstream project is a broader watch-together website with synchronized playback, rooms, chat, YouTube, HLS, screen sharing, video chat, and additional features. WatchParty Standalone instead focuses on a compact local/LAN/remote server, a provider-neutral playback engine, and an explicit security boundary around external-media discovery. citeturn264313search0
 
-**WatchParty Standalone is a separate implementation.** It does not require the upstream application to run. This project focuses on a small standalone local/LAN/remote server with a provider-neutral playback architecture and an explicit security boundary around external-media resolution.
+## Features
+
+- Authoritative room playback state shared across all viewers.
+- WebSocket realtime transport with SSE and short polling recovery paths.
+- YouTube playback through the official YouTube IFrame Player API.
+- Direct `.m3u8`, `.mp4`, `.webm`, `.ogg`, and `.mov` playback.
+- Public watch-page discovery through a host-authorized isolated Playwright session.
+- Candidate stream selection with optional quality, provider/server, sub/dub, and subtitle metadata when observable.
+- LAN mode and optional Cloudflare Quick Tunnel remote sharing.
+- Room aliases and ephemeral in-memory room state.
+- Host-authoritative playback controls and bounded clock/drift correction.
+- Locally served HLS.js runtime so viewers do not depend on a third-party HLS CDN.
+- Responsive browser client suitable for local computers and remote devices.
 
 ## Playback architecture
 
-WatchParty has a provider-neutral room/playback layer. YouTube is one provider; external HLS and media-file sources use the browser's HTML media element, with hls.js used when the browser does not provide native HLS support.
+The server owns the authoritative room source and playback timeline. Provider adapters own provider-specific player lifecycle details, while WebSocket/SSE/polling transports distribute the same authoritative state.
 
-The room server owns the authoritative source and playback timeline. Providers own player-specific lifecycle details. Transports deliver the same room snapshot and must never create a second playback timeline.
+No provider or transport is allowed to create a second room timeline. Clients use monotonic revisions and bounded server-clock estimation to reject stale snapshots and project playback locally.
 
 ## YouTube
 
-The YouTube path uses the official YouTube IFrame Player API. The input accepts YouTube watch URLs, youtu.be links, Shorts, live URLs, embed URLs, or a video ID. YouTube lifecycle events remain owned by the YouTube player adapter, while the server remains authoritative for shared play/pause/seek/rate state.
+The YouTube path accepts watch URLs, `youtu.be` links, Shorts, live URLs, embed URLs, and video IDs. YouTube player lifecycle events remain owned by the YouTube adapter while the server remains authoritative for shared play/pause/seek/rate state.
 
 ## External media
 
-The External Media input supports two forms:
+External Media accepts:
 
 1. A direct playable `.m3u8`, `.mp4`, `.webm`, `.ogg`, or `.mov` URL.
-2. A public watch-page URL that can be inspected by an isolated host-authorized Playwright session on the WatchParty server.
+2. A public watch-page URL inspected by an isolated host-authorized Playwright session.
 
-Only the current room host may authorize discovery. The server-side resolver observes normal browser-visible requests/responses and media elements from the public page, then returns candidate playable sources. The host chooses one candidate. Only the selected final playable URL and non-sensitive metadata are written into room state and shared with viewers.
+Only the room host may authorize discovery. The resolver observes normal browser-visible requests/responses and media elements, then returns candidate playable sources for the host to choose from.
 
-The discovery UI can surface:
+The discovery UI can surface information such as title, provider/server label, sub/dub classification, quality, subtitles, and a final playable media URL when those values are observable from the public page.
 
-- title
-- server/host label when observable
-- provider label when observable
-- sub/dub classification when observable
-- quality when observable
-- subtitle track URLs when observable
-- direct HLS/media URL
+Viewers do not receive the resolver browser session, cookies, or private credentials.
 
-Viewers do not repeat provider discovery and do not receive the resolver browser session, cookies, or private credentials.
+### Miruro-like watch pages
 
-### Miruro-like pages
-
-Generic browser-visible discovery is intended to work with pages that expose their playable source to a normal browser session. WatchParty intentionally does not implement protected-pipe decryption, DRM circumvention, credential extraction, or Cloudflare bot-evasion; pages that hide their playable media behind those mechanisms may remain unresolved.
+The generic resolver is intended for public pages that expose playable media to a normal browser session. Some public Miruro-derived projects expose HLS manifests and subtitles through provider APIs; this implementation intentionally does **not** perform DRM circumvention, encrypted-payload decryption, credential/session extraction, or Cloudflare bot-evasion. Pages protected by those mechanisms may remain unresolved.
 
 ## Realtime transport
 
 Transport priority is:
 
-1. WebSocket — preferred low-latency room updates.
-2. Server-Sent Events — streaming fallback.
-3. Short HTTP polling — final recovery path.
+1. **WebSocket** — preferred low-latency room updates.
+2. **Server-Sent Events** — streaming fallback.
+3. **Short HTTP polling** — final recovery path.
 
-All three transports consume the same room store and authoritative playback state. Every room snapshot includes a monotonic revision and authoritative server time. Clients reject stale revisions and use bounded server-clock estimation for timeline projection. Browser `performance.now()` remains a local monotonic clock rather than a shared cross-device clock.
+All three consume the same authoritative room state. Room snapshots contain a monotonic revision and authoritative server time, and clients reject stale revisions before applying state.
 
-The WebSocket server uses `ws` with a bounded payload and compression disabled for the small room-state messages. Compression can add CPU and memory overhead for this workload.
+The WebSocket server uses bounded payloads and keeps compression disabled for the small room-state messages used by this project.
 
 ## HLS runtime
 
-HLS.js is pinned as a project dependency and served locally at `/vendor/hls.js`. External-media playback therefore does not depend on a third-party runtime CDN being reachable from every viewer device.
+HLS.js is pinned as a project dependency and served locally at `/vendor/hls.js`. This keeps playback from depending on a third-party runtime CDN being reachable from every viewer device.
 
-## LAN / remote access
+## LAN and remote access
 
-The project can listen on `0.0.0.0:9085` for LAN mode. Remote mode uses the local user-installed `tools\\cloudflared.exe` binary. The executable remains outside Git and is never automatically downloaded or replaced by WatchParty.
+LAN mode can listen on `0.0.0.0:9085` for cross-device local-network access.
+
+Remote mode uses a **user-installed** `tools\\cloudflared.exe` binary to create a temporary Cloudflare Quick Tunnel. The executable and runtime tunnel state are not committed to Git and are not automatically replaced by the application.
+
+Public/tunnel mode is intentionally separated from host-management functionality. Network diagnostics and host-only controls remain local-only.
 
 ## Room behavior
 
-Rooms can use human numeric aliases such as `123`. The server maps those aliases to an internal room ID while keeping the user-facing join code stable.
+Rooms may use human-friendly numeric aliases. The server maps aliases to internal room IDs while keeping the user-facing join code stable.
 
-The host is authoritative for source and playback control. Viewers receive the latest source and projected position before their player is synchronized.
+The current room host is authoritative for source and playback control. Viewers receive the latest source and projected playback position before synchronization.
+
+Room state is intentionally ephemeral and held in memory rather than persisted as a permanent media database.
+
+## Privacy and security boundary
+
+WatchParty Standalone is designed to keep the server's local machine separate from remote viewers.
+
+- Host network diagnostics are not exposed through the public tunnel.
+- Public room state uses sanitized/opaque identifiers instead of internal account identifiers.
+- Session resume is identity-bound rather than trusting a member identifier alone.
+- Static file serving is explicitly contained inside the `public/` directory.
+- External media destinations are restricted to public HTTP(S) targets.
+- Loopback, RFC1918/private, link-local, carrier-grade NAT, multicast, benchmarking, documentation, and related non-public destinations are rejected.
+- Hostnames are DNS-resolved and their resolved addresses are checked before outbound access.
+- Redirect destinations are revalidated before following them.
+- Browser cookies, authorization headers, `Origin`, and `Referer` are not forwarded through the public addon/media proxy paths.
+- Host-management endpoints remain separated from player-facing endpoints in public mode.
+- No DRM circumvention, credential extraction, unrestricted private-network fetching, or Cloudflare bot-evasion is implemented.
+
+See `SECURITY.md` for the complete containment model and security regression coverage.
 
 ## Testing
 
-The project uses a low-noise test ring with architecture enforcement plus Node and Playwright regression coverage.
+The project uses a low-noise test ring with architecture enforcement, Node smoke/security coverage, and Playwright browser regression tests.
 
-### Fast deterministic checks
+### Common deterministic checks
 
 `npm run test:architecture`
 
@@ -87,7 +117,7 @@ The project uses a low-noise test ring with architecture enforcement plus Node a
 
 `npm test`
 
-### Live checks
+### Optional live checks
 
 `npm run test:youtube-live`
 
@@ -95,25 +125,34 @@ The project uses a low-noise test ring with architecture enforcement plus Node a
 
 `npm run test:media-page-live` with `LIVE_MEDIA_PAGE_URL` set to a public watch-page URL.
 
-Live provider checks are opt-in and are never required for the ordinary deterministic suite.
+Live provider checks are opt-in and are not required for the ordinary deterministic suite.
 
-### Regression coverage
+### Security regression coverage
 
-The browser suite covers room creation/join, host/viewer playback, repeated terminal replay behavior, external-media UI, WebSocket transport, SSE fallback, and the existing YouTube regressions.
+The regression suite covers:
 
-The Node suite covers room/media authorization, direct URL classification, provider selection, browser-backed media resolution against deterministic fixtures, WebSocket join/broadcast, monotonic revisions, authoritative server-time ping, and playback state-machine invariants.
+- public/tunnel denial of host network diagnostics
+- sanitized public room state
+- session identity mismatch rejection
+- static-path traversal variants
+- media-stream SSRF boundaries
+- redirect-based SSRF protection
+- WebSocket/SSE transport behavior
+- room authorization and host/viewer permissions
+- monotonic revision and server-time behavior
+- playback state-machine invariants
+
+## Current verification
+
+The latest promoted build has been verified with the full WatchParty smoke/browser/security ring used during the Side-Builds promotion. The final Astro verification reported **56/56 checks passed**, including architecture, Node smoke/security, browser E2E, realtime transport, playback consistency, media resolution, and security boundary coverage.
+
+Live external-network cases may be skipped when their opt-in environment variables are not configured.
 
 ## Architecture rules
 
-Every source module must remain under the hard 450-line ceiling. `server.js` and `public/app.js` remain composition roots rather than feature containers.
+Every normal source module must remain under the hard **450-line** ceiling. `server.js` and `public/app.js` are composition roots rather than feature containers.
 
-A real-device failure that automation misses becomes a regression target. Before another workaround is added, trace authoritative state -> transport -> client -> final runtime owner, look for duplicate listeners/module replacement/guards, fix the owning invariant, and strengthen the reproducer.
-
-A provider or transport must never create its own room timeline. Synchronization helpers must not replace the lifecycle owner.
-
-## Security boundary
-
-Resolver input is public HTTP(S). Initial destinations and browser subrequests are validated against public address requirements; loopback, private, link-local, carrier-grade NAT, benchmarking, documentation, multicast, and related non-public targets are rejected. Public-mode host-management and network diagnostics are kept separate from player-facing endpoints. Do not add DRM circumvention, credential/session extraction, encrypted provider-payload decryption, Cloudflare bot-evasion, or unrestricted fetching of private network targets.
+Real-device failures should become regression targets. Before adding another workaround, trace authoritative state -> transport -> client -> final runtime owner, identify duplicate listeners/module replacement/guard problems, fix the owning invariant, and add the reproducer to the test ring.
 
 ## Project documents
 
@@ -122,4 +161,5 @@ Resolver input is public HTTP(S). Initial destinations and browser subrequests a
 - `REALTIME.md` — transport architecture
 - `EXTERNAL-MEDIA-NOTES.md` — external-media implementation notes
 - `MODULARIZATION.md` — architecture and root-cause repair rules
-- `LAST-VERIFICATION.md` — compact Astro verification relay
+- `SECURITY.md` — privacy and containment model
+- `LAST-VERIFICATION.md` — compact verification relay
