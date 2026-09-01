@@ -1,85 +1,159 @@
 # Nuvio Onion Wrapper v17
 
-Local browser wrapper for a **user-installed** NuvioTVSmart app. The Nuvio application itself is intentionally not part of this repository.
+A local browser-facing compatibility wrapper for a **user-installed Nuvio TV web application**. The Nuvio application itself is intentionally not committed to this repository.
 
-## Upstream Nuvio project
+## Upstream project
 
-This wrapper works with the Nuvio TV web application project maintained by Nuvio Media:
+This wrapper integrates with the Nuvio TV web application maintained by Nuvio Media:
 
 **NuvioWeb — https://github.com/NuvioMedia/NuvioWeb**
 
-The linked repository currently presents the Nuvio TV web application for Samsung Tizen and LG webOS and documents building the web application and TV packages from source. The repository identifies itself as the official Nuvio WebOS/TizenOS repository.
+NuvioWeb is the upstream Nuvio TV web application for Samsung Tizen, LG webOS, and normal browser-based development. Its current repository documents TV packaging, desktop installation, playback, and integration with the Stremio addon ecosystem. citeturn264313search1turn264313search5
 
-**Nuvio Onion Wrapper is a separate integration project.** It does not replace or redistribute the Nuvio application. Instead, it provides the local browser-facing wrapper, compatibility layer, addon proxy boundary, installation helpers, diagnostics, and launch flow needed to run a user-installed Nuvio build through the wrapper.
+**Nuvio Onion Wrapper is a separate integration project.** It does not replace the upstream application and does not redistribute the upstream source. It provides a local wrapper, compatibility layer, controlled addon proxy, installation helpers, diagnostics, and launch flow around a Nuvio build installed by the user.
 
-## Layout
+## What the wrapper provides
 
-The wrapper is self-contained and uses a path relative to its own folder by default: `./nuvio`.
+- Local browser access to a user-installed Nuvio build.
+- Wrapper-relative default installation at `./nuvio`.
+- Optional custom Nuvio installation paths.
+- Launcher and installer/repair scripts for first-time setup.
+- Browser compatibility fixes around the Nuvio UI/runtime.
+- Controlled Stremio-compatible addon API proxying to avoid browser CORS limitations.
+- YouTube trailer compatibility behavior without forcing playback.
+- QR/backend discovery preservation.
+- Local diagnostics and smoke-test tooling.
+- Security controls around outbound addon requests, redirects, DNS resolution, TLS, and filesystem exposure.
 
-That means the default Nuvio location is simply:
+## Installation location
+
+The wrapper never assumes a specific parent directory such as `Downloads\\Private-Test-Builds`.
+
+By default, the Nuvio installation lives relative to the wrapper itself:
 
 `Nuvio-Onion-Wrapper\\nuvio`
 
-No assumption is made about where the parent `Nuvio-Onion-Wrapper` folder lives. It can be on Downloads, Desktop, another drive, a portable folder, or anywhere else.
+That means the wrapper can be placed on Downloads, Desktop, another drive, a portable disk, or another directory without changing the default path.
 
-You may keep Nuvio anywhere else on disk. Use one of these forms:
+A custom installation location is also supported, for example:
 
 - `START_WRAPPER.bat "D:\Apps\Nuvio"`
 - `GET_NUVIO.bat "D:\Apps\Nuvio"`
 - `set NUVIO_PATH=D:\Apps\Nuvio`
-- Copy `NUVIO_PATH.example.txt` to `NUVIO_PATH.txt` as a human-readable reminder (the launcher currently reads the environment variable or command-line path).
 
 ## First-time setup
 
-1. Install or download the wrapper repository wherever you want.
-2. Run `GET_NUVIO.bat` to download/install Nuvio into `./nuvio` inside that wrapper folder by default, or provide a custom path.
-3. Run `START_WRAPPER.bat` (or pass the same custom Nuvio path).
+1. Clone or copy this wrapper anywhere on the computer.
+2. Run `GET_NUVIO.bat` to install/populate the selected Nuvio directory, using `./nuvio` by default.
+3. Run `START_WRAPPER.bat`.
 4. Open `http://127.0.0.1:8797/`.
 
-The wrapper builds/uses the Nuvio app in the user's selected local directory and serves only the generated browser build through the localhost wrapper.
+The installer validates the actual Nuvio files it needs. An empty or incomplete `nuvio/` directory is treated as an installation that needs repair rather than as a valid installation merely because the directory exists.
 
-## Why Nuvio is no longer committed here
+## External-Nuvio architecture
 
-The wrapper and Nuvio are intentionally separate projects. This keeps the public wrapper repository small, avoids redistributing the Nuvio source as part of the wrapper, and lets users control where their own Nuvio installation lives.
+The actual Nuvio installation is **user-side data**.
 
-The public wrapper repository contains only the integration layer. A user's local Nuvio installation, dependencies, build output, and local configuration remain outside Git.
+The public Git repository contains only the wrapper/integration project and a placeholder for the default `nuvio/` location. The real Nuvio source, dependencies, generated `dist/` output, local configuration, and other installation data remain outside Git.
 
-The `nuvio/` directory is a local installation location, not a copy of the upstream repository. A fresh checkout may contain only the tracked placeholder file there; the installer repairs or populates the directory when required.
+A valid local Nuvio installation is preserved when the wrapper is updated. Normal Git pulls, rebases, branch switches, commits, and pushes must not upload, replace, or clear the user's installed Nuvio files.
 
-## Browser compatibility changes
+The repository's `nuvio/` tree is therefore expected to contain only its tracked placeholder in a fresh checkout; installation scripts populate it locally when required.
 
-- Hides the outer wrapper status panel completely when there is no status text.
-- Preserves the working QR/backend discovery configuration.
-- Trailer playback remains user-initiated (no wrapper-forced Play).
-- Keeps the YouTube browser trailer proxy compatibility layer.
-- Proxies Stremio-compatible addon API calls (`manifest.json`, `catalog`, `meta`, `stream`, `subtitles`) through localhost to avoid browser CORS failures.
-- Does not proxy the final media URL; stream URLs remain available to Nuvio's player as returned by addons.
+## Browser compatibility layer
 
-The addon API proxy is restricted to public HTTPS hosts and approved addon API path families; localhost/private IP targets are rejected.
+The wrapper currently includes compatibility behavior for:
 
-## Privacy and security
+- hiding the outer wrapper status panel when it has no meaningful status text
+- preserving QR/backend discovery configuration
+- keeping trailer playback user-initiated rather than forcing Play
+- retaining YouTube trailer proxy compatibility behavior
+- proxying supported Stremio-compatible addon API paths (`manifest.json`, `catalog`, `meta`, `stream`, `subtitles`) through the local wrapper to avoid browser CORS failures
+- leaving final media URLs to Nuvio's player rather than turning the wrapper into a generic media proxy
 
-The wrapper is designed around a local-host boundary and a user-controlled Nuvio installation:
+The addon proxy is intentionally limited to approved public HTTPS hosts and supported Stremio API path families.
 
-- Sensitive local credentials are not exposed to the browser runtime through the wrapper environment surface.
-- HTTP serving is allow-listed so wrapper source/configuration files are not exposed as arbitrary static files.
-- Path traversal outside the intended Nuvio browser-build directory is rejected.
-- Outbound addon proxy requests require HTTPS and approved Stremio-compatible API paths.
-- DNS-aware validation rejects private, loopback, link-local, multicast, and other non-public targets.
-- Redirect destinations are revalidated before following them.
-- Browser-provided cookies, authorization headers, origin, and referer are not forwarded through the public addon proxy.
-- Unverified TLS fallbacks and generic unrestricted proxy routes are not used.
+## Privacy and security boundary
 
-See `SECURITY.md` for the full containment model and regression checks.
+The wrapper is designed around a local-host boundary and a user-controlled Nuvio installation.
 
-## Diagnostics
+- Sensitive local credentials are not exposed through the browser runtime environment surface.
+- Wrapper source and configuration files are not exposed as arbitrary static files.
+- Static child paths are explicitly contained within the intended browser-build root.
+- Path traversal attempts are rejected.
+- Outbound addon requests require HTTPS and approved Stremio-compatible paths.
+- DNS resolution is checked so hostnames resolving to loopback, private, link-local, multicast, or other non-public addresses are blocked.
+- Redirect destinations are revalidated before being followed.
+- Incoming browser cookies, authorization headers, `Origin`, and `Referer` are not forwarded through the public addon proxy.
+- Unverified TLS fallbacks are not used.
+- Generic unrestricted proxy endpoints are not exposed.
+- Host filesystem paths and sensitive installation diagnostics are redacted from public responses.
 
-- `SMOKE_TESTS.bat` / `smoke_tests.py`: local HTTP/build smoke tests.
-- `BROWSER_SMOKE_TESTS.js`: DevTools inspection for detail-page input, focus, trailer layers, and pointer state.
-- `AGY_AGENT_REPORT.md`: handoff instructions for a Google Antigravity CLI agent.
-- `SECURITY.md`: public repository privacy/containment model.
+See `SECURITY.md` for the full containment model and security regression suite.
+
+## Git safety for user installations
+
+The local `nuvio/` installation is deliberately protected from repository operations.
+
+The intended Git state is:
+
+- real Nuvio application files: **not tracked**
+- `nuvio/.gitkeep`: tracked placeholder only
+- local installed Nuvio files: ignored
+- `git add -A`: must not stage user Nuvio data
+- `git push`: must never contain the user's Nuvio installation
+
+This separation lets users keep their Nuvio installation in the default wrapper-relative directory while updating the wrapper independently.
+
+## Testing
+
+The wrapper uses a combined functional and security verification ring.
+
+### Security tests
+
+`python tests/test_security.py`
+
+Coverage includes:
+
+- private/loopback target rejection
+- DNS-aware public-target validation
+- HTTPS and approved Stremio API path enforcement
+- browser runtime credential redaction
+- filesystem surface allow-listing
+- path-traversal containment
+- wrapper-relative Nuvio path behavior
+- empty/incomplete installation detection and repair conditions
+- Git placeholder separation
+- arbitrary proxy/TLS downgrade protections
+
+### Smoke tests
+
+`python smoke_tests.py`
+
+The smoke suite verifies wrapper startup, required Nuvio build files, safe HTTP surfaces, runtime environment redaction, proxy restrictions, filesystem diagnostics, public addon connectivity, and Nuvio metadata/runtime compatibility.
+
+### Current verification
+
+The promoted public build was verified during migration with:
+
+- **10/10 security checks passed**
+- **17/17 functional smoke checks passed**
+- user-side external Nuvio installation validated successfully
+- secret/history scan clean during promotion
 
 ## Upstream resources
 
 - Nuvio Web application: https://github.com/NuvioMedia/NuvioWeb
 - Nuvio website: https://nuvio.tv/
+
+## Project documents
+
+- `SECURITY.md` — privacy, credential, network, proxy, and filesystem boundaries
+- `SMOKE_TESTS.bat` — Windows smoke-test launcher
+- `smoke_tests.py` — functional and security smoke suite
+- `tests/test_security.py` — security regression suite
+- `NUVIO_PATH.example.txt` — custom-path reminder
+
+## License / upstream note
+
+This wrapper is a separate integration layer. Review the licenses and terms of the upstream Nuvio project and any addons or media sources you choose to use. The wrapper itself does not grant rights to third-party content or services.
