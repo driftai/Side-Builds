@@ -15,7 +15,7 @@ from config import config
 from .targeting import target_manager
 from .tunnel import get_local_ips
 from .controller import VIGEM_AVAILABLE
-from . import _refresh_vhf_status
+from . import _refresh_umdf_status, _refresh_vhf_status
 from .background_helper import (
     BackgroundCaptureRequest,
     background_helper_running,
@@ -124,6 +124,7 @@ async def get_server_status(request: Request):
     local_ips = get_local_ips()
     lan_urls = [f"http://{ip}:{config.port}/play?code={room_code}" for ip in local_ips]
     vhf_available, vhf_error = _refresh_vhf_status()
+    umdf_available, umdf_error = _refresh_umdf_status()
     return {
         "title": config.title,
         "version": config.version,
@@ -131,6 +132,8 @@ async def get_server_status(request: Request):
         "vigem_available": VIGEM_AVAILABLE,
         "vhf_available": vhf_available,
         "vhf_error": vhf_error,
+        "umdf_keyboard_available": umdf_available,
+        "umdf_keyboard_error": umdf_error,
         "local_ips": local_ips,
         "primary_lan_url": lan_urls[0] if lan_urls else None,
         "all_lan_urls": lan_urls,

@@ -29,6 +29,7 @@ tmp/
 
 # Local WDK driver build output
 drivers/virtual-keyboard/x64/
+drivers/virtual-keyboard-umdf/x64/
 
 # Local environment configs & secrets
 .env

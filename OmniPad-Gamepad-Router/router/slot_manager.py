@@ -338,7 +338,9 @@ class SlotManager:
         # Target Scoping & Safety Gate:
         #   * Keyboard injection must stay foreground-gated (SendInput safety).
         #   * Virtual controllers (Xbox 360 / DualShock 4) only route when target is running.
-        keyboard_backend = slot.controller_type in {"keyboard_target", "keyboard", "virtual_keyboard"}
+        keyboard_backend = slot.controller_type in {
+            "keyboard_target", "keyboard", "virtual_keyboard", "virtual_keyboard_port"
+        }
         if config.target_gate_enabled and target_manager.selected:
             allowed = target_manager.is_target_foreground() if keyboard_backend else target_manager.is_target_running()
             if not allowed:

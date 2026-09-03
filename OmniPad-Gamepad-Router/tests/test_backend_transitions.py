@@ -12,6 +12,7 @@ from router.controller import (
     DualShock4Backend,
     TargetLockedKeyboardBackend,
     KeyboardInjectionBackend,
+    VirtualKeyboardPortBackend,
     VirtualKeyboardHIDBackend,
 )
 
@@ -62,7 +63,20 @@ async def run_backend_transition_test():
     print(f"  [PASS] Legacy Keyboard Injection preserved exact raw keys: {active_vks}")
     slot.controller.release_all()
 
-    # 4. Attempt Switch to VHF Keyboard (when driver unavailable)
+    # 4. Attempt switch to the normal-mode UMDF keyboard port.
+    print("  [INFO] Attempting switch to Virtual Keyboard Port (UMDF)...")
+    ok_umdf = await sm.set_controller_type(1, "virtual_keyboard_port")
+    if not ok_umdf:
+        print("  [PASS] UMDF switch failed safely as expected (driver not installed)")
+        assert slot.controller_type == "keyboard"
+        assert isinstance(slot.controller, KeyboardInjectionBackend)
+    else:
+        print("  [PASS] UMDF virtual keyboard port is installed and active on host!")
+        assert isinstance(slot.controller, VirtualKeyboardPortBackend)
+        ok = await sm.set_controller_type(1, "keyboard")
+        assert ok is True
+
+    # 5. Attempt Switch to VHF Keyboard (when driver unavailable)
     # Must fail safely and keep current active backend intact!
     print("  [INFO] Attempting switch to Virtual Keyboard HID (VHF)...")
     ok_vhf = await sm.set_controller_type(1, "virtual_keyboard")
@@ -75,7 +89,7 @@ async def run_backend_transition_test():
         print("  [PASS] VHF driver is installed and active on host!")
         assert isinstance(slot.controller, VirtualKeyboardHIDBackend)
 
-    # 5. Switch Back to Xbox 360
+    # 6. Switch Back to Xbox 360
     ok = await sm.set_controller_type(1, "xbox360")
     assert ok is True
     assert isinstance(slot.controller, Xbox360Backend)

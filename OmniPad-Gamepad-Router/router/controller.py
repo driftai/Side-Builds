@@ -16,6 +16,7 @@ from .backends import (
     DualShock4Backend,
     TargetLockedKeyboardBackend,
     KeyboardInjectionBackend,
+    VirtualKeyboardPortBackend,
     VirtualKeyboardHIDBackend,
     NoopBackend,
     VIGEM_AVAILABLE,
@@ -80,6 +81,13 @@ class ControllerFactory:
                 "recommended": False
             })
             backends.append({
+                "id": "virtual_keyboard_port",
+                "name": "Virtual Keyboard Port (UMDF)",
+                "description": "Normal-mode separate HID keyboard. Requires the signed OmniPad UMDF package.",
+                "available": False,
+                "recommended": False
+            })
+            backends.append({
                 "id": "virtual_keyboard",
                 "name": "Virtual Keyboard HID (VHF)",
                 "description": "Preserved future Microsoft-signed path for a true separate HID keyboard device.",
@@ -116,6 +124,8 @@ class ControllerFactory:
             return NoopBackend(slot_id)
         elif backend_id == "virtual_keyboard":
             return VirtualKeyboardHIDBackend(slot_id)
+        elif backend_id == "virtual_keyboard_port":
+            return VirtualKeyboardPortBackend(slot_id)
         elif backend_id == "noop":
             return NoopBackend(slot_id)
         else:
@@ -131,6 +141,7 @@ __all__ = [
     "TargetLockedKeyboardBackend",
     "KeyboardInjectionBackend",
     "VirtualKeyboardHIDBackend",
+    "VirtualKeyboardPortBackend",
     "NoopBackend",
     "ControllerFactory",
     "VIGEM_AVAILABLE",

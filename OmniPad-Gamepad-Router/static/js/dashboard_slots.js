@@ -6,7 +6,8 @@ let visualizers = {};
 let currentSummary = null;
 
 function isKeyboardBackend(backendId) {
-  return backendId === "keyboard" || backendId === "keyboard_target" || backendId === "virtual_keyboard";
+  return backendId === "keyboard" || backendId === "keyboard_target" ||
+    backendId === "virtual_keyboard" || backendId === "virtual_keyboard_port";
 }
 
 function updateDashboard(summary) {

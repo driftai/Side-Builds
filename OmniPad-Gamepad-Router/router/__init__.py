@@ -11,12 +11,14 @@ from .controller import (
     Xbox360Backend,
     DualShock4Backend,
     KeyboardInjectionBackend,
+    VirtualKeyboardPortBackend,
     VirtualKeyboardHIDBackend,
     NoopBackend,
     ControllerFactory,
     VIGEM_AVAILABLE
 )
 from .vhf_keyboard import VHFKeyboardDevice, build_keyboard_report
+from .umdf_keyboard import UmdfKeyboardDevice
 from .slot_manager import SlotManager, PlayerSlot
 from .tunnel import TunnelManager, get_local_ips
 from .profiles import ProfileManager
@@ -26,6 +28,9 @@ _original_factory_backends = ControllerFactory.get_available_backends
 _vhf_cache_available = False
 _vhf_cache_error = "Not checked yet"
 _vhf_cache_at = 0.0
+_umdf_cache_available = False
+_umdf_cache_error = "Not checked yet"
+_umdf_cache_at = 0.0
 
 
 def _refresh_vhf_status(force: bool = False):
@@ -45,21 +50,48 @@ def _refresh_vhf_status(force: bool = False):
     return _vhf_cache_available, _vhf_cache_error
 
 
+def _refresh_umdf_status(force: bool = False):
+    global _umdf_cache_available, _umdf_cache_error, _umdf_cache_at
+    now = time.monotonic()
+    if not force and (now - _umdf_cache_at) < 2.0:
+        return _umdf_cache_available, _umdf_cache_error
+    device, error = UmdfKeyboardDevice.try_open()
+    if device is not None:
+        device.close()
+        _umdf_cache_available = True
+        _umdf_cache_error = ""
+    else:
+        _umdf_cache_available = False
+        _umdf_cache_error = error or "Unknown UMDF keyboard error"
+    _umdf_cache_at = now
+    return _umdf_cache_available, _umdf_cache_error
+
+
 def _factory_backends():
     backends = _original_factory_backends()
-    available, error = _refresh_vhf_status()
+    vhf_available, _ = _refresh_vhf_status()
+    umdf_available, _ = _refresh_umdf_status()
     for item in backends:
         if item.get("id") == "virtual_keyboard":
             item.update({
-                "available": available,
-                "recommended": available,
+                "available": vhf_available,
+                "recommended": False,
                 "description": (
                     "True separate HID keyboard device via the OmniPad VHF/KMDF driver."
-                    if available else
+                    if vhf_available else
                     "Preserved future Microsoft-signed path for a true separate HID keyboard."
                 ),
             })
-            break
+        elif item.get("id") == "virtual_keyboard_port":
+            item.update({
+                "available": umdf_available,
+                "recommended": umdf_available,
+                "description": (
+                    "Normal-mode separate HID keyboard via the installed OmniPad UMDF port."
+                    if umdf_available else
+                    "Normal-mode separate HID path. Build, sign, and install the UMDF package to enable it."
+                ),
+            })
     return backends
 
 
@@ -73,12 +105,15 @@ __all__ = [
     "DualShock4Backend",
     "KeyboardInjectionBackend",
     "VirtualKeyboardHIDBackend",
+    "VirtualKeyboardPortBackend",
     "NoopBackend",
     "ControllerFactory",
     "VIGEM_AVAILABLE",
     "VHFKeyboardDevice",
+    "UmdfKeyboardDevice",
     "build_keyboard_report",
     "_refresh_vhf_status",
+    "_refresh_umdf_status",
     "SlotManager",
     "PlayerSlot",
     "TunnelManager",

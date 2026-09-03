@@ -11,7 +11,7 @@ The project is designed as a **barebones server + web UI**, not a monolithic com
 - Remote 2-player local co-op / versus over **LAN or the Internet**.
 - Browser-based **keyboard, touchscreen, and gamepad** control.
 - Native **Xbox 360 and DualShock 4** virtual controllers through ViGEmBus.
-- Optional **separate virtual keyboard HID** development path using Windows VHF/KMDF.
+- Optional **separate virtual keyboard HID** using a normal-mode UMDF 2 virtual port, with KMDF/VHF preserved for future Microsoft signing.
 - Running-game discovery and target attachment using Windows HWND/PID APIs, without DLL injection or game-memory patching.
 - **Cloudflare Quick Tunnel** support for cross-city play without manual port forwarding.
 - Low-latency keyboard and mouse-camera input transport.
@@ -96,6 +96,7 @@ This makes mouse camera movement usable for games whose Player 2 camera is repre
 | Xbox 360 | ViGEmBus | Native XInput Player 2 controller | ✅ Working |
 | DualShock 4 | ViGEmBus | Native DS4 / DirectInput Player 2 controller | ✅ Working |
 | Keyboard 2 | Windows scan-code `SendInput` | Target-locked normal-mode keyboard bridge | ✅ Working |
+| Virtual Keyboard Port | UMDF 2 + Windows HID stack | Normal-mode separate HID / Raw Input keyboard | 🧪 Built; install pending |
 | Virtual Keyboard HID (VHF) | KMDF + VHF | Future Microsoft-signed separate HID path | 📦 Preserved / on hold |
 | Noop | Diagnostic | Input-pipeline testing without hardware | ✅ Working |
 
@@ -217,13 +218,21 @@ Important suites include:
 
 Run `run_tests.bat` for the standard local test sequence.
 
-The VHF driver path additionally requires a real Windows WDK environment for native compilation/install testing.
+The UMDF and VHF driver paths additionally require a real Windows WDK environment for native compilation and package testing.
 
 ---
 
-## ⌨️ Virtual Keyboard HID / VHF
+## ⌨️ Virtual Keyboard Port / VHF
 
-The optional VHF path is intended for games or software that distinguish keyboard devices through Raw Input/HID rather than accepting ordinary Windows injected keyboard events.
+The primary separate-device implementation is now the normal-mode UMDF 2 package under:
+
+`drivers/virtual-keyboard-umdf/`
+
+It exposes a standard keyboard collection plus a vendor-defined local control collection. OmniPad writes its tested 8-byte keyboard states to the control collection, and Windows exposes the keyboard collection as a distinct HID/Raw Input device. The driver suppresses duplicate state publications and forces all keys up after a 750 ms host-silence timeout.
+
+This path does not require Test Mode, Secure Boot changes, BCD edits, or a custom kernel binary. Windows still requires the package catalog to be signed and trusted before installation; the build performs no certificate-store or driver-state changes.
+
+The preserved VHF path remains intended for future Microsoft signing work and for games or software that distinguish keyboard devices through Raw Input/HID:
 
 Source lives under:
 
@@ -258,11 +267,12 @@ The main components are:
 - `router/targeting.py` — running-game discovery and target safety predicates.
 - `router/security.py` — local/private request gates and public-session containment.
 - `router/controller.py` — virtual controller lifecycle.
-- `router/backends/` — Xbox 360, DS4, keyboard, VHF and diagnostic backends.
+- `router/backends/` — Xbox 360, DS4, scan-code keyboard, UMDF keyboard port, VHF and diagnostic backends.
 - `router/profiles.py` — game/profile mappings.
 - `router/tunnel.py` — Cloudflare Quick Tunnel lifecycle.
 - `static/js/` — browser controller, layouts, mouse camera, touch controller, monitoring and transport.
 - `drivers/virtual-keyboard/` — optional KMDF/VHF keyboard device source.
+- `drivers/virtual-keyboard-umdf/` — normal-mode UMDF 2 virtual keyboard port source and build scripts.
 - `tests/` — regression and security test ring.
 
 The project enforces a strict source-file size ceiling to keep individual modules reviewable and maintainable. See [`MODULARIZATION.md`](MODULARIZATION.md) and [`MODULARIZATION-MAP.md`](MODULARIZATION-MAP.md).
@@ -278,7 +288,7 @@ Typical Windows host requirements:
 - Node.js for browser/JavaScript checks
 - ViGEmBus for Xbox 360 / DS4 virtual controllers
 - Modern browser for remote players
-- Optional Visual Studio + Windows Driver Kit for VHF development
+- Optional Visual Studio Build Tools + Windows Driver Kit for UMDF/VHF development
 - Optional `cloudflared` for Internet play through Quick Tunnels
 
 See the repository launcher scripts and `requirements.txt` for the current setup path.

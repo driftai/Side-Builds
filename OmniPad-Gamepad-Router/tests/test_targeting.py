@@ -174,7 +174,7 @@ def test_target_locked_keyboard_stays_foreground_gated():
             target_manager.is_target_running = orig_is_running
 
 
-def test_vhf_keyboard_stays_foreground_gated():
+def test_virtual_hid_keyboards_stay_foreground_gated():
     import asyncio
     from router.slot_manager import SlotManager
     from router.targeting import target_manager
@@ -205,36 +205,37 @@ def test_vhf_keyboard_stays_foreground_gated():
         title = "It Takes Two"
         process_name = "ItTakesTwo.exe"
 
-    controller = FakeVHFController()
-    manager = SlotManager()
-    slot = manager.slots[1]
-    slot.controller_type = "virtual_keyboard"
-    slot.controller = controller
     target_manager.selected = Selected()
     target_manager.is_target_running = lambda: True
-    target_manager.is_target_foreground = lambda: False
     config.target_gate_enabled = True
 
     async def _test():
-        packet = {
-            "seq": 1,
-            "buttons": {},
-            "axes": {},
-            "key_codes": ["KeyW"],
-            "input_surface": "keyboard",
-        }
-        await manager.process_input_packet(1, packet)
-        assert controller.release_count == 1
-        assert controller.applied == []
-        assert slot.is_active is False
-        assert slot.last_state["key_codes"] == []
+        for controller_type in ("virtual_keyboard", "virtual_keyboard_port"):
+            controller = FakeVHFController()
+            manager = SlotManager()
+            slot = manager.slots[1]
+            slot.controller_type = controller_type
+            slot.controller = controller
+            target_manager.is_target_foreground = lambda: False
+            packet = {
+                "seq": 1,
+                "buttons": {},
+                "axes": {},
+                "key_codes": ["KeyW"],
+                "input_surface": "keyboard",
+            }
+            await manager.process_input_packet(1, packet)
+            assert controller.release_count == 1
+            assert controller.applied == []
+            assert slot.is_active is False
+            assert slot.last_state["key_codes"] == []
 
-        target_manager.is_target_foreground = lambda: True
-        packet["seq"] = 2
-        await manager.process_input_packet(1, packet)
-        assert len(controller.applied) == 1
-        assert controller.applied[0]["key_codes"] == ["KeyW"]
-        assert slot.is_active is True
+            target_manager.is_target_foreground = lambda: True
+            packet["seq"] = 2
+            await manager.process_input_packet(1, packet)
+            assert len(controller.applied) == 1
+            assert controller.applied[0]["key_codes"] == ["KeyW"]
+            assert slot.is_active is True
 
     try:
         asyncio.run(_test())
@@ -261,7 +262,7 @@ if __name__ == "__main__":
     print("  [PASS] Unfocused virtual controller routing (Target running, not foreground)")
     test_target_locked_keyboard_stays_foreground_gated()
     print("  [PASS] Target-Locked keyboard foreground gating (Safety preserved)")
-    test_vhf_keyboard_stays_foreground_gated()
-    print("  [PASS] VHF keyboard foreground gating and release behavior")
+    test_virtual_hid_keyboards_stay_foreground_gated()
+    print("  [PASS] VHF and UMDF virtual keyboards preserve foreground gating and release behavior")
     print("  >>> TARGET TESTS COMPLETED SUCCESSFULLY! <<<\n")
 

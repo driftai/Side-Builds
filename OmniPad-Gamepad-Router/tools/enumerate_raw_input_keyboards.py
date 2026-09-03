@@ -99,7 +99,8 @@ def enumerate_keyboards():
             num_keys = info.keyboard.dwNumberOfKeysTotal
             fn_keys = info.keyboard.dwNumberOfFunctionKeys
 
-        is_omnipad = "OmniPad" in name or "0F0F" in name or "0202" in name
+        normalized_name = name.upper()
+        is_omnipad = "OMNIPAD" in normalized_name or "VID_0F0F" in normalized_name or "PID_0303" in normalized_name
         keyboards.append({
             "handle": hex(item.hDevice or 0),
             "name": name,

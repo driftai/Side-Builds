@@ -168,7 +168,7 @@ def test_driver_source_contract():
     assert "signature.Status -ne 'Valid'" in install
     assert "OmniPadVirtualKeyboard.sln" not in build_notes
     assert "OmniPadVirtualKeyboard.sln" not in readme
-    assert '{"keyboard_target", "keyboard", "virtual_keyboard"}' in slots
+    assert '"keyboard_target", "keyboard", "virtual_keyboard", "virtual_keyboard_port"' in slots
     assert "VHFKeyboardDevice.try_open()" in backend
     assert "class VirtualKeyboardHIDBackend" not in router_init
     print("  [PASS] Driver descriptor, access, INF, build, cleanup, and target-gating contracts")

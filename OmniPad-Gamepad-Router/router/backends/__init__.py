@@ -12,6 +12,7 @@ from .keyboard import (
     _DOM_CODE_TO_VK,
 )
 from .vhf import VirtualKeyboardHIDBackend
+from .umdf_keyboard import VirtualKeyboardPortBackend
 from .noop import NoopBackend
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "TargetLockedKeyboardBackend",
     "KeyboardInjectionBackend",
     "VirtualKeyboardHIDBackend",
+    "VirtualKeyboardPortBackend",
     "NoopBackend",
     "VIGEM_AVAILABLE",
     "WIN32_AVAILABLE",

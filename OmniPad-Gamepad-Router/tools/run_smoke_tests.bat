@@ -56,6 +56,10 @@ echo Running OmniPad VHF Keyboard Report Tests...
 "%PYTHON%" tests\test_vhf_keyboard.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Normal-Mode UMDF Virtual Keyboard Tests...
+"%PYTHON%" tests\test_umdf_keyboard.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad Raw Input Keyboard Enumeration Tests...
 "%PYTHON%" tests\test_raw_input_keyboards.py
 if errorlevel 1 exit /b 1

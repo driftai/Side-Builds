@@ -74,17 +74,21 @@ async function fetchInitialStatus() {
       }
     }
 
-    // VHF Keyboard Driver Status
+    // Separate virtual keyboard status (normal-mode UMDF first, preserved VHF second).
     const vhfBadge = document.getElementById("vhf-status-badge");
     if (vhfBadge) {
-      if (data.vhf_available) {
+      if (data.umdf_keyboard_available) {
+        vhfBadge.className = "badge badge-green";
+        vhfBadge.innerHTML = `<span class="status-dot"></span> Virtual Keyboard Port Active`;
+        vhfBadge.title = "OmniPad UMDF virtual keyboard is active as a separate Raw Input device";
+      } else if (data.vhf_available) {
         vhfBadge.className = "badge badge-green";
         vhfBadge.innerHTML = `<span class="status-dot"></span> VHF Keyboard Active`;
         vhfBadge.title = "OmniPad Virtual Keyboard HID (VHF) driver active as separate hardware keyboard";
       } else {
         vhfBadge.className = "badge badge-yellow";
-        vhfBadge.innerHTML = `<span class="status-dot"></span> VHF Future Path (Inactive)`;
-        vhfBadge.title = "VHF source is preserved for future Microsoft signing. Using the normal-mode Target-Locked Scan-Code backend.";
+        vhfBadge.innerHTML = `<span class="status-dot"></span> Virtual Keyboard Port Not Installed`;
+        vhfBadge.title = "The normal-mode UMDF virtual keyboard can be installed after package signing. KMDF/VHF remains preserved for future Microsoft signing.";
       }
     }
 
