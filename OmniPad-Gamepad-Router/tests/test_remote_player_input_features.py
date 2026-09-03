@@ -47,6 +47,19 @@ def main() -> None:
     assert "mouse-camera-pad.locked" in css
     assert "mouse-camera-card.fullscreen-mode" in css
 
+    # WAN / Cloudflare transport guard: input snapshots are latest-state-wins,
+    # while digital key transitions keep their immediate microtask flush.
+    assert "WebSocket.prototype.send" in latency
+    assert "bufferedAmount" in latency
+    assert "MAX_BUFFERED_BYTES" in latency
+    assert "MIN_ANALOG_SEND_MS" in latency
+    assert "SAME_STATE_KEEPALIVE_MS" in latency
+    assert "droppedBackpressure" in latency
+    assert "droppedCoalesced" in latency
+    assert "droppedDuplicate" in latency
+    assert "OmniPadInputTransportStats" in latency
+    assert 'message.type !== "input"' in latency
+
     assert 'id="mouse-camera-fullscreen-btn"' in play
     assert 'id="mouse-camera-popout-btn"' in play
     assert "toggleFullscreen" in mouse
@@ -56,13 +69,19 @@ def main() -> None:
     assert 'id="mouse-sens-slider"' in play
     assert "mouseSensitivity" in mouse
     assert "setMouseSensitivity" in mouse
+    assert "mouseSensitivityScaleV2" in latency
+    assert 'localStorage.setItem("omnipad.mouseSensitivity", "20")' in latency
     assert "smoothLx" in keyboard and "smoothLy" in keyboard
 
     vk = read("static/js/virtual_keyboard.js")
     assert "getActiveControllerBadges" in keyboard
     assert "getActiveControllerBadges" in vk
 
-    print("Remote player input feature checks passed (including 65% Compact, Mouse Camera Pointer Lock, Sensitivity Slider, Fullscreen, Pop-out Window, and Dynamic Badges).")
+    print(
+        "Remote player input feature checks passed "
+        "(Cloudflare routing UI, bounded WebSocket backlog, latest-state analog transport, "
+        "lower mouse default, keyboard variants, pointer lock, fullscreen/pop-out, and badges)."
+    )
 
 
 if __name__ == "__main__":
