@@ -61,6 +61,40 @@ class HIDP_CAPS(ctypes.Structure):
     ]
 
 
+def is_omnipad_hid_path(path: str) -> bool:
+    """Identify either OmniPad HID collection by queried VID/PID attributes."""
+    if not IS_WINDOWS or not path:
+        return False
+
+    hid = ctypes.WinDLL("hid", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    hid.HidD_GetAttributes.argtypes = [wintypes.HANDLE, ctypes.POINTER(HIDD_ATTRIBUTES)]
+    hid.HidD_GetAttributes.restype = wintypes.BOOLEAN
+    kernel32.CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+    ]
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    handle = kernel32.CreateFileW(
+        path, 0, 0x00000001 | 0x00000002, None, 3, 0, None
+    )
+    if not handle or handle == wintypes.HANDLE(-1).value:
+        return False
+    try:
+        attributes = HIDD_ATTRIBUTES()
+        attributes.Size = ctypes.sizeof(HIDD_ATTRIBUTES)
+        return bool(
+            hid.HidD_GetAttributes(handle, ctypes.byref(attributes))
+            and attributes.VendorID == OMNIPAD_UMDF_VID
+            and attributes.ProductID == OMNIPAD_UMDF_PID
+        )
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def build_control_feature_report(keyboard_report: bytes) -> bytes:
     """Wrap one 8-byte keyboard state in the vendor feature report."""
     if len(keyboard_report) != REPORT_SIZE:
@@ -168,9 +202,6 @@ class UmdfKeyboardDevice:
         last_error = 0
 
         for path in self._iter_hid_paths():
-            normalized_path = path.lower()
-            if "vid_0f0f" not in normalized_path or "pid_0303" not in normalized_path:
-                continue
             handle = self._kernel32.CreateFileW(
                 path,
                 generic_read | generic_write,
@@ -250,4 +281,5 @@ __all__ = [
     "CONTROL_USAGE",
     "CONTROL_REPORT_ID",
     "CONTROL_REPORT_SIZE",
+    "is_omnipad_hid_path",
 ]

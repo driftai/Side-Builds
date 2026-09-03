@@ -33,8 +33,9 @@ Phase 1 & Phase 2 Architecture Modularization remain complete. This handoff also
 - **Architecture Gate:** Passed (`tools/check_architecture.py` — 0 violations across all 38 covered source files within the 450-line limit).
 - **Security regression tests:** 100% passed across all 3 dedicated security test suites (Cloudflare detection, local-only HTTP endpoint matrix, target/status metadata redaction, read-only observer input injection prevention, authoritative slot handoffs, helper source spoofing rejection, and malformed frame resilience).
 - **Full Git History Secret Scan:** Complete scan of all 441 historical commits via `tools/scan_secrets.py` found 0 secret patterns, tokens, private keys, or credentials.
-- **Automated runtime suite:** Full 18 / 18 test suites passed (100% green), including the UMDF virtual keyboard report/bridge/source contracts.
-- **UMDF native build:** x64 Debug package built with UMDF 2.15; API validation and Inf2Cat passed with 0 warnings and 0 errors. The catalog remains intentionally unsigned and the device remains uninstalled pending the explicit local-trust checkpoint.
+- **Automated runtime suite:** All 19 stages passed (architecture plus 18 / 18 test suites), including the UMDF virtual keyboard report/bridge/source contracts.
+- **UMDF native build:** x64 Debug package built with UMDF 2.15; API validation and Inf2Cat passed with 0 warnings and 0 errors. The catalog was locally signed and installed without Test Mode, BCD, Secure Boot, or reboot changes.
+- **UMDF installed-device smoke:** All 13 checks passed against the live device. Windows exposed a separate keyboard collection and vendor control collection; 171 device-specific Raw Input events verified make/break, modifiers, six-key rollover, duplicate suppression, heartbeat/watchdog behavior, 64 rapid transitions ending neutral, backend lifecycle, and endpoint reopen.
 
 ### Security conclusion
 The public player path is intentionally a bearer-link model: possession of the current tunnel URL and room code grants room access. Host-management APIs are fully contained and separated from the public tunnel, sensitive Windows target metadata is completely redacted, and remote input channels are strictly bound to assigned slots.

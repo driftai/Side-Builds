@@ -8,6 +8,8 @@ import os
 import time
 from typing import Callable, Dict, List
 
+from router.umdf_keyboard import is_omnipad_hid_path
+
 WM_INPUT = 0x00FF
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
@@ -100,6 +102,7 @@ class RawKeyboardReceiver:
         self._configure_functions()
         self.events: List[Dict[str, object]] = []
         self._device_names: Dict[int, str] = {}
+        self._device_matches: Dict[int, bool] = {}
         self._previous_foreground = self.user32.GetForegroundWindow()
         self._wndproc = WNDPROC(self._window_proc)
         self.class_name = f"OmniPadUmdfSmoke{os.getpid()}"
@@ -189,6 +192,11 @@ class RawKeyboardReceiver:
         self._device_names[handle] = name
         return name
 
+    def _is_omnipad(self, handle: int, name: str) -> bool:
+        if handle not in self._device_matches:
+            self._device_matches[handle] = is_omnipad_hid_path(name)
+        return self._device_matches[handle]
+
     def _window_proc(self, hwnd, message, wparam, lparam):
         if message == WM_INPUT:
             size = wintypes.UINT(0)
@@ -207,7 +215,7 @@ class RawKeyboardReceiver:
                         )
                         handle = int(header.hDevice or 0)
                         name = self._device_name(handle)
-                        if "VID_0F0F" in name.upper() and "PID_0303" in name.upper():
+                        if self._is_omnipad(handle, name):
                             self.events.append({
                                 "at": time.monotonic(), "device": name,
                                 "make_code": int(keyboard.MakeCode), "flags": int(keyboard.Flags),

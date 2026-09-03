@@ -14,6 +14,7 @@ from router.umdf_keyboard import (
     OMNIPAD_UMDF_VID,
     UmdfKeyboardDevice,
     build_control_feature_report,
+    is_omnipad_hid_path,
 )
 from router.vhf_keyboard import build_keyboard_report
 
@@ -41,6 +42,7 @@ def test_device_discovery_contract():
     else:
         assert device.available
         assert device.device_path
+        assert is_omnipad_hid_path(device.device_path)
         print(f"  [PASS] UMDF keyboard control collection opened at {device.device_path}")
         device.close()
 

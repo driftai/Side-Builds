@@ -7,7 +7,13 @@ identifying device names, handles, hardware IDs, and checking for OmniPad Virtua
 import ctypes
 from ctypes import wintypes
 import os
+from pathlib import Path
 import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from router.umdf_keyboard import is_omnipad_hid_path
 
 IS_WINDOWS = os.name == "nt"
 
@@ -99,8 +105,7 @@ def enumerate_keyboards():
             num_keys = info.keyboard.dwNumberOfKeysTotal
             fn_keys = info.keyboard.dwNumberOfFunctionKeys
 
-        normalized_name = name.upper()
-        is_omnipad = "OMNIPAD" in normalized_name or "VID_0F0F" in normalized_name or "PID_0303" in normalized_name
+        is_omnipad = is_omnipad_hid_path(name)
         keyboards.append({
             "handle": hex(item.hDevice or 0),
             "name": name,

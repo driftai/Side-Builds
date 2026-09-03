@@ -96,7 +96,7 @@ This makes mouse camera movement usable for games whose Player 2 camera is repre
 | Xbox 360 | ViGEmBus | Native XInput Player 2 controller | ✅ Working |
 | DualShock 4 | ViGEmBus | Native DS4 / DirectInput Player 2 controller | ✅ Working |
 | Keyboard 2 | Windows scan-code `SendInput` | Target-locked normal-mode keyboard bridge | ✅ Working |
-| Virtual Keyboard Port | UMDF 2 + Windows HID stack | Normal-mode separate HID / Raw Input keyboard | 🧪 Built; install pending |
+| Virtual Keyboard Port | UMDF 2 + Windows HID stack | Normal-mode separate HID / Raw Input keyboard | ✅ Implemented and runtime-verified |
 | Virtual Keyboard HID (VHF) | KMDF + VHF | Future Microsoft-signed separate HID path | 📦 Preserved / on hold |
 | Noop | Diagnostic | Input-pipeline testing without hardware | ✅ Working |
 
@@ -230,7 +230,7 @@ The primary separate-device implementation is now the normal-mode UMDF 2 package
 
 It exposes a standard keyboard collection plus a vendor-defined local control collection. OmniPad writes its tested 8-byte keyboard states to the control collection, and Windows exposes the keyboard collection as a distinct HID/Raw Input device. The driver suppresses duplicate state publications and forces all keys up after a 750 ms host-silence timeout.
 
-This path does not require Test Mode, Secure Boot changes, BCD edits, or a custom kernel binary. Windows still requires the package catalog to be signed and trusted before installation; the build performs no certificate-store or driver-state changes.
+This path does not require Test Mode, Secure Boot changes, BCD edits, or a custom kernel binary. Windows still requires the package catalog to be signed and trusted before installation; the build performs no certificate-store or driver-state changes. The installed-device smoke verifies the separate Raw Input identity, real make/break events, backend lifecycle, rollover, duplicate suppression, heartbeat/watchdog behavior, rapid transitions ending neutral, and endpoint reopen.
 
 The preserved VHF path remains intended for future Microsoft signing work and for games or software that distinguish keyboard devices through Raw Input/HID:
 
