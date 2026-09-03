@@ -31,9 +31,11 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
 )
 
-echo Installing dependencies from requirements.txt...
-".\.venv\Scripts\python.exe" -m pip install --upgrade pip
+echo Updating Python packaging tools...
+".\.venv\Scripts\python.exe" -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 goto :dependency_failure
+
+echo Installing dependencies from requirements.txt...
 ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt --no-warn-script-location
 if errorlevel 1 goto :dependency_failure
 
@@ -42,10 +44,14 @@ echo Verifying vgamepad installation...
 if errorlevel 1 (
     echo Installing vgamepad...
     set "VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true"
-    set "VGAMEPAD_SKIP_INSTALL=true"
     ".\.venv\Scripts\python.exe" -m pip install vgamepad --no-build-isolation
     if errorlevel 1 (
         echo ERROR: Failed to install vgamepad.
+        exit /b 1
+    )
+    ".\.venv\Scripts\python.exe" -c "import vgamepad" 2>nul
+    if errorlevel 1 (
+        echo ERROR: vgamepad installed but could not be imported.
         exit /b 1
     )
 )
