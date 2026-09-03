@@ -97,6 +97,8 @@ def test_driver_install_is_sdk_independent() -> None:
     assert "SetupDiSetDeviceRegistryProperty" in installer
     assert "DIF_REGISTERDEVICE" in installer
     assert "pnputil.exe /add-driver" in installer
+    assert "$pnpInstallExit -notin @(0, 259)" in installer
+    assert "Get-OmniPadDevice" in installer and "Status -eq 'OK'" in installer
     assert "pnputil.exe /remove-device" in remover
     assert "pnputil.exe /delete-driver" in remover
     assert "expectedThumbprint" in bundled and "expectedHashes" in bundled

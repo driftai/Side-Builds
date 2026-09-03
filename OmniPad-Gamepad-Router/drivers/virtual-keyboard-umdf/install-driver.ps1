@@ -150,8 +150,12 @@ if ($installedDevice) {
 }
 try {
     & pnputil.exe /add-driver $InfPath /install
-    if ($LASTEXITCODE -ne 0) {
-        throw "PnPUtil installation failed with exit code $LASTEXITCODE"
+    $pnpInstallExit = $LASTEXITCODE
+    # PnPUtil returns ERROR_NO_MORE_ITEMS (259) when the exact package and
+    # device are already current. Never trust that code alone: the scoped
+    # post-install device/status check below still has to pass.
+    if ($pnpInstallExit -notin @(0, 259)) {
+        throw "PnPUtil installation failed with exit code $pnpInstallExit"
     }
     & pnputil.exe /scan-devices | Out-Null
     $ready = $null
