@@ -36,11 +36,11 @@ async def run_backend_transition_test():
     assert isinstance(slot.controller, DualShock4Backend)
     print("  [PASS] Switched Slot 1 to DualShock 4")
 
-    # 2. Switch to Keyboard 2 (Target-Locked SendInput)
+    # 2. Switch to Keyboard 2 (Target-Locked Scan-Code SendInput)
     ok = await sm.set_controller_type(1, "keyboard_target")
     assert ok is True
     assert isinstance(slot.controller, TargetLockedKeyboardBackend)
-    print("  [PASS] Switched Slot 1 to Keyboard 2 (Target-Locked SendInput)")
+    print("  [PASS] Switched Slot 1 to Keyboard 2 (Target-Locked Scan-Code SendInput)")
 
     # 3. Switch to Legacy Keyboard & Verify Raw Key Preservation
     ok = await sm.set_controller_type(1, "keyboard")

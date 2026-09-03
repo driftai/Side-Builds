@@ -12,13 +12,13 @@ This folder contains the first OmniPad-owned VHF/KMDF virtual keyboard implement
 
 ## Build prerequisites
 
-Install Visual Studio 2022 with Desktop development with C++ and the Windows Driver Kit (WDK) matching the installed Windows SDK. Build the `OmniPadVirtualKeyboard.sln` solution as x64 Debug first.
+Install Visual Studio 2022 Build Tools with the x64/x86 C++ tools, matching Windows SDK, WDK, and WDK Visual Studio build-tools component. Build `OmniPadVirtualKeyboard.vcxproj` as x64 Debug first, or run `build-driver.ps1`.
 
 The development machine can use Windows test signing. Microsoft documents that x64 kernel drivers must be signed to load; test-signing is the development path, while release distribution requires proper driver signing. See the links in the project README.
 
 ## Driver install
 
-Run the generated installer commands from an elevated PowerShell prompt after building. The exact output directory depends on the Visual Studio/WDK configuration.
+The build helper writes the installable package to `x64\Debug\OmniPadVirtualKeyboard`. The package must be signed and trusted before `install-driver.ps1` will install it from an elevated PowerShell prompt.
 
 Do not use `bcdedit /set testsigning on` on a production machine unless you intentionally want Windows Test Mode. Rebooting is required after changing test-signing state.
 

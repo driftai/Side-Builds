@@ -6,12 +6,12 @@ Connect remote players to physical/virtual local controllers over LAN or Cloudfl
 import time
 
 from .socd import SOCDCleaner, SOCDMode
-from . import controller as _controller
 from .controller import (
     BaseController,
     Xbox360Backend,
     DualShock4Backend,
     KeyboardInjectionBackend,
+    VirtualKeyboardHIDBackend,
     NoopBackend,
     ControllerFactory,
     VIGEM_AVAILABLE
@@ -22,43 +22,6 @@ from .tunnel import TunnelManager, get_local_ips
 from .profiles import ProfileManager
 
 
-class VirtualKeyboardHIDBackend(BaseController):
-    """True second keyboard backed by the OmniPad VHF/KMDF device."""
-    backend_id = "virtual_keyboard"
-    display_name = "Virtual Keyboard HID (VHF)"
-
-    def __init__(self, slot_id: int):
-        self.slot_id = slot_id
-        self.device, error = VHFKeyboardDevice.try_open()
-        if self.device is None:
-            raise RuntimeError(
-                "OmniPad VHF keyboard driver is unavailable. "
-                "Build/install drivers/virtual-keyboard/OmniPadVirtualKeyboard.inf first. "
-                f"Details: {error}"
-            )
-        self.last_report = bytes(8)
-        self.last_error = None
-
-    def apply(self, state):
-        report = build_keyboard_report(state.get("key_codes") or [])
-        self.device.submit_report(report)
-        self.last_report = report
-        self.last_error = None
-
-    def release_all(self):
-        if self.device:
-            self.device.release_all()
-            self.last_report = bytes(8)
-
-    def close(self):
-        if self.device:
-            try:
-                self.device.close()
-            finally:
-                self.device = None
-
-
-_original_factory_create = ControllerFactory.create
 _original_factory_backends = ControllerFactory.get_available_backends
 _vhf_cache_available = False
 _vhf_cache_error = "Not checked yet"
@@ -82,12 +45,6 @@ def _refresh_vhf_status(force: bool = False):
     return _vhf_cache_available, _vhf_cache_error
 
 
-def _factory_create(backend_id: str, slot_id: int):
-    if backend_id.lower() == "virtual_keyboard":
-        return VirtualKeyboardHIDBackend(slot_id)
-    return _original_factory_create(backend_id, slot_id)
-
-
 def _factory_backends():
     backends = _original_factory_backends()
     available, error = _refresh_vhf_status()
@@ -95,18 +52,17 @@ def _factory_backends():
         if item.get("id") == "virtual_keyboard":
             item.update({
                 "available": available,
-                "recommended": True,
+                "recommended": available,
                 "description": (
                     "True separate HID keyboard device via the OmniPad VHF/KMDF driver."
                     if available else
-                    "Requires the OmniPad VHF/KMDF virtual keyboard driver."
+                    "Preserved future Microsoft-signed path for a true separate HID keyboard."
                 ),
             })
             break
     return backends
 
 
-ControllerFactory.create = staticmethod(_factory_create)
 ControllerFactory.get_available_backends = staticmethod(_factory_backends)
 
 __all__ = [

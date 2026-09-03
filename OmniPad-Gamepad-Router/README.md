@@ -95,8 +95,8 @@ This makes mouse camera movement usable for games whose Player 2 camera is repre
 |---|---|---|---|
 | Xbox 360 | ViGEmBus | Native XInput Player 2 controller | ✅ Working |
 | DualShock 4 | ViGEmBus | Native DS4 / DirectInput Player 2 controller | ✅ Working |
-| Keyboard 2 | Windows `SendInput` | Target-locked compatibility keyboard bridge | ✅ Working |
-| Virtual Keyboard HID (VHF) | KMDF + VHF | Separate Windows HID keyboard device | 🧪 Development / test |
+| Keyboard 2 | Windows scan-code `SendInput` | Target-locked normal-mode keyboard bridge | ✅ Working |
+| Virtual Keyboard HID (VHF) | KMDF + VHF | Future Microsoft-signed separate HID path | 📦 Preserved / on hold |
 | Noop | Diagnostic | Input-pipeline testing without hardware | ✅ Working |
 
 ### Controller naming parity
@@ -239,7 +239,9 @@ The current report format is an 8-byte boot-keyboard report:
 
 `[modifiers, reserved, key0, key1, key2, key3, key4, key5]`
 
-The VHF implementation is still a development/test path. Real game compatibility depends on whether the target game supports multiple keyboard devices through Raw Input/HID.
+The VHF implementation and its regression/build coverage are intentionally preserved for future Microsoft signing. It is on hold rather than discontinued; normal OmniPad operation does not require changing Windows boot mode. Real game compatibility will still depend on whether the target game supports multiple keyboard devices through Raw Input/HID.
+
+The normal-mode **Keyboard 2** fallback now submits physical scan-code events rather than layout-dependent virtual-key events. It remains Windows-injected input rather than a separately enumerable HID device.
 
 ---
 

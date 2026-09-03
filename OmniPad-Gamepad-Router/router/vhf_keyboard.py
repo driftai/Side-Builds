@@ -65,14 +65,11 @@ _MODIFIER_BITS: Dict[int, int] = {
     0xE7: 1 << 7,  # Right GUI (Meta / Win)
 }
 
-# Primary IOCTL: CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS) = 0x00222004
-IOCTL_OMNIPAD_SET_KEYBOARD_REPORT = 0x00222004
-# Legacy IOCTL: CTL_CODE(FILE_DEVICE_KEYBOARD, 0x800, METHOD_BUFFERED, FILE_WRITE_DATA) = 0x000B2000
-IOCTL_OMNIPAD_LEGACY_KEYBOARD_REPORT = 0x000B2000
+# CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_WRITE_DATA) = 0x0022A004
+IOCTL_OMNIPAD_SET_KEYBOARD_REPORT = 0x0022A004
 
 DEVICE_PATHS = [
-    r"\\.\OmniPadVirtualKeyboard",
-    r"\\.\OmniPadKbd0"
+    r"\\.\OmniPadVirtualKeyboard"
 ]
 REPORT_SIZE = 8
 MAX_KEYS = 6
@@ -131,10 +128,7 @@ class VHFKeyboardDevice:
         self._CloseHandle.argtypes = [wintypes.HANDLE]
         self._CloseHandle.restype = wintypes.BOOL
 
-        GENERIC_READ = 0x80000000
         GENERIC_WRITE = 0x40000000
-        FILE_SHARE_READ = 0x00000001
-        FILE_SHARE_WRITE = 0x00000002
         OPEN_EXISTING = 3
         FILE_ATTRIBUTE_NORMAL = 0x80
         INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
@@ -150,8 +144,8 @@ class VHFKeyboardDevice:
                 continue
             h = self._CreateFileW(
                 path,
-                GENERIC_READ | GENERIC_WRITE,
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                GENERIC_WRITE,
+                0,
                 None,
                 OPEN_EXISTING,
                 FILE_ATTRIBUTE_NORMAL,
@@ -203,22 +197,6 @@ class VHFKeyboardDevice:
             None,
         )
         if not ok:
-            # Try legacy IOCTL fallback
-            if self._active_ioctl == IOCTL_OMNIPAD_SET_KEYBOARD_REPORT:
-                ok_legacy = self._DeviceIoControl(
-                    self._handle,
-                    IOCTL_OMNIPAD_LEGACY_KEYBOARD_REPORT,
-                    ctypes.byref(buf),
-                    REPORT_SIZE,
-                    None,
-                    0,
-                    ctypes.byref(returned),
-                    None,
-                )
-                if ok_legacy:
-                    self._active_ioctl = IOCTL_OMNIPAD_LEGACY_KEYBOARD_REPORT
-                    return
-
             err = ctypes.get_last_error()
             raise OSError(err, "OmniPad VHF keyboard report submission failed")
 

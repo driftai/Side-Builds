@@ -23,10 +23,10 @@ static const UCHAR g_ReportDescriptor[] = {
     0x95, 0x06,       //   REPORT_COUNT (6)
     0x75, 0x08,       //   REPORT_SIZE (8)
     0x15, 0x00,       //   LOGICAL_MINIMUM (0)
-    0x25, 0x65,       //   LOGICAL_MAXIMUM (101)
+    0x26, 0xFF, 0x00, //   LOGICAL_MAXIMUM (255)
     0x05, 0x07,       //   USAGE_PAGE (Keyboard/Keypad)
     0x19, 0x00,       //   USAGE_MINIMUM (0)
-    0x29, 0x65,       //   USAGE_MAXIMUM (101)
+    0x29, 0xFF,       //   USAGE_MAXIMUM (255)
     0x81, 0x00,       //   INPUT (Data, Array)
     // LEDs (5 bits output + 3 bits padding)
     0x05, 0x08,       //   USAGE_PAGE (LEDs)
@@ -63,6 +63,7 @@ NTSTATUS OmniPadCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
 {
     WDF_OBJECT_ATTRIBUTES attributes;
     WDFDEVICE device = NULL;
+    WDF_FILEOBJECT_CONFIG fileConfig;
     WDF_IO_QUEUE_CONFIG queueConfig;
     NTSTATUS status;
     VHF_CONFIG vhfConfig;
@@ -77,12 +78,22 @@ NTSTATUS OmniPadCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
         return status;
     }
 
-    // Grant Generic All access to BUILTIN\Users and SYSTEM so non-admin processes can open the handle.
-    DECLARE_CONST_UNICODE_STRING(sddl, L"O:BAG:BAD:(A;;GA;;;BU)(A;;GA;;;SY)");
+    // Keep report injection restricted to elevated OmniPad or LocalSystem processes.
+    DECLARE_CONST_UNICODE_STRING(sddl, L"O:BAG:BAD:P(A;;GA;;;SY)(A;;GA;;;BA)");
     status = WdfDeviceInitAssignSDDLString(DeviceInit, &sddl);
     if (!NT_SUCCESS(status)) {
         return status;
     }
+
+    // Only one trusted bridge owns the keyboard state at a time. Its handle
+    // cleanup callback always submits an all-keys-up report, including crashes.
+    WdfDeviceInitSetExclusive(DeviceInit, TRUE);
+    WDF_FILEOBJECT_CONFIG_INIT(
+        &fileConfig,
+        WDF_NO_EVENT_CALLBACK,
+        WDF_NO_EVENT_CALLBACK,
+        OmniPadEvtFileCleanup);
+    WdfDeviceInitSetFileObjectConfig(DeviceInit, &fileConfig, WDF_NO_OBJECT_ATTRIBUTES);
 
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, OMNIPAD_DEVICE_CONTEXT);
     attributes.EvtCleanupCallback = OmniPadEvtDeviceCleanup;
@@ -159,8 +170,8 @@ VOID OmniPadEvtIoDeviceControl(_In_ WDFQUEUE Queue,
     if (IoControlCode == IOCTL_OMNIPAD_SET_KEYBOARD_REPORT) {
         POMNIPAD_KEYBOARD_REPORT report = NULL;
         size_t inLen = 0;
-        if (InputBufferLength < OMNIPAD_VK_REPORT_SIZE) {
-            WdfRequestComplete(Request, STATUS_BUFFER_TOO_SMALL);
+        if (InputBufferLength != OMNIPAD_VK_REPORT_SIZE) {
+            WdfRequestComplete(Request, STATUS_INVALID_BUFFER_SIZE);
             return;
         }
 
@@ -174,12 +185,25 @@ VOID OmniPadEvtIoDeviceControl(_In_ WDFQUEUE Queue,
     WdfRequestComplete(Request, status);
 }
 
+VOID OmniPadEvtFileCleanup(_In_ WDFFILEOBJECT FileObject)
+{
+    WDFDEVICE device = WdfFileObjectGetDevice(FileObject);
+    POMNIPAD_DEVICE_CONTEXT context = OmniPadGetDeviceContext(device);
+    OMNIPAD_KEYBOARD_REPORT emptyReport = {0};
+
+    if (context != NULL && context->VhfHandle != NULL) {
+        (void)OmniPadSubmitReport(context, &emptyReport);
+    }
+}
+
 VOID OmniPadEvtDeviceCleanup(_In_ WDFOBJECT Object)
 {
     POMNIPAD_DEVICE_CONTEXT context = OmniPadGetDeviceContext((WDFDEVICE)Object);
+    OMNIPAD_KEYBOARD_REPORT emptyReport = {0};
     PAGED_CODE();
 
     if (context != NULL && context->VhfHandle != NULL) {
+        (void)OmniPadSubmitReport(context, &emptyReport);
         VhfDelete(context->VhfHandle, TRUE);
         context->VhfHandle = NULL;
     }

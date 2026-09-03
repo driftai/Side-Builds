@@ -12,6 +12,19 @@ from ..targeting import IS_WINDOWS, target_manager
 
 logger = logging.getLogger("OmniPad.Controller.Keyboard")
 
+_EXTENDED_VKS = frozenset({
+    # Navigation/editing cluster.
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E,
+    # Print Screen, Windows/Application, keypad divide, right Ctrl/Alt.
+    0x2C, 0x5B, 0x5C, 0x5D, 0x6F, 0xA3, 0xA5,
+    # Browser, volume, and media keys.
+    0xA6, 0xA7, 0xA8, 0xAC, 0xAD, 0xAE, 0xAF,
+    0xB0, 0xB1, 0xB2, 0xB3,
+})
+
+# Pause uses a special E1 sequence which KEYEVENTF_EXTENDEDKEY cannot express.
+_VIRTUAL_KEY_FALLBACKS = frozenset({0x13})
+
 # Win32 SendInput Structures
 if IS_WINDOWS:
     ULONG_PTR = ctypes.POINTER(ctypes.c_ulong)
@@ -95,10 +108,82 @@ def _dom_code_to_vk(code: Any) -> Optional[int]:
     return None
 
 
+def _make_keyboard_input(vk: int, down: bool):
+    """Build a scan-code SendInput event, with a VK fallback for special keys."""
+    scan = 0
+    if IS_WINDOWS and vk not in _VIRTUAL_KEY_FALLBACKS:
+        try:
+            scan = int(ctypes.windll.user32.MapVirtualKeyW(vk, 0)) & 0xFF
+        except Exception:
+            scan = 0
+
+    flags = 0 if down else _KEYEVENTF_KEYUP
+    if scan:
+        flags |= _KEYEVENTF_SCANCODE
+        if vk in _EXTENDED_VKS:
+            flags |= _KEYEVENTF_EXTENDEDKEY
+
+    inp = _INPUT()
+    inp.type = _INPUT_KEYBOARD
+    inp.ki = _KEYBDINPUT(
+        wVk=0 if scan else vk,
+        wScan=scan,
+        dwFlags=flags,
+        time=0,
+        dwExtraInfo=None,
+    )
+    return inp
+
+
+def _send_keyboard_key(vk: int, down: bool) -> None:
+    inp = _make_keyboard_input(vk, down)
+    sent = _SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+    if sent != 1:
+        raise ctypes.WinError()
+
+
+def _sync_pressed_keys(backend, target_keys: Set[int]) -> None:
+    """Apply transitions and retain failures so a later state frame retries them."""
+    sent_keys = getattr(backend, "_sent_keys", set(backend._down_keys))
+    backend._sent_keys = sent_keys
+
+    for vk in tuple(sent_keys - target_keys):
+        try:
+            backend._emit_key(vk, False)
+        except Exception:
+            logger.debug("[Slot %d] Key-up retry pending for VK 0x%02X", backend.slot_id, vk)
+        else:
+            sent_keys.discard(vk)
+
+    for vk in tuple(target_keys - sent_keys):
+        try:
+            backend._emit_key(vk, True)
+        except Exception:
+            logger.debug("[Slot %d] Key-down retry pending for VK 0x%02X", backend.slot_id, vk)
+        else:
+            sent_keys.add(vk)
+
+    # Preserve the authoritative requested state for monitoring and diagnostics.
+    backend._down_keys = set(target_keys)
+
+
+def _release_pressed_keys(backend) -> None:
+    sent_keys = getattr(backend, "_sent_keys", set(backend._down_keys))
+    backend._sent_keys = sent_keys
+    for vk in tuple(sent_keys):
+        try:
+            backend._emit_key(vk, False)
+        except Exception:
+            logger.debug("[Slot %d] Key-up retry pending for VK 0x%02X", backend.slot_id, vk)
+        else:
+            sent_keys.discard(vk)
+    backend._down_keys.clear()
+
+
 class TargetLockedKeyboardBackend(BaseController):
     """Target-locked Windows keyboard compatibility backend."""
     backend_id = "keyboard_target"
-    display_name = "Keyboard 2 (Target-Locked SendInput)"
+    display_name = "Keyboard 2 (Target-Locked Scan-Code)"
 
     DEFAULT_KEY_MAP = {
         "DPAD_UP": 0x57, "DPAD_DOWN": 0x53, "DPAD_LEFT": 0x41, "DPAD_RIGHT": 0x44,
@@ -113,42 +198,16 @@ class TargetLockedKeyboardBackend(BaseController):
         self.slot_id = slot_id
         self.keymap = keymap or dict(self.DEFAULT_KEY_MAP)
         self._down_keys: Set[int] = set()
+        self._sent_keys: Set[int] = set()
         self.last_guarded: bool = True
         self.last_apply_at: float = 0.0
         logger.info("[Slot %d] Created target-locked keyboard backend", self.slot_id)
 
     def _emit_key(self, vk: int, down: bool) -> None:
-        scan = 0
-        if IS_WINDOWS:
-            try:
-                scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)
-            except Exception:
-                scan = 0
-
-        flags = 0 if down else _KEYEVENTF_KEYUP
-        if vk in (0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E, 0x24, 0x23, 0x21, 0x22, 0xA3, 0xA5):
-            flags |= _KEYEVENTF_EXTENDEDKEY
-
-        inp = _INPUT()
-        inp.type = _INPUT_KEYBOARD
-        inp.ki = _KEYBDINPUT(
-            wVk=vk,
-            wScan=scan,
-            dwFlags=flags,
-            time=0,
-            dwExtraInfo=None,
-        )
-        sent = _SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
-        if sent != 1:
-            raise ctypes.WinError()
+        _send_keyboard_key(vk, down)
 
     def _release_local(self) -> None:
-        for vk in tuple(self._down_keys):
-            try:
-                self._emit_key(vk, False)
-            except Exception:
-                pass
-        self._down_keys.clear()
+        _release_pressed_keys(self)
 
     def apply(self, state: Dict[str, Any]) -> None:
         self.last_apply_at = time.time()
@@ -168,17 +227,7 @@ class TargetLockedKeyboardBackend(BaseController):
             buttons = state.get("buttons", {})
             target_keys = {vk for btn, vk in self.keymap.items() if buttons.get(btn, False)}
 
-        for vk in self._down_keys - target_keys:
-            try:
-                self._emit_key(vk, False)
-            except Exception:
-                pass
-        for vk in target_keys - self._down_keys:
-            try:
-                self._emit_key(vk, True)
-            except Exception:
-                pass
-        self._down_keys = target_keys
+        _sync_pressed_keys(self, target_keys)
 
     def release_all(self) -> None:
         self._release_local()
@@ -191,7 +240,7 @@ class TargetLockedKeyboardBackend(BaseController):
 class KeyboardInjectionBackend(BaseController):
     """Legacy system-wide keyboard injection backend."""
     backend_id = "keyboard"
-    display_name = "Keyboard Key Injection (legacy)"
+    display_name = "Keyboard Key Injection (legacy scan-code)"
     DEFAULT_KEY_MAP = TargetLockedKeyboardBackend.DEFAULT_KEY_MAP
 
     def __init__(self, slot_id: int, keymap: Optional[Dict[str, int]] = None):
@@ -200,24 +249,10 @@ class KeyboardInjectionBackend(BaseController):
         self.slot_id = slot_id
         self.keymap = keymap or dict(self.DEFAULT_KEY_MAP)
         self._down_keys: Set[int] = set()
+        self._sent_keys: Set[int] = set()
 
     def _emit_key(self, vk: int, down: bool) -> None:
-        scan = 0
-        if IS_WINDOWS:
-            try:
-                scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)
-            except Exception:
-                scan = 0
-
-        flags = 0 if down else _KEYEVENTF_KEYUP
-        if vk in (0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E, 0x24, 0x23, 0x21, 0x22, 0xA3, 0xA5):
-            flags |= _KEYEVENTF_EXTENDEDKEY
-
-        inp = _INPUT()
-        inp.type = _INPUT_KEYBOARD
-        inp.ki = _KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags, time=0, dwExtraInfo=None)
-        if _SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT)) != 1:
-            raise ctypes.WinError()
+        _send_keyboard_key(vk, down)
 
     def apply(self, state: Dict[str, Any]) -> None:
         key_codes = state.get("key_codes") or []
@@ -229,25 +264,10 @@ class KeyboardInjectionBackend(BaseController):
             buttons = state.get("buttons", {})
             target_keys = {vk for btn, vk in self.keymap.items() if buttons.get(btn, False)}
 
-        for vk in self._down_keys - target_keys:
-            try:
-                self._emit_key(vk, False)
-            except Exception:
-                pass
-        for vk in target_keys - self._down_keys:
-            try:
-                self._emit_key(vk, True)
-            except Exception:
-                pass
-        self._down_keys = target_keys
+        _sync_pressed_keys(self, target_keys)
 
     def release_all(self) -> None:
-        for vk in tuple(self._down_keys):
-            try:
-                self._emit_key(vk, False)
-            except Exception:
-                pass
-        self._down_keys.clear()
+        _release_pressed_keys(self)
 
     def close(self) -> None:
         self.release_all()

@@ -27,6 +27,9 @@ logs/
 scratch/
 tmp/
 
+# Local WDK driver build output
+drivers/virtual-keyboard/x64/
+
 # Local environment configs & secrets
 .env
 .env.*

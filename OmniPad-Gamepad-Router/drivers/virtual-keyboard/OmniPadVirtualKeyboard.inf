@@ -1,7 +1,7 @@
 [Version]
 Signature = "$WINDOWS NT$"
-Class = HIDClass
-ClassGuid = {745A17A0-74D3-11D0-B6FE-00A0C90F57DA}
+Class = System
+ClassGuid = {4D36E97D-E325-11CE-BFC1-08002BE10318}
 Provider = %ManufacturerName%
 CatalogFile = OmniPadVirtualKeyboard.cat
 DriverVer = 08/29/2026,1.1.2.0
@@ -24,24 +24,18 @@ OmniPadVirtualKeyboard.sys = 1,,
 
 [OmniPadVK_Install.NT]
 CopyFiles = DriverCopy
-Include = MsHidKmdf.inf
-Needs = MsHidKmdf.NT
 
 [DriverCopy]
 OmniPadVirtualKeyboard.sys
 
 [OmniPadVK_Install.NT.HW]
 AddReg = OmniPadVK_Install.NT.HW.AddReg
-Include = MsHidKmdf.inf
-Needs = MsHidKmdf.NT.HW
 
 [OmniPadVK_Install.NT.HW.AddReg]
 HKR,,"LowerFilters",0x00010000,"vhf"
 
 [OmniPadVK_Install.NT.Services]
-Include = MsHidKmdf.inf
-Needs = MsHidKmdf.NT.Services
-AddService = OmniPadVirtualKeyboard,0,OmniPadVK_Service
+AddService = OmniPadVirtualKeyboard,0x00000002,OmniPadVK_Service
 
 [OmniPadVK_Service]
 DisplayName = %ServiceName%

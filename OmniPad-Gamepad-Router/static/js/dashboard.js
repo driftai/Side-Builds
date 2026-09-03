@@ -83,8 +83,8 @@ async function fetchInitialStatus() {
         vhfBadge.title = "OmniPad Virtual Keyboard HID (VHF) driver active as separate hardware keyboard";
       } else {
         vhfBadge.className = "badge badge-yellow";
-        vhfBadge.innerHTML = `<span class="status-dot"></span> VHF Driver Not Installed`;
-        vhfBadge.title = "OmniPad VHF driver not installed. Using Target-Locked SendInput compatibility mode.";
+        vhfBadge.innerHTML = `<span class="status-dot"></span> VHF Future Path (Inactive)`;
+        vhfBadge.title = "VHF source is preserved for future Microsoft signing. Using the normal-mode Target-Locked Scan-Code backend.";
       }
     }
 

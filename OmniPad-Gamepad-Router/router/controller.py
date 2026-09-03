@@ -3,7 +3,7 @@ Controller Emulation Backends & Factory.
 Supports:
 1. Virtual Xbox 360 Controller (XInput via ViGEmBus)
 2. Virtual DualShock 4 Controller (DirectInput/DS4 via ViGEmBus)
-3. Direct Windows Keyboard Injection & Target-Locked SendInput
+3. Direct Windows Scan-Code Injection & Target-Locked SendInput
 4. Diagnostic Noop Controller
 """
 
@@ -67,8 +67,8 @@ class ControllerFactory:
         if WIN32_AVAILABLE:
             backends.append({
                 "id": "keyboard_target",
-                "name": "Keyboard 2 (Target-Locked)",
-                "description": "Second-keyboard compatibility bridge. Preserves remote KeyboardEvent.code values; only active while the selected game window is foreground.",
+                "name": "Keyboard 2 (Target-Locked Scan-Code)",
+                "description": "Normal-mode scan-code compatibility bridge. Preserves remote key positions and only runs while the selected game window is foreground.",
                 "available": True,
                 "recommended": False
             })
@@ -82,9 +82,9 @@ class ControllerFactory:
             backends.append({
                 "id": "virtual_keyboard",
                 "name": "Virtual Keyboard HID (VHF)",
-                "description": "True separate HID keyboard device. Requires the optional OmniPad VHF/KMDF driver.",
+                "description": "Preserved future Microsoft-signed path for a true separate HID keyboard device.",
                 "available": False,
-                "recommended": True
+                "recommended": False
             })
 
         backends.append({

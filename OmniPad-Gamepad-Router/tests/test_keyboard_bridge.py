@@ -1,5 +1,6 @@
 import sys
 import pathlib
+import ctypes
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -7,6 +8,7 @@ if str(ROOT) not in sys.path:
 
 from router.vhf_keyboard import build_keyboard_report, _DOM_CODE_TO_HID
 from router.controller import _dom_code_to_vk
+from router.backends import keyboard as keyboard_backend
 
 
 def test_client_virtual_keyboard_structures():
@@ -79,6 +81,66 @@ def test_end_to_end_u_i_o_preservation():
     assert _dom_code_to_vk("Space") == 0x20  # VK_SPACE
 
 
+def test_sendinput_uses_scan_codes_and_retries_failed_transitions():
+    if not keyboard_backend.IS_WINDOWS:
+        return
+
+    captured = []
+    fail_first = True
+
+    def fake_send_input(count, input_pointer, size):
+        nonlocal fail_first
+        assert count == 1
+        assert size == ctypes.sizeof(keyboard_backend._INPUT)
+        event = ctypes.cast(
+            input_pointer, ctypes.POINTER(keyboard_backend._INPUT)
+        ).contents
+        captured.append((event.ki.wVk, event.ki.wScan, event.ki.dwFlags))
+        if fail_first:
+            fail_first = False
+            return 0
+        return 1
+
+    original_send_input = keyboard_backend._SendInput
+    keyboard_backend._SendInput = fake_send_input
+    try:
+        backend = keyboard_backend.KeyboardInjectionBackend.__new__(
+            keyboard_backend.KeyboardInjectionBackend
+        )
+        backend.slot_id = 1
+        backend.keymap = {}
+        backend._down_keys = set()
+        backend._sent_keys = set()
+
+        backend.apply({"key_codes": ["KeyW"]})
+        assert backend._down_keys == {0x57}
+        assert backend._sent_keys == set(), "failed keydown must remain retryable"
+
+        backend.apply({"key_codes": ["KeyW"]})
+        assert backend._down_keys == {0x57}
+        assert backend._sent_keys == {0x57}
+        down_vk, down_scan, down_flags = captured[-1]
+        assert down_vk == 0
+        assert down_scan == 0x11
+        assert down_flags & keyboard_backend._KEYEVENTF_SCANCODE
+        assert not down_flags & keyboard_backend._KEYEVENTF_KEYUP
+
+        backend.release_all()
+        assert backend._down_keys == set()
+        assert backend._sent_keys == set()
+        up_vk, up_scan, up_flags = captured[-1]
+        assert up_vk == 0
+        assert up_scan == 0x11
+        assert up_flags & keyboard_backend._KEYEVENTF_SCANCODE
+        assert up_flags & keyboard_backend._KEYEVENTF_KEYUP
+
+        extended = keyboard_backend._make_keyboard_input(0x26, True)
+        assert extended.ki.dwFlags & keyboard_backend._KEYEVENTF_SCANCODE
+        assert extended.ki.dwFlags & keyboard_backend._KEYEVENTF_EXTENDEDKEY
+    finally:
+        keyboard_backend._SendInput = original_send_input
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("  TEST: Keyboard Bridge & Interactive Virtual Keyboard")
@@ -87,5 +149,7 @@ if __name__ == "__main__":
     print("  [PASS] Web client transmits raw KeyboardEvent.code list & defines virtual keyboard")
     test_end_to_end_u_i_o_preservation()
     print("  [PASS] End-to-end key identity preservation verified (KeyU, KeyI, KeyO, KeyW, Shift, M, Space)")
+    test_sendinput_uses_scan_codes_and_retries_failed_transitions()
+    print("  [PASS] SendInput uses scan codes and retries failed key transitions")
     print("  >>> KEYBOARD BRIDGE TESTS COMPLETED SUCCESSFULLY! <<<\n")
 
