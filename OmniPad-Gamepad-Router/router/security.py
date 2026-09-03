@@ -63,6 +63,20 @@ def require_local_request(request: Request) -> None:
         )
 
 
+def require_host_request(request: Request) -> None:
+    """Restrict high-impact management to this Windows host's loopback client."""
+    host = request.client.host if request.client else ""
+    try:
+        is_loopback = ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        is_loopback = host.lower() in LOCAL_HOSTNAMES
+    if is_public_tunnel_request(request) or not is_loopback:
+        raise HTTPException(
+            status_code=403,
+            detail="This control endpoint is available only on the OmniPad host.",
+        )
+
+
 def require_local_websocket(websocket: WebSocket) -> None:
     host = websocket.client.host if websocket.client else None
     if not is_local_client_host(host):

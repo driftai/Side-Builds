@@ -16,6 +16,7 @@ Phase 1 & Phase 2 Architecture Modularization remain complete. This handoff also
 - **Helper source validation:** the privileged `background_keyboard_helper` source is accepted only from a local client, preventing remote source spoofing.
 - **Room entropy:** omitted `--code` now generates a fresh 64-bit random room code per server run.
 - **Tunnel process containment:** the launcher no longer kills every `cloudflared.exe` process on shutdown.
+- **Unified control center:** managed background start, status/URLs, tunnel toggles, panic release, graceful stop, diagnostics, scoped cleanup, and guarded UMDF lifecycle controls are available from `control.bat`.
 - **Normal-mode virtual keyboard:** UMDF 2 source, HID descriptor, vendor feature bridge, driver watchdog, backend discovery, package build, and dashboard integration are implemented without boot-mode changes.
 - **Preserved VHF path:** the KMDF/VHF source remains maintained as a future Microsoft-signing route.
 
@@ -30,10 +31,10 @@ Phase 1 & Phase 2 Architecture Modularization remain complete. This handoff also
 - `MODULARIZATION-MAP.md`
 
 ### Verification status
-- **Architecture Gate:** Passed (`tools/check_architecture.py` — 0 violations across all 38 covered source files within the 450-line limit).
+- **Architecture Gate:** Passed (`tools/check_architecture.py` — 0 violations across all 47 covered source files within the 450-line limit).
 - **Security regression tests:** 100% passed across all 3 dedicated security test suites (Cloudflare detection, local-only HTTP endpoint matrix, target/status metadata redaction, read-only observer input injection prevention, authoritative slot handoffs, helper source spoofing rejection, and malformed frame resilience).
-- **Full Git History Secret Scan:** Complete scan of all 441 historical commits via `tools/scan_secrets.py` found 0 secret patterns, tokens, private keys, or credentials.
-- **Automated runtime suite:** All 19 stages passed (architecture plus 18 / 18 test suites), including the UMDF virtual keyboard report/bridge/source contracts.
+- **Full Git History Secret Scan:** Complete repository-history scan via `tools/scan_secrets.py` found 0 secret patterns, tokens, private keys, or credentials at the audited checkpoint.
+- **Automated runtime suite:** All 20 stages passed (architecture plus 19 / 19 test suites), including control-center ownership/shutdown and UMDF virtual keyboard report/bridge/source contracts.
 - **UMDF native build:** x64 Debug package built with UMDF 2.15; API validation and Inf2Cat passed with 0 warnings and 0 errors. The catalog was locally signed and installed without Test Mode, BCD, Secure Boot, or reboot changes.
 - **UMDF installed-device smoke:** All 13 checks passed against the live device. Windows exposed a separate keyboard collection and vendor control collection; 171 device-specific Raw Input events verified make/break, modifiers, six-key rollover, duplicate suppression, heartbeat/watchdog behavior, 64 rapid transitions ending neutral, backend lifecycle, and endpoint reopen.
 

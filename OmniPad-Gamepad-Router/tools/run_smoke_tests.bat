@@ -28,6 +28,10 @@ echo Running OmniPad Architecture Check...
 "%PYTHON%" tools\check_architecture.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Control Center Tests...
+"%PYTHON%" tests\test_control_center.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad Security Boundary Tests...
 "%PYTHON%" tests\test_security.py
 if errorlevel 1 exit /b 1

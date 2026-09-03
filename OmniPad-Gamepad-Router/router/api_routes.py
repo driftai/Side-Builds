@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import inspect
 import time
 from typing import Optional
 
@@ -22,21 +23,34 @@ from .background_helper import (
     read_background_helper_status,
     start_background_helper,
 )
-from .security import public_target_status, require_local_request, is_public_tunnel_request
+from .security import (
+    is_public_tunnel_request,
+    public_target_status,
+    require_host_request,
+    require_local_request,
+)
 
 logger = logging.getLogger("OmniPad.Routes")
 router = APIRouter()
 _slot_manager = None
 _tunnel_manager = None
 _profile_manager = None
+_shutdown_callback = None
 _static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 
 
-def setup_routes(slot_manager, tunnel_manager, profile_manager, static_dir: Optional[str] = None):
-    global _slot_manager, _tunnel_manager, _profile_manager, _static_dir
+def setup_routes(
+    slot_manager,
+    tunnel_manager,
+    profile_manager,
+    static_dir: Optional[str] = None,
+    shutdown_callback=None,
+):
+    global _slot_manager, _tunnel_manager, _profile_manager, _static_dir, _shutdown_callback
     _slot_manager = slot_manager
     _tunnel_manager = tunnel_manager
     _profile_manager = profile_manager
+    _shutdown_callback = shutdown_callback
     if static_dir:
         _static_dir = static_dir
     return router
@@ -235,6 +249,21 @@ async def panic_all(request: Request):
         raise HTTPException(status_code=503, detail="SlotManager not initialized.")
     await _slot_manager.panic_reset(None)
     return {"ok": True, "message": "All virtual controller inputs released."}
+
+
+@router.post("/api/control/shutdown")
+async def shutdown_router(request: Request):
+    """Release every output and request a graceful host-only server shutdown."""
+    require_host_request(request)
+    if not _slot_manager or not _shutdown_callback:
+        raise HTTPException(status_code=503, detail="Controlled shutdown is unavailable.")
+    await _slot_manager.panic_reset(None)
+    result = _shutdown_callback()
+    if inspect.isawaitable(result):
+        result = await result
+    if result is False:
+        raise HTTPException(status_code=503, detail="Server shutdown controller is unavailable.")
+    return {"ok": True, "message": "OmniPad shutdown requested; all outputs released."}
 
 
 @router.post("/api/tunnel/start")

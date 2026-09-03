@@ -20,6 +20,7 @@ htmlcov/
 *.log
 logs/
 *.pid
+.runtime/
 
 # Temporary & scratch files
 *.tmp

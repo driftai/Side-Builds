@@ -6,6 +6,16 @@ The project is designed as a **barebones server + web UI**, not a monolithic com
 
 ---
 
+## 🎛️ Control center
+
+Run `control.bat` for the single host control surface. It keeps the menu available while a managed router runs hidden, and provides explicit controls for start, status/URLs, dashboard, Cloudflare start/stop, panic release, full router shutdown, diagnostics, and UMDF keyboard management.
+
+Managed PID, port, mode, and log paths are written under the ignored `.runtime/` directory. Stop and cleanup validate the exact repository `server.py` command line before touching a process, and cleanup affects only that server and its children. A normal stop calls the host-loopback-only shutdown API, releases every output, closes the background helper and tunnel, and then removes its runtime state. Exiting only the control menu deliberately leaves the router in its current state.
+
+The installed UMDF keyboard remains enumerated but idle when the router is stopped; its independent 750 ms watchdog releases keys if the host process disappears unexpectedly.
+
+---
+
 ## 🚀 What OmniPad does
 
 - Remote 2-player local co-op / versus over **LAN or the Internet**.
@@ -194,9 +204,9 @@ OmniPad includes a dedicated regression ring covering routing, networking, targe
 
 Current verification baseline:
 
-- **17 / 17 test suites passing**
+- **19 / 19 test suites passing**
 - **0 security-test failures** in the dedicated security suites
-- **38 covered source files** within the strict **450-line modularization limit**
+- **47 covered source files** within the strict **450-line modularization limit**
 - Full historical secret scan reported **0 secret/token/private-key matches** in the audited history
 
 Important suites include:

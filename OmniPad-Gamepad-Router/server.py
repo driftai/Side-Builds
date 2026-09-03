@@ -36,6 +36,14 @@ slot_manager = SlotManager(max_slots=config.max_slots, watchdog_timeout=config.w
 tunnel_manager = TunnelManager(local_port=config.port)
 profile_manager = ProfileManager()
 _player_observers: Dict[int, set[WebSocket]] = {}
+_uvicorn_server: Optional[uvicorn.Server] = None
+
+
+async def _request_server_shutdown() -> bool:
+    if _uvicorn_server is None:
+        return False
+    _uvicorn_server.should_exit = True
+    return True
 
 
 async def _register_player_observer(slot_id: int, websocket: WebSocket) -> None:
@@ -83,7 +91,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=config.title, version=config.version, lifespan=lifespan)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.include_router(setup_routes(slot_manager, tunnel_manager, profile_manager, STATIC_DIR))
+app.include_router(
+    setup_routes(
+        slot_manager,
+        tunnel_manager,
+        profile_manager,
+        STATIC_DIR,
+        shutdown_callback=_request_server_shutdown,
+    )
+)
 
 
 @app.websocket("/ws/host")
@@ -221,6 +237,7 @@ async def player_websocket_endpoint(websocket: WebSocket):
 
 
 def main():
+    global _uvicorn_server
     parser = argparse.ArgumentParser(description="OmniPad Gamepad Router")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
@@ -243,7 +260,18 @@ def main():
     if args.tunnel:
         print("  [>] Cloudflare Tunnel:  Starting trycloudflare.com link...")
     print("=" * 70 + "\n")
-    uvicorn.run(app, host=config.host, port=config.port, log_level="info", ws_max_size=65536)
+    server_config = uvicorn.Config(
+        app,
+        host=config.host,
+        port=config.port,
+        log_level="info",
+        ws_max_size=65536,
+    )
+    _uvicorn_server = uvicorn.Server(server_config)
+    try:
+        _uvicorn_server.run()
+    finally:
+        _uvicorn_server = None
 
 
 if __name__ == "__main__":

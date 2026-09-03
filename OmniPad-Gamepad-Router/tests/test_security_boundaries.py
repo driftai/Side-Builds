@@ -109,7 +109,9 @@ def run_endpoint_matrix_tests():
     assert st_k_cf == 403
     st_p_cf, _, _ = make_http_request("POST", "/api/panic", cf_host)
     assert st_p_cf == 403
-    print("  [PASS] POST /api/slot/* & /api/panic: 403 Cloudflare on controller/socd/mute/reset/kick/panic (Protected)")
+    st_shutdown_cf, _, _ = make_http_request("POST", "/api/control/shutdown", cf_host)
+    assert st_shutdown_cf == 403
+    print("  [PASS] POST /api/slot/*, /api/panic & /api/control/shutdown: 403 Cloudflare (Protected)")
 
     # 6. Tunnel Controls
     st_tun_st_cf, _, _ = make_http_request("POST", "/api/tunnel/start", cf_host)

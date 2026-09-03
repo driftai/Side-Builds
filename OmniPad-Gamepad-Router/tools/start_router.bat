@@ -24,15 +24,11 @@ if not exist "%PYTHON%" goto :setup_failed
 if errorlevel 1 goto :setup_failed
 
 :start_router
-echo Starting OmniPad Gamepad Router...
-"%PYTHON%" server.py %*
-set "EXIT_CODE=%ERRORLEVEL%"
-if not "%EXIT_CODE%"=="0" echo OmniPad exited with code %EXIT_CODE%.
-pause
-exit /b %EXIT_CODE%
+echo Starting managed OmniPad LAN router...
+powershell -NoProfile -ExecutionPolicy Bypass -File "tools\manage_router.ps1" -Action Start -Mode lan -Port 8000
+exit /b %ERRORLEVEL%
 
 :setup_failed
 echo.
 echo ERROR: OmniPad environment setup failed. The router was not started.
-pause
 exit /b 1

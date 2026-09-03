@@ -47,7 +47,18 @@ if (-not $devcon) {
 }
 
 Write-Host 'Installing the signed UMDF package without changing boot mode...' -ForegroundColor Cyan
-& $devcon install $InfPath $hardwareId
+$installedDevice = Get-PnpDevice -Class HIDClass -PresentOnly -ErrorAction SilentlyContinue |
+    Where-Object { $_.FriendlyName -eq 'OmniPad Virtual Keyboard Port (UMDF 2)' } |
+    Where-Object {
+    $ids = (Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data
+    $ids -contains $hardwareId
+} | Select-Object -First 1
+if ($installedDevice) {
+    Write-Host "Updating existing device $($installedDevice.InstanceId)..." -ForegroundColor Cyan
+    & $devcon update $InfPath $hardwareId
+} else {
+    & $devcon install $InfPath $hardwareId
+}
 if ($LASTEXITCODE -ne 0) {
     throw "DevCon installation failed with exit code $LASTEXITCODE"
 }

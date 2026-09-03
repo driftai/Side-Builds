@@ -23,6 +23,8 @@ The build creates a UMDF `.dll`, `.inf`, and `.cat`. It does not install anythin
 
 Normal-mode installation still requires Windows to trust the package catalog. For private development, sign the generated catalog with a certificate that this machine explicitly trusts. For distribution, use Microsoft/Partner Center signing.
 
+The preferred interactive entry point is `control.bat` → **Virtual keyboard management**. It exposes status, guarded install/repair, exact device/certificate removal, the concise live smoke, and the preserved VHF build. Install/repair updates an existing OmniPad device rather than creating another root device.
+
 The guarded local-development helper is:
 
 ```powershell
