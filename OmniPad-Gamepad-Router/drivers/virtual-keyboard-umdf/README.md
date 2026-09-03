@@ -37,6 +37,18 @@ After signing, install from an elevated prompt:
 powershell -ExecutionPolicy Bypass -File .\drivers\virtual-keyboard-umdf\install-driver.ps1
 ```
 
+For a single elevated provisioning step, add `-InstallAfterSigning` to the signing command.
+
+Run the installed-device smoke with bounded console output:
+
+```powershell
+.\tools\run_umdf_installed_smoke.bat
+```
+
+It performs 13 checks covering device/control-path discovery, Raw Input identity, factory availability, backend selection and lifecycle, WASD make/break, modifier release, six-key rollover, duplicate suppression, heartbeat behavior, driver-side watchdog release, 64 rapid state transitions ending neutral, and endpoint reopen. The console receives one summary line; structured details go to the ignored `logs/umdf_installed_smoke.json` file.
+
+Exact rollback is available through `remove-driver.ps1 -RemoveDevice`. Pass the recorded signing thumbprint through `-CertificateThumbprint` only if the local trust certificate should also be removed.
+
 `install-driver.ps1` refuses unsigned or untrusted packages. It does not enable Test Mode, disable Secure Boot, edit BCD, create certificates, or change certificate stores. Those trust decisions remain a separate explicit step.
 
 The preserved `drivers/virtual-keyboard` KMDF/VHF implementation remains available as the future Microsoft-signed kernel source path.

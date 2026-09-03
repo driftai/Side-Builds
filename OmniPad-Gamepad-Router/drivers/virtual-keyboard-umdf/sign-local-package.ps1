@@ -1,5 +1,6 @@
 param(
     [switch]$TrustLocalCertificate,
+    [switch]$InstallAfterSigning,
     [string]$PackageDirectory = ""
 )
 
@@ -82,3 +83,7 @@ if ($signature.Status -ne 'Valid') {
 
 Write-Host "Signed catalog with local certificate $($certificate.Thumbprint)." -ForegroundColor Green
 Write-Host 'Certificate trust changed; boot mode, BCD, and Secure Boot were not changed.' -ForegroundColor Yellow
+
+if ($InstallAfterSigning) {
+    & (Join-Path $root 'install-driver.ps1') -InfPath (Join-Path $PackageDirectory 'OmniPadVirtualKeyboardUmdf.inf')
+}

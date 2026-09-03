@@ -89,6 +89,8 @@ def test_driver_source_contract():
     project = (folder / "OmniPadVirtualKeyboardUmdf.vcxproj").read_text(encoding="utf-8")
     installer = (folder / "install-driver.ps1").read_text(encoding="utf-8")
     signer = (folder / "sign-local-package.ps1").read_text(encoding="utf-8")
+    remover = (folder / "remove-driver.ps1").read_text(encoding="utf-8")
+    installed_smoke = (ROOT / "tools" / "umdf_installed_smoke.py").read_text(encoding="utf-8")
     slots = (ROOT / "router" / "slot_manager.py").read_text(encoding="utf-8")
     dashboard = (ROOT / "static" / "js" / "dashboard_slots.js").read_text(encoding="utf-8")
 
@@ -112,11 +114,21 @@ def test_driver_source_contract():
     assert "bcdedit" not in installer.lower()
     assert "testsigning" not in installer.lower()
     assert "TrustLocalCertificate" in signer
+    assert "InstallAfterSigning" in signer
     assert "KeyExportPolicy NonExportable" in signer
     assert "Cert:\\LocalMachine\\TrustedPublisher" in signer
     assert "Cert:\\LocalMachine\\Root" in signer
     assert "bcdedit" not in signer.lower()
     assert "testsigning" not in signer.lower()
+    assert "Root\\OmniPadVirtualKeyboardUmdf" in remover
+    assert "CertificateThumbprint" in remover
+    assert "--quiet" in (ROOT / "tools" / "run_umdf_installed_smoke.bat").read_text(encoding="utf-8")
+    assert "duplicate_suppression" in installed_smoke
+    assert "driver_watchdog_release" in installed_smoke
+    assert "heartbeat_prevents_watchdog" in installed_smoke
+    assert "backend_apply_release" in installed_smoke
+    assert "rapid_transition_final_neutral" in installed_smoke
+    assert "endpoint_reopen" in installed_smoke
     assert '"virtual_keyboard_port"' in slots
     assert 'backendId === "virtual_keyboard_port"' in dashboard
     print("  [PASS] UMDF descriptor, sideband, watchdog, INF, and normal-mode boundaries")
