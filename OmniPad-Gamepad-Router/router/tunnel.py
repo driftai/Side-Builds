@@ -17,6 +17,7 @@ import time
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger("OmniPad.Tunnel")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_local_ips() -> List[str]:
@@ -50,6 +51,7 @@ class TunnelManager:
     """Manages Cloudflare Quick Tunnels (trycloudflare.com) via cloudflared.exe."""
 
     DEFAULT_PATHS = [
+        os.path.join(PROJECT_ROOT, ".runtime", "bin", "cloudflared.exe"),
         shutil.which("cloudflared"),
         r"C:\Program Files (x86)\cloudflared\cloudflared.EXE",
         r"C:\Program Files\cloudflared\cloudflared.EXE",

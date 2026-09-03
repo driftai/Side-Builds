@@ -23,7 +23,7 @@ The build creates a UMDF `.dll`, `.inf`, and `.cat`. It does not install anythin
 
 Normal-mode installation still requires Windows to trust the package catalog. For private development, sign the generated catalog with a certificate that this machine explicitly trusts. For distribution, use Microsoft/Partner Center signing.
 
-The preferred interactive entry point is `control.bat` → **Virtual keyboard management**. It exposes status, guarded install/repair, exact device/certificate removal, the concise live smoke, and the preserved VHF build. Install/repair updates an existing OmniPad device rather than creating another root device.
+The preferred interactive entry point is `control.bat` → **Install/repair** or **Virtual keyboard management**. Standard install verifies the pinned package under `package/x64`, asks for explicit local trust, and creates or updates only the OmniPad root device through Windows SetupAPI and PnPUtil. It does not require Visual Studio, WDK, SDK tools, or DevCon. Exact device/certificate/package removal, the concise live smoke, developer rebuild, and preserved VHF build remain available from the keyboard menu.
 
 The guarded local-development helper is:
 
@@ -33,7 +33,7 @@ powershell -ExecutionPolicy Bypass -File .\drivers\virtual-keyboard-umdf\sign-lo
 
 That command deliberately requires an explicit switch because it creates a non-exportable local signing key and adds its public certificate to this machine's Root and TrustedPublisher stores. It does not change boot mode. Do not use the local certificate for public distribution.
 
-After signing, install from an elevated prompt:
+After a developer rebuild/sign, install from an elevated prompt:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\drivers\virtual-keyboard-umdf\install-driver.ps1
@@ -49,7 +49,7 @@ Run the installed-device smoke with bounded console output:
 
 It performs 13 checks covering device/control-path discovery, Raw Input identity, factory availability, backend selection and lifecycle, WASD make/break, modifier release, six-key rollover, duplicate suppression, heartbeat behavior, driver-side watchdog release, 64 rapid state transitions ending neutral, and endpoint reopen. The console receives one summary line; structured details go to the ignored `logs/umdf_installed_smoke.json` file.
 
-Exact rollback is available through `remove-driver.ps1 -RemoveDevice`. Pass the recorded signing thumbprint through `-CertificateThumbprint` only if the local trust certificate should also be removed.
+Exact rollback is available through `remove-driver.ps1 -RemoveDevice`. It uses in-box PnPUtil to remove only the matching device and its exact driver-store package. Pass recorded signing thumbprints through `-CertificateThumbprint` only when the corresponding OmniPad trust certificates should also be removed.
 
 `install-driver.ps1` refuses unsigned or untrusted packages. It does not enable Test Mode, disable Secure Boot, edit BCD, create certificates, or change certificate stores. Those trust decisions remain a separate explicit step.
 

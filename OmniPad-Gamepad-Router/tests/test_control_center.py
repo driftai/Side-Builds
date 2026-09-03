@@ -19,6 +19,7 @@ def test_control_surface_contract():
     cleanup = (ROOT / "tools" / "cleanup_stragglers.bat").read_text(encoding="utf-8")
     lan = (ROOT / "tools" / "start_router.bat").read_text(encoding="utf-8")
     tunnel = (ROOT / "tools" / "start_with_tunnel.bat").read_text(encoding="utf-8")
+    repair = (ROOT / "install_or_repair.bat").read_text(encoding="utf-8")
 
     for action in ("StartTunnel", "StopTunnel", "Panic", "OpenDashboard", "Cleanup"):
         assert action in manager
@@ -31,6 +32,9 @@ def test_control_surface_contract():
     assert "taskkill /F /IM" not in control
     assert "taskkill /F /IM" not in cleanup
     assert "REMOVE UMDF" in control
+    assert "Install/repair and show component readiness" in control
+    assert "call install_or_repair.bat" in control
+    assert "RepairAll" in repair and "RepairCore" in repair
     assert "leave current router state unchanged" in control
     assert "manage_router.ps1" in lan and "-Mode lan" in lan
     assert "manage_router.ps1" in tunnel and "-Mode tunnel" in tunnel
@@ -50,9 +54,14 @@ def test_driver_management_contract():
     assert "bcdedit" not in manager.lower()
     assert "testsigning" not in manager.lower()
     assert "Invoke-Expression" not in installer
-    assert "& $devcon update $InfPath $hardwareId" in installer
-    assert "& $devcon install $InfPath $hardwareId" in installer
-    print("  [PASS] UMDF install/update/removal controls retain explicit scope and confirmation")
+    assert "install-bundled-package.ps1" in manager
+    assert "RebuildInstall" in manager
+    assert "OmniPadRootDeviceInstaller" in installer
+    assert "SetupDiCallClassInstaller" in installer
+    assert "pnputil.exe /add-driver $InfPath /install" in installer
+    assert "$devcon" not in installer.lower()
+    assert "Windows Kits\\10\\Tools" not in installer
+    print("  [PASS] UMDF install/update/removal controls are contained and explicitly scoped")
 
 
 def test_graceful_shutdown_contract():

@@ -8,7 +8,7 @@ set "UMDF_MANAGER=drivers\virtual-keyboard-umdf\manage-driver.ps1"
 :menu
 cls
 echo ======================================================================
-echo              OMNIPAD ROUTER -- CONTROL CENTER v1.2
+echo              OMNIPAD ROUTER -- CONTROL CENTER v1.3
 echo ======================================================================
 echo.
 echo   ROUTER
@@ -23,6 +23,7 @@ echo   [8] Panic release all virtual inputs
 echo   [9] Stop router, tunnel, helper, and all routed input
 echo.
 echo   TOOLS
+echo   [I] Install/repair and show component readiness
 echo   [D] Diagnostics and smoke tests
 echo   [K] Virtual keyboard management
 echo   [C] Scoped cleanup for this OmniPad repository
@@ -40,6 +41,7 @@ if /i "%opt%"=="6" goto tunnel_start
 if /i "%opt%"=="7" goto tunnel_stop
 if /i "%opt%"=="8" goto panic
 if /i "%opt%"=="9" goto router_stop
+if /i "%opt%"=="I" goto install_repair
 if /i "%opt%"=="D" goto diagnostics
 if /i "%opt%"=="K" goto keyboard
 if /i "%opt%"=="C" goto cleanup
@@ -97,6 +99,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%ROUTER_MANAGER%" -Action S
 pause
 goto menu
 
+:install_repair
+call install_or_repair.bat
+goto menu
+
 :diagnostics
 cls
 echo ======================================================================
@@ -122,17 +128,19 @@ echo ======================================================================
 echo                 VIRTUAL KEYBOARD MANAGEMENT
 echo ======================================================================
 echo   [1] Show UMDF virtual keyboard status
-echo   [2] Build, locally sign, and install/repair UMDF keyboard
+echo   [2] Install/repair bundled normal-mode UMDF keyboard
 echo   [3] Remove UMDF device and its exact local trust certificate
 echo   [4] Run real installed-device keyboard smoke
-echo   [5] Build preserved VHF source package only (future signing path)
+echo   [5] Developer rebuild, sign, and install UMDF keyboard
+echo   [6] Build preserved VHF source package only (future signing path)
 echo   [0] Back
 set /p keyopt="Select an option: "
 if "%keyopt%"=="1" goto umdf_status
 if "%keyopt%"=="2" goto umdf_install
 if "%keyopt%"=="3" goto umdf_remove
 if "%keyopt%"=="4" goto umdf_smoke
-if "%keyopt%"=="5" goto vhf_build
+if "%keyopt%"=="5" goto umdf_rebuild
+if "%keyopt%"=="6" goto vhf_build
 if "%keyopt%"=="0" goto menu
 goto keyboard_invalid
 
@@ -143,14 +151,27 @@ goto keyboard
 
 :umdf_install
 echo.
-echo This will build the UMDF package, trust only:
+echo This will verify the bundled UMDF package, trust only:
 echo   CN=OmniPad Local UMDF Development
 echo and install/update only:
 echo   Root\OmniPadVirtualKeyboardUmdf
+echo Visual Studio, WDK, DevCon, Test Mode, and a reboot are not required.
 echo It will not change Test Mode, BCD, Secure Boot, or the physical keyboard.
 choice /C YN /N /M "Continue? [Y/N]: "
 if errorlevel 2 goto keyboard
 powershell -NoProfile -ExecutionPolicy Bypass -File "%UMDF_MANAGER%" -Action Install -Confirmed
+pause
+goto keyboard
+
+:umdf_rebuild
+echo.
+echo DEVELOPER PATH: this requires Visual Studio C++ Build Tools and the WDK.
+echo It rebuilds, creates/trusts a machine-local certificate, and installs only:
+echo   Root\OmniPadVirtualKeyboardUmdf
+echo It does not change Test Mode, BCD, Secure Boot, or the physical keyboard.
+choice /C YN /N /M "Continue with developer rebuild? [Y/N]: "
+if errorlevel 2 goto keyboard
+powershell -NoProfile -ExecutionPolicy Bypass -File "%UMDF_MANAGER%" -Action RebuildInstall -Confirmed
 pause
 goto keyboard
 

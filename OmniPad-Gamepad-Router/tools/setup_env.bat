@@ -36,6 +36,9 @@ echo Updating Python packaging tools...
 if errorlevel 1 goto :dependency_failure
 
 echo Installing dependencies from requirements.txt...
+rem Driver installation is owned by install_or_repair.bat so ordinary Python
+rem setup never triggers an unexpected system-wide MSI/UAC prompt.
+set "VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true"
 ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt --no-warn-script-location
 if errorlevel 1 goto :dependency_failure
 
@@ -43,7 +46,6 @@ echo Verifying vgamepad installation...
 ".\.venv\Scripts\python.exe" -c "import vgamepad" 2>nul
 if errorlevel 1 (
     echo Installing vgamepad...
-    set "VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true"
     ".\.venv\Scripts\python.exe" -m pip install vgamepad --no-build-isolation
     if errorlevel 1 (
         echo ERROR: Failed to install vgamepad.

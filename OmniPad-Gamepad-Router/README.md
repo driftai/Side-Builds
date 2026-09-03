@@ -8,7 +8,7 @@ The project is designed as a **barebones server + web UI**, not a monolithic com
 
 ## 🎛️ Control center
 
-Run `control.bat` for the single host control surface. It keeps the menu available while a managed router runs hidden, and provides explicit controls for start, status/URLs, dashboard, Cloudflare start/stop, panic release, full router shutdown, diagnostics, and UMDF keyboard management.
+Run `control.bat` for the single host control surface. It keeps the menu available while a managed router runs hidden, and provides explicit controls for install/repair and component readiness, start, status/URLs, dashboard, Cloudflare start/stop, panic release, full router shutdown, diagnostics, and UMDF keyboard management.
 
 Managed PID, port, mode, and log paths are written under the ignored `.runtime/` directory. Stop and cleanup validate the exact repository `server.py` command line before touching a process, and cleanup affects only that server and its children. A normal stop calls the host-loopback-only shutdown API, releases every output, closes the background helper and tunnel, and then removes its runtime state. Exiting only the control menu deliberately leaves the router in its current state.
 
@@ -224,11 +224,12 @@ Important suites include:
 - `tests/test_background_keyboard_helper.py`
 - `tests/test_server_live.py`
 - `tests/test_vhf_keyboard.py`
+- `tests/test_install_repair.py`
 - `tests/smoke_test.py`
 
 Run `run_tests.bat` for the standard local test sequence.
 
-The UMDF and VHF driver paths additionally require a real Windows WDK environment for native compilation and package testing.
+Native UMDF/VHF development still requires a real Windows WDK environment. Installing the pinned bundled UMDF runtime package does not.
 
 ---
 
@@ -240,7 +241,7 @@ The primary separate-device implementation is now the normal-mode UMDF 2 package
 
 It exposes a standard keyboard collection plus a vendor-defined local control collection. OmniPad writes its tested 8-byte keyboard states to the control collection, and Windows exposes the keyboard collection as a distinct HID/Raw Input device. The driver suppresses duplicate state publications and forces all keys up after a 750 ms host-silence timeout.
 
-This path does not require Test Mode, Secure Boot changes, BCD edits, or a custom kernel binary. Windows still requires the package catalog to be signed and trusted before installation; the build performs no certificate-store or driver-state changes. The installed-device smoke verifies the separate Raw Input identity, real make/break events, backend lifecycle, rollover, duplicate suppression, heartbeat/watchdog behavior, rapid transitions ending neutral, and endpoint reopen.
+This path does not require Test Mode, Secure Boot changes, BCD edits, or a custom kernel binary. Windows still requires the package catalog to be signed and trusted before installation. The pinned x64 runtime package is included so a normal install does not require Visual Studio, WDK, SDK tools, or DevCon; the repair flow shows the exact certificate and device scope before UAC. The installed-device smoke verifies the separate Raw Input identity, real make/break events, backend lifecycle, rollover, duplicate suppression, heartbeat/watchdog behavior, rapid transitions ending neutral, and endpoint reopen.
 
 The preserved VHF path remains intended for future Microsoft signing work and for games or software that distinguish keyboard devices through Raw Input/HID:
 
@@ -291,15 +292,23 @@ The project enforces a strict source-file size ceiling to keep individual module
 
 ## 🔧 Requirements
 
+### Install or repair
+
+On a supported Windows 11 x64 host, open `control.bat`, choose **I**, then choose **Install/repair all normal runtime features**. The same flow can be opened directly through `install_or_repair.bat`.
+
+The read-only status option reports each component separately. Full repair stops only this repository's router, creates or updates the ignored `.venv`, installs user-scoped Python 3.12 through `winget` only when Python is absent, installs the signed ViGEmBus MSI bundled by `vgamepad` only when its driver is absent, downloads an Authenticode-validated Cloudflare binary into ignored `.runtime/bin`, and installs or repairs the pinned UMDF keyboard package. It does not install a cloudflared service or developer toolchain and does not change Test Mode, BCD, Secure Boot, or reboot settings.
+
+After repair, the router remains stopped so start/stop control stays with the user. Choose router option **1** or **2** when ready. The installed UMDF device remains idle when the server is off, and its watchdog releases any held state.
+
 Typical Windows host requirements:
 
 - Windows 10/11
-- Python 3.x
+- Python 3.x (automatically repaired through `winget` when available)
 - Node.js for browser/JavaScript checks
 - ViGEmBus for Xbox 360 / DS4 virtual controllers
 - Modern browser for remote players
-- Optional Visual Studio Build Tools + Windows Driver Kit for UMDF/VHF development
-- Optional `cloudflared` for Internet play through Quick Tunnels
+- Optional Visual Studio Build Tools + Windows Driver Kit for driver development only
+- `cloudflared` for Internet play (repair keeps a repo-local copy; LAN mode does not need it)
 
 See the repository launcher scripts and `requirements.txt` for the current setup path.
 
@@ -314,6 +323,7 @@ OmniPad-Gamepad-Router/
 ├── VERSION
 ├── requirements.txt
 ├── control.bat
+├── install_or_repair.bat
 ├── start_router.bat
 ├── start_with_tunnel.bat
 ├── router/

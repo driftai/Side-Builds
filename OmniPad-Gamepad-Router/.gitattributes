@@ -1,0 +1,2 @@
+# Signed driver-package members must remain byte-for-byte identical on checkout.
+drivers/virtual-keyboard-umdf/package/x64/* binary

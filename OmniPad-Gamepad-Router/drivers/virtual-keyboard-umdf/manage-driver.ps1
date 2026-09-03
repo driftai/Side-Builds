@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Status', 'Install', 'Remove')]
+    [ValidateSet('Status', 'Install', 'RebuildInstall', 'Remove')]
     [string]$Action,
     [switch]$Confirmed
 )
@@ -10,8 +10,9 @@ $scriptPath = $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $hardwareId = 'Root\OmniPadVirtualKeyboardUmdf'
 $certificateSubject = 'CN=OmniPad Local UMDF Development'
-$packageDirectory = Join-Path $root 'x64\Debug\OmniPadVirtualKeyboardUmdf'
+$packageDirectory = Join-Path $root 'package\x64'
 $catalog = Join-Path $packageDirectory 'OmniPadVirtualKeyboardUmdf.cat'
+$bundledThumbprint = '5631FB22CE4E3E6512CAADE65B4F5963644BB56D'
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -28,16 +29,18 @@ function Get-OmniPadDevice {
     } | Select-Object -First 1
 }
 
-function Get-OmniPadCertificate {
-    return Get-ChildItem -LiteralPath 'Cert:\LocalMachine\My' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Subject -eq $certificateSubject -and $_.HasPrivateKey } |
-        Sort-Object NotAfter -Descending |
-        Select-Object -First 1
+function Get-OmniPadCertificates {
+    $certificates = foreach ($store in @('My', 'Root', 'TrustedPublisher')) {
+        Get-ChildItem -LiteralPath "Cert:\LocalMachine\$store" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Subject -eq $certificateSubject } |
+            ForEach-Object { [pscustomobject]@{ Store = $store; Certificate = $_ } }
+    }
+    return @($certificates)
 }
 
 function Show-DriverStatus {
     $device = Get-OmniPadDevice
-    $certificate = Get-OmniPadCertificate
+    $certificates = @(Get-OmniPadCertificates)
     $signature = if (Test-Path -LiteralPath $catalog) {
         Get-AuthenticodeSignature -LiteralPath $catalog
     } else { $null }
@@ -48,12 +51,16 @@ function Show-DriverStatus {
     } else {
         Write-Host 'UMDF device: NOT INSTALLED' -ForegroundColor Yellow
     }
-    if ($certificate) {
-        Write-Host "Certificate: TRUSTED LOCAL DEVELOPMENT CERTIFICATE"
-        Write-Host "Thumbprint:  $($certificate.Thumbprint)"
-        Write-Host "Expires:     $($certificate.NotAfter.ToString('u'))"
+    $trusted = @($certificates | Where-Object {
+        $_.Store -in @('Root', 'TrustedPublisher') -and
+        $_.Certificate.Thumbprint -eq $bundledThumbprint
+    })
+    if ($trusted.Count -gt 0) {
+        Write-Host 'Certificate: PINNED BUNDLED SIGNER TRUSTED'
+        Write-Host "Thumbprint:  $bundledThumbprint"
+        Write-Host "Stores:      $($trusted.Store -join ', ')"
     } else {
-        Write-Host 'Certificate: NOT PRESENT'
+        Write-Host 'Certificate: BUNDLED SIGNER NOT TRUSTED'
     }
     if ($signature) {
         Write-Host "Catalog:     $($signature.Status)"
@@ -85,9 +92,22 @@ try {
         if (-not (Test-Administrator)) {
             Invoke-ElevatedSelf 'Install'
         }
+        & (Join-Path $root 'install-bundled-package.ps1') -TrustBundledCertificate
+        if (-not $?) {
+            throw 'Bundled UMDF installation failed.'
+        }
+        Show-DriverStatus
+    }
+    'RebuildInstall' {
+        if (-not $Confirmed) {
+            throw 'Developer rebuild/install requires -Confirmed after showing the certificate and device scope.'
+        }
+        if (-not (Test-Administrator)) {
+            Invoke-ElevatedSelf 'RebuildInstall'
+        }
         & (Join-Path $root 'build-driver.ps1')
-        if ($LASTEXITCODE -ne 0) {
-            throw "UMDF build failed with exit code $LASTEXITCODE"
+        if (-not $?) {
+            throw 'UMDF build failed.'
         }
         & (Join-Path $root 'sign-local-package.ps1') -TrustLocalCertificate -InstallAfterSigning
         Show-DriverStatus
@@ -99,10 +119,12 @@ try {
         if (-not (Test-Administrator)) {
             Invoke-ElevatedSelf 'Remove'
         }
-        $certificate = Get-OmniPadCertificate
+        $certificates = @(Get-OmniPadCertificates)
         $parameters = @{ RemoveDevice = $true }
-        if ($certificate) {
-            $parameters.CertificateThumbprint = $certificate.Thumbprint
+        if ($certificates.Count -gt 0) {
+            $parameters.CertificateThumbprint = @(
+                $certificates.Certificate.Thumbprint | Sort-Object -Unique
+            )
         }
         & (Join-Path $root 'remove-driver.ps1') @parameters
         Show-DriverStatus

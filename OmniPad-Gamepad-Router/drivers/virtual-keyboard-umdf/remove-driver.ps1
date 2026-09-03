@@ -1,6 +1,6 @@
 param(
     [switch]$RemoveDevice,
-    [string]$CertificateThumbprint = ""
+    [string[]]$CertificateThumbprint = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,23 +16,41 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 if ($RemoveDevice) {
-    $kitsTools = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Tools'
-    $devcon = Get-ChildItem -LiteralPath $kitsTools -Recurse -Filter 'devcon.exe' -File |
-        Where-Object { $_.FullName -match '\\x64\\devcon.exe$' } |
-        Sort-Object FullName -Descending |
-        Select-Object -First 1 -ExpandProperty FullName
-    if (-not $devcon) {
-        throw 'x64 devcon.exe was not found in Windows Kits\10\Tools.'
+    $devices = @(Get-PnpDevice -Class HIDClass -ErrorAction SilentlyContinue |
+        Where-Object { $_.FriendlyName -eq 'OmniPad Virtual Keyboard Port (UMDF 2)' } |
+        Where-Object {
+        $ids = (Get-PnpDeviceProperty -InstanceId $_.InstanceId `
+            -KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data
+        $ids -contains $hardwareId
+    })
+    $driverInfs = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($device in $devices) {
+        $signedDriver = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue |
+            Where-Object { $_.DeviceID -eq $device.InstanceId } |
+            Select-Object -First 1
+        if ($signedDriver.InfName -match '^oem\d+\.inf$') {
+            $driverInfs.Add($signedDriver.InfName) | Out-Null
+        }
+        & pnputil.exe /remove-device $device.InstanceId
+        if ($LASTEXITCODE -ne 0) {
+            throw "PnPUtil could not remove exact device $($device.InstanceId) (exit $LASTEXITCODE)"
+        }
+        Write-Host "Removed exact device $($device.InstanceId)." -ForegroundColor Green
     }
-    & $devcon remove $hardwareId
-    if ($LASTEXITCODE -ne 0) {
-        throw "DevCon removal failed with exit code $LASTEXITCODE"
+    foreach ($driverInf in $driverInfs) {
+        & pnputil.exe /delete-driver $driverInf /uninstall
+        if ($LASTEXITCODE -ne 0) {
+            throw "PnPUtil could not remove exact driver package $driverInf (exit $LASTEXITCODE)"
+        }
+        Write-Host "Removed exact driver-store package $driverInf." -ForegroundColor Green
     }
-    Write-Host "Removed device matching $hardwareId." -ForegroundColor Green
+    if ($devices.Count -eq 0) {
+        Write-Host "No installed device matched $hardwareId." -ForegroundColor Yellow
+    }
 }
 
-if ($CertificateThumbprint) {
-    $normalizedThumbprint = ($CertificateThumbprint -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+foreach ($thumbprint in $CertificateThumbprint) {
+    $normalizedThumbprint = ($thumbprint -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
     if ($normalizedThumbprint.Length -ne 40 -and $normalizedThumbprint.Length -ne 64) {
         throw 'Certificate thumbprint must be the exact 40- or 64-character hexadecimal value recorded during signing.'
     }
