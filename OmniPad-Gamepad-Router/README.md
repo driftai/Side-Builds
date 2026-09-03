@@ -204,9 +204,9 @@ OmniPad includes a dedicated regression ring covering routing, networking, targe
 
 Current verification baseline:
 
-- **19 / 19 test suites passing**
+- **21 / 21 test suites passing**
 - **0 security-test failures** in the dedicated security suites
-- **47 covered source files** within the strict **450-line modularization limit**
+- **48 covered source files** within the strict **450-line modularization limit**
 - Full historical secret scan reported **0 secret/token/private-key matches** in the audited history
 
 Important suites include:
@@ -219,6 +219,7 @@ Important suites include:
 - `tests/test_touch_controller.py`
 - `tests/test_touch_controller_layouts.py`
 - `tests/test_surface_output_routing.py`
+- `tests/test_input_pipeline.py`
 - `tests/test_surface_combinations_e2e.py`
 - `tests/test_backend_transitions.py`
 - `tests/test_background_keyboard_helper.py`
@@ -269,12 +270,13 @@ The normal-mode **Keyboard 2** fallback now submits physical scan-code events ra
 
 OmniPad uses a modular pipeline:
 
-`Control Surface → WebSocket / local input → SlotManager → Profile / Key Mapping → Output Backend → Target Game`
+`Control Surface → WebSocket / local input → SlotManager → Input Pipeline / Key Mapping → Output Backend → Target Game`
 
 The main components are:
 
 - `server.py` — FastAPI/Uvicorn server and lifecycle.
-- `router/slot_manager.py` — player slots, state normalization, watchdogs and routing.
+- `router/slot_manager.py` — player-slot lifecycle, watchdogs, output gating, and routing.
+- `router/input_pipeline.py` — multi-client fusion, key mapping, SOCD handling, and normalized input state.
 - `router/targeting.py` — running-game discovery and target safety predicates.
 - `router/security.py` — local/private request gates and public-session containment.
 - `router/controller.py` — virtual controller lifecycle.

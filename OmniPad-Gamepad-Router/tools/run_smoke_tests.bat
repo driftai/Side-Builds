@@ -80,6 +80,10 @@ echo Running OmniPad Independent Surface-to-Output Routing Tests...
 "%PYTHON%" tests\test_surface_output_routing.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Input Fusion ^& Normalization Tests...
+"%PYTHON%" tests\test_input_pipeline.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad End-to-End Surface-to-Output Combinations Tests...
 "%PYTHON%" tests\test_surface_combinations_e2e.py
 if errorlevel 1 exit /b 1

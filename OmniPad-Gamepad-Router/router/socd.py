@@ -92,7 +92,7 @@ class SOCDCleaner:
         """
         import math
         mag = math.hypot(x, y)
-        if mag < deadzone:
+        if mag == 0.0 or mag < deadzone:
             return 0.0, 0.0
         
         # Scale remaining range to 0.0..1.0

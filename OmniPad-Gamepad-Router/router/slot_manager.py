@@ -11,19 +11,15 @@ Handles:
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, Set
+from typing import Any, Dict, Optional, Set
 from fastapi import WebSocket
 
-from .controller import BaseController, ControllerFactory, VIGEM_AVAILABLE
+from .controller import ControllerFactory, VIGEM_AVAILABLE
+from .input_pipeline import build_normalized_input_state
+from .key_mapping import map_key_codes_to_gamepad  # Backward-compatible import surface.
 from .socd import SOCDCleaner, SOCDMode
 from .targeting import target_manager
 from .slot import PlayerSlot
-from .key_mapping import (
-    UNIVERSAL_KEY_TO_GAMEPAD,
-    PROFILE_KEY_TO_GAMEPAD,
-    map_key_codes_to_gamepad,
-)
 from config import config
 
 logger = logging.getLogger("OmniPad.SlotManager")
@@ -232,96 +228,15 @@ class SlotManager:
             slot.client_packets.pop(c, None)
             slot.client_last_seen.pop(c, None)
 
-        # Merge packets across active client sessions on this slot
-        if len(slot.client_packets) <= 1:
-            raw_buttons = dict(packet.get("buttons", {}) or {})
-            raw_axes = dict(packet.get("axes", {}) or {})
-            raw_key_codes = [str(k) for k in (packet.get("key_codes") or [])][:64]
-            input_surface = str(packet.get("input_surface") or "unknown")
-            mapping_profile = str(packet.get("mapping_profile") or "universal")
-        else:
-            raw_buttons = {}
-            raw_key_codes_set = set()
-            raw_axes = {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0}
-            input_surface = str(packet.get("input_surface") or "unknown")
-            mapping_profile = str(packet.get("mapping_profile") or "universal")
-
-            for cp in slot.client_packets.values():
-                c_btns = cp.get("buttons") or {}
-                for b, val in c_btns.items():
-                    if val:
-                        raw_buttons[b] = True
-                for k in cp.get("key_codes") or []:
-                    raw_key_codes_set.add(str(k))
-                c_axes = cp.get("axes") or {}
-                for ax in ("lx", "ly", "rx", "ry"):
-                    c_val = float(c_axes.get(ax, 0.0) or 0.0)
-                    if abs(c_val) > abs(raw_axes[ax]):
-                        raw_axes[ax] = c_val
-                for ax in ("lt", "rt"):
-                    c_val = float(c_axes.get(ax, 0.0) or 0.0)
-                    if c_val > raw_axes[ax]:
-                        raw_axes[ax] = c_val
-
-            raw_key_codes = list(raw_key_codes_set)[:64]
-
-        # Surface -> mapping -> output: raw keyboard identity is always kept,
-        # while the same keys can also be normalized into gamepad actions when
-        # the selected output backend is a controller. This means Keyboard,
-        # Gamepad and Touch are surfaces, not locks on a particular backend.
-        # Native background helper already sends its fully resolved controller
-        # buttons. Preserve raw key identity for diagnostics/keyboard backends
-        # without applying the universal map a second time (for example,
-        # Space -> A must not also become LB).
-        if input_surface != "background_native":
-            for action, pressed in map_key_codes_to_gamepad(raw_key_codes, mapping_profile).items():
-                if pressed:
-                    raw_buttons[action] = True
-
-        # Clean buttons with SOCD Cleaner
-        cleaned_buttons = slot.socd_cleaner.clean_buttons(raw_buttons)
-
-        # Clean analog sticks with Deadzone
-        lx = float(raw_axes.get("lx", 0.0) or 0.0)
-        ly = float(raw_axes.get("ly", 0.0) or 0.0)
-        rx = float(raw_axes.get("rx", 0.0) or 0.0)
-        ry = float(raw_axes.get("ry", 0.0) or 0.0)
-        lt = max(0.0, min(1.0, float(raw_axes.get("lt", 0.0) or 0.0)))
-        rt = max(0.0, min(1.0, float(raw_axes.get("rt", 0.0) or 0.0)))
-
-        # Only map keyboard directional presses (WASD) to Left Stick.
-        # Touchscreen controllers have dedicated dual analog sticks + D-pad clusters,
-        # so D-pad buttons must never hijack or overwrite the analog axes.
-        if input_surface == "keyboard" and lx == 0.0 and ly == 0.0:
-            if cleaned_buttons.get("DPAD_UP") and not cleaned_buttons.get("DPAD_DOWN"):
-                ly = 1.0
-            elif cleaned_buttons.get("DPAD_DOWN") and not cleaned_buttons.get("DPAD_UP"):
-                ly = -1.0
-            if cleaned_buttons.get("DPAD_RIGHT") and not cleaned_buttons.get("DPAD_LEFT"):
-                lx = 1.0
-            elif cleaned_buttons.get("DPAD_LEFT") and not cleaned_buttons.get("DPAD_RIGHT"):
-                lx = -1.0
-
-        effective_deadzone = 0.02 if input_surface == "touch" else slot.deadzone
-        clx, cly = slot.socd_cleaner.clean_stick(lx, ly, effective_deadzone)
-        crx, cry = slot.socd_cleaner.clean_stick(rx, ry, effective_deadzone)
-
-        state = {
-            "buttons": cleaned_buttons,
-            "axes": {
-                "lx": clx, "ly": cly,
-                "rx": crx, "ry": cry,
-                "lt": lt, "rt": rt
-            },
-            # Raw remote keyboard identity is intentionally carried alongside
-            # the normalized controller state. Keyboard 2 can use this to emit
-            # the same keys on the host instead of translating A/B/X/Y through
-            # the gamepad action map.
-            "key_codes": raw_key_codes,
-            "input_surface": input_surface,
-            "mapping_profile": mapping_profile,
-        }
+        state = build_normalized_input_state(
+            slot.client_packets,
+            packet,
+            slot.socd_cleaner,
+            slot.deadzone,
+        )
         slot.last_state = state
+        input_surface = state["input_surface"]
+        mapping_profile = state["mapping_profile"]
 
         # Background Routing Gating:
         # If background_routing is disabled (False), inputs stay confined to the browser
