@@ -67,7 +67,15 @@
     const active = keyCodes.length > 0 ||
       Object.keys(buttons).length > 0 ||
       Object.values(axes).some(value => Math.abs(value) > 0.01);
-    return { signature, digitalSignature, active };
+    return { signature, digitalSignature, axes, active };
+  }
+
+  function hasAxisRelease(previousAxes, nextAxes) {
+    if (!previousAxes) return false;
+    return ["lx", "ly", "rx", "ry", "lt", "rt"].some(key =>
+      Math.abs(previousAxes[key] || 0) > 0.01 &&
+      Math.abs(nextAxes[key] || 0) <= 0.01
+    );
   }
 
   WebSocket.prototype.send = function omnipadGuardedSend(data) {
@@ -90,6 +98,7 @@
     const previous = socketState.get(this) || {
       signature: null,
       digitalSignature: null,
+      axes: null,
       active: false,
       lastSentAt: -Infinity,
     };
@@ -97,7 +106,8 @@
     const changed = next.signature !== previous.signature;
     const digitalChanged = next.digitalSignature !== previous.digitalSignature;
     const releasing = previous.active && !next.active;
-    const urgent = previous.signature === null || digitalChanged || releasing;
+    const axisReleased = hasAxisRelease(previous.axes, next.axes);
+    const urgent = previous.signature === null || digitalChanged || releasing || axisReleased;
     const elapsed = now - previous.lastSentAt;
     const buffered = Number(this.bufferedAmount || 0);
     stats.lastBufferedAmount = buffered;
@@ -127,6 +137,7 @@
     socketState.set(this, {
       signature: next.signature,
       digitalSignature: next.digitalSignature,
+      axes: next.axes,
       active: next.active,
       lastSentAt: now,
     });
@@ -137,7 +148,7 @@
   try {
     if (!localStorage.getItem("omnipad.mouseSensitivityScaleV2")) {
       const stored = localStorage.getItem("omnipad.mouseSensitivity");
-      if (stored === null || stored === "40") {
+      if (stored === null) {
         localStorage.setItem("omnipad.mouseSensitivity", "20");
       }
       localStorage.setItem("omnipad.mouseSensitivityScaleV2", "1");

@@ -59,6 +59,9 @@ def main() -> None:
     assert "droppedDuplicate" in latency
     assert "OmniPadInputTransportStats" in latency
     assert 'message.type !== "input"' in latency
+    assert "hasAxisRelease" in latency
+    assert "axisReleased" in latency
+    assert "axes: next.axes" in latency
 
     assert 'id="mouse-camera-fullscreen-btn"' in play
     assert 'id="mouse-camera-popout-btn"' in play
@@ -70,6 +73,8 @@ def main() -> None:
     assert "mouseSensitivity" in mouse
     assert "setMouseSensitivity" in mouse
     assert "mouseSensitivityScaleV2" in latency
+    assert "if (stored === null)" in latency
+    assert 'stored === "40"' not in latency
     assert 'localStorage.setItem("omnipad.mouseSensitivity", "20")' in latency
     assert "smoothLx" in keyboard and "smoothLy" in keyboard
 

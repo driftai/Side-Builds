@@ -48,6 +48,10 @@ echo Running OmniPad Keyboard Bridge Tests...
 "%PYTHON%" tests\test_keyboard_bridge.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Background Keyboard Helper Tests...
+"%PYTHON%" tests\test_background_keyboard_helper.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad VHF Keyboard Report Tests...
 "%PYTHON%" tests\test_vhf_keyboard.py
 if errorlevel 1 exit /b 1
@@ -68,8 +72,24 @@ echo Running OmniPad End-to-End Surface-to-Output Combinations Tests...
 "%PYTHON%" tests\test_surface_combinations_e2e.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Touchscreen Controller Tests...
+"%PYTHON%" tests\test_touch_controller.py
+if errorlevel 1 exit /b 1
+
+echo Running OmniPad Touchscreen Layout Preset Tests...
+"%PYTHON%" tests\test_touch_controller_layouts.py
+if errorlevel 1 exit /b 1
+
+echo Running OmniPad Remote Player Input Feature Tests...
+"%PYTHON%" tests\test_remote_player_input_features.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad WebSocket Join ^& Real-Time Input Streaming Tests...
 "%PYTHON%" tests\test_player_websocket_join.py
+if errorlevel 1 exit /b 1
+
+echo Running OmniPad Live Server Integration Tests...
+"%PYTHON%" tests\test_server_live.py
 if errorlevel 1 exit /b 1
 
 echo Running OmniPad Core Smoke Tests...
