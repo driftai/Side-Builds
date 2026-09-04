@@ -53,9 +53,14 @@ def build_normalized_input_state(
 
         raw_key_codes = list(raw_key_codes_set)[:64]
 
-    # The native helper has already resolved controller buttons. Applying the
-    # browser key map again would create unintended actions such as Space -> A.
-    if input_surface != "background_native":
+    # Browser Keyboard mode is already resolved by keyboard_type_adapter.js into
+    # backend-neutral buttons + LS/RS axes. Mapping its raw key identities again
+    # here makes one key perform two jobs (for example ArrowUp => RS + D-pad, or
+    # I/J/K/L camera keys => unrelated face buttons). Keep raw key_codes intact
+    # for the physical/UMDF keyboard backends, but trust the resolved controller
+    # state for this surface. Gamepad-mode keyboard shortcuts still use the host
+    # profile map, and the native helper already sends resolved controller state.
+    if input_surface not in {"background_native", "keyboard"}:
         mapped_buttons = map_key_codes_to_gamepad(raw_key_codes, mapping_profile)
         for action, pressed in mapped_buttons.items():
             if pressed:
@@ -70,8 +75,8 @@ def build_normalized_input_state(
     lt = max(0.0, min(1.0, float(raw_axes.get("lt", 0.0) or 0.0)))
     rt = max(0.0, min(1.0, float(raw_axes.get("rt", 0.0) or 0.0)))
 
-    # Keyboard directions drive the left stick only when the browser did not
-    # supply analog movement. Touch and gamepad D-pads remain independent.
+    # Keyboard directions normally arrive as progressive analog axes from the
+    # browser. Retain D-pad fallback only for explicit resolved D-pad buttons.
     if input_surface == "keyboard" and lx == 0.0 and ly == 0.0:
         if cleaned_buttons.get("DPAD_UP") and not cleaned_buttons.get("DPAD_DOWN"):
             ly = 1.0
