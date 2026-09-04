@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 def test_control_surface_contract():
     control = (ROOT / "control.bat").read_text(encoding="utf-8")
     manager = (ROOT / "tools" / "manage_router.ps1").read_text(encoding="utf-8")
+    viewer = (ROOT / "tools" / "watch_router_runtime.ps1").read_text(encoding="utf-8")
     cleanup = (ROOT / "tools" / "cleanup_stragglers.bat").read_text(encoding="utf-8")
     lan = (ROOT / "tools" / "start_router.bat").read_text(encoding="utf-8")
     tunnel = (ROOT / "tools" / "start_with_tunnel.bat").read_text(encoding="utf-8")
@@ -29,6 +30,14 @@ def test_control_surface_contract():
     assert "StringComparison]::OrdinalIgnoreCase" in manager
     assert "/api/control/shutdown" in manager
     assert "Get-DescendantProcessIds" in manager
+    assert "Start-RuntimeViewer" in manager
+    assert "watch_router_runtime.ps1" in manager
+    assert "-WindowStyle Normal" in manager
+    assert "visible runtime console" in manager
+    assert "Cloudflare tunnel is already stopped; no managed router is running." in manager
+    assert "Write-Error $_.Exception.Message" not in manager
+    assert "OmniPad Router Runtime" in viewer
+    assert "closing this viewer" in viewer and "does not stop the router" in viewer
     assert "taskkill /F /IM" not in control
     assert "taskkill /F /IM" not in cleanup
     assert "REMOVE UMDF" in control
@@ -38,7 +47,7 @@ def test_control_surface_contract():
     assert "leave current router state unchanged" in control
     assert "manage_router.ps1" in lan and "-Mode lan" in lan
     assert "manage_router.ps1" in tunnel and "-Mode tunnel" in tunnel
-    print("  [PASS] Control center owns start/status/tunnel/panic/stop and scoped cleanup")
+    print("  [PASS] Control center owns visible start/status/tunnel/panic/stop and scoped cleanup")
 
 
 def test_driver_management_contract():
