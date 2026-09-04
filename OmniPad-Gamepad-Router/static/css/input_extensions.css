@@ -1,5 +1,13 @@
 /* OmniPad input extensions: keyboard types and bounded mouse camera. */
 
+.layout-preset-hint {
+  margin: -4px 0 2px;
+  text-align: center;
+  font-size: .72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .keyboard-type-control {
   display: flex;
   align-items: center;
@@ -42,6 +50,18 @@
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 8px;
+}
+
+.mouse-camera-title,
+.mouse-camera-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mouse-camera-actions {
+  gap: 6px;
 }
 
 .mouse-sensitivity-container {
@@ -156,10 +176,12 @@
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
+  max-width: calc(100% - 20px);
   font-size: .7rem;
   color: var(--text-muted);
   pointer-events: none;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 
 .mouse-camera-card.fullscreen-mode {
@@ -209,5 +231,54 @@
 }
 
 @media (max-width: 768px) {
-  .mouse-camera-pad { height: 145px; }
+  .layout-preset-hint {
+    margin-top: 0;
+    padding: 0 4px;
+  }
+
+  .vk-toolbar-left,
+  .vk-toolbar-right,
+  .keyboard-type-control,
+  .mouse-camera-title,
+  .mouse-camera-actions {
+    width: 100%;
+  }
+
+  .vk-toolbar-left select,
+  .keyboard-type-control select {
+    width: 100%;
+    max-width: none !important;
+    min-width: 0;
+  }
+
+  .vk-toolbar-right .btn,
+  .mouse-camera-actions .btn {
+    min-height: 40px;
+  }
+
+  .mouse-sensitivity-container {
+    width: 100%;
+    justify-content: center;
+    min-height: 40px;
+  }
+
+  .mouse-sensitivity-container input[type="range"] {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .mouse-camera-pad {
+    height: 155px;
+    min-height: 145px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mouse-camera-actions .btn {
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  .mouse-camera-pad {
+    height: 145px;
+  }
 }
