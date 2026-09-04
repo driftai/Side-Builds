@@ -8,6 +8,25 @@ let backgroundCaptureEnabled = false;
 let backgroundInputMirrorInFlight = false;
 const BACKGROUND_NATIVE_SOURCE = "background_native";
 
+let backgroundInputMirrorTimer = null;
+
+function startBackgroundInputMirrorTimer() {
+  if (backgroundInputMirrorTimer) return;
+  backgroundInputMirrorTimer = setInterval(() => {
+    if (typeof syncBackgroundInputMirror === "function") syncBackgroundInputMirror();
+  }, 50);
+}
+
+function stopBackgroundInputMirrorTimer() {
+  if (backgroundInputMirrorTimer) {
+    clearInterval(backgroundInputMirrorTimer);
+    backgroundInputMirrorTimer = null;
+  }
+  if (typeof releaseKeySource === "function") {
+    releaseKeySource(BACKGROUND_NATIVE_SOURCE);
+  }
+}
+
 function isCloudflareRemoteSession() {
   return window.location.hostname.toLowerCase().endsWith(".trycloudflare.com");
 }
@@ -19,6 +38,7 @@ function isRoutingActive() {
 async function refreshTargetStatus() {
   const nameEl = document.getElementById("current-target-name");
   if (!nameEl) return;
+  if (typeof document !== "undefined" && document.hidden) return;
   try {
     const res = await fetch("/api/target/status", { cache: "no-store" });
     if (!res.ok) return;
@@ -50,6 +70,7 @@ async function refreshTargetStatus() {
 async function refreshBackgroundCaptureStatus() {
   if (isCloudflareRemoteSession()) {
     backgroundCaptureEnabled = false;
+    stopBackgroundInputMirrorTimer();
     return;
   }
   try {
@@ -59,6 +80,9 @@ async function refreshBackgroundCaptureStatus() {
       backgroundCaptureEnabled = !!(data.running && data.ready);
       if (backgroundCaptureEnabled) {
         backgroundRoutingActive = true;
+        startBackgroundInputMirrorTimer();
+      } else {
+        stopBackgroundInputMirrorTimer();
       }
     }
   } catch (_) {}
@@ -132,9 +156,16 @@ async function toggleBackgroundRouting() {
       });
       const data = await res.json();
       backgroundCaptureEnabled = !!(data.ok && data.running && data.ready);
-      backgroundRoutingActive = backgroundCaptureEnabled || !backgroundRoutingActive;
+      if (backgroundCaptureEnabled) {
+        startBackgroundInputMirrorTimer();
+        backgroundRoutingActive = true;
+      } else {
+        stopBackgroundInputMirrorTimer();
+        backgroundRoutingActive = !backgroundRoutingActive;
+      }
     } catch (err) {
       backgroundRoutingActive = !backgroundRoutingActive;
+      stopBackgroundInputMirrorTimer();
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -194,4 +225,6 @@ window.refreshBackgroundCaptureStatus = refreshBackgroundCaptureStatus;
 window.updateRoutingUI = updateRoutingUI;
 window.toggleBackgroundRouting = toggleBackgroundRouting;
 window.syncBackgroundInputMirror = syncBackgroundInputMirror;
+window.startBackgroundInputMirrorTimer = startBackgroundInputMirrorTimer;
+window.stopBackgroundInputMirrorTimer = stopBackgroundInputMirrorTimer;
 window.isCloudflareRemoteSession = isCloudflareRemoteSession;

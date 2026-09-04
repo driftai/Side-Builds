@@ -31,14 +31,26 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof renderVirtualKeyboard === "function") renderVirtualKeyboard(window.currentKeyboardLayout || "xbox_controller");
   if (typeof loadProfiles === "function") loadProfiles();
   if (typeof refreshTargetStatus === "function") refreshTargetStatus();
-  if (typeof refreshBackgroundCaptureStatus === "function") refreshBackgroundCaptureStatus();
+  const isRemoteSession = typeof isCloudflareRemoteSession === "function" && isCloudflareRemoteSession();
+  if (!isRemoteSession && typeof refreshBackgroundCaptureStatus === "function") {
+    refreshBackgroundCaptureStatus();
+  }
   if (typeof updateRoutingUI === "function") updateRoutingUI();
 
+  // Relaxed background polling: remote players check every 30s; local players every 10s.
+  // Polling is skipped entirely when the browser tab is hidden.
+  const targetPollInterval = isRemoteSession ? 30000 : 10000;
   backgroundCaptureStatusTimer = setInterval(() => {
+    if (typeof document !== "undefined" && document.hidden) return;
     if (typeof refreshTargetStatus === "function") refreshTargetStatus();
-    if (typeof refreshBackgroundCaptureStatus === "function") refreshBackgroundCaptureStatus();
-  }, 1000);
-  backgroundInputMirrorTimer = setInterval(() => { if (typeof syncBackgroundInputMirror === "function") syncBackgroundInputMirror(); }, 50);
+    if (!isRemoteSession && window.backgroundCaptureEnabled && typeof refreshBackgroundCaptureStatus === "function") {
+      refreshBackgroundCaptureStatus();
+    }
+  }, targetPollInterval);
+
+  window.addEventListener("focus", () => {
+    if (typeof refreshTargetStatus === "function") refreshTargetStatus();
+  });
 
   if (params.get("code")) setTimeout(connect, 150);
 });
@@ -278,13 +290,6 @@ function handleJoined(msg) {
   pingInterval = setInterval(sendPing, 1000);
   sendPing();
 
-  if (backgroundHeartbeatTimer) clearInterval(backgroundHeartbeatTimer);
-  backgroundHeartbeatTimer = setInterval(() => {
-    if (isConnected && playerWs && playerWs.readyState === WebSocket.OPEN) {
-      sendPing();
-    }
-  }, 2000);
-
   startInputLoop();
 }
 
@@ -294,6 +299,7 @@ function disconnect() {
   window.isConnected = false;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (backgroundHeartbeatTimer) { clearInterval(backgroundHeartbeatTimer); backgroundHeartbeatTimer = null; }
+  if (typeof stopBackgroundInputMirrorTimer === "function") stopBackgroundInputMirrorTimer();
   if (typeof releaseKeySource === "function") releaseKeySource(window.BACKGROUND_NATIVE_SOURCE || "background_native");
   if (inputLoopHandle) cancelAnimationFrame(inputLoopHandle);
   if (pingInterval) clearInterval(pingInterval);

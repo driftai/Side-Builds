@@ -32,6 +32,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("OmniPad.Server")
 
+
+class PollingAccessLogFilter(logging.Filter):
+    """Filter out routine high-frequency polling requests from console logs."""
+    _POLLING_ENDPOINTS = (
+        "/api/target/status",
+        "/api/background-capture/status",
+        "/api/background-capture/input-state",
+        "/api/status",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if any(f"GET {ep}" in msg for ep in self._POLLING_ENDPOINTS):
+            # Suppress normal 200/304 status checks; preserve 4xx/5xx errors
+            if " 200 " in msg or " 304 " in msg or msg.endswith(" 200") or msg.endswith(" 304") or " 200 OK" in msg:
+                return False
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(PollingAccessLogFilter())
+
 slot_manager = SlotManager(max_slots=config.max_slots, watchdog_timeout=config.watchdog_timeout)
 tunnel_manager = TunnelManager(local_port=config.port)
 profile_manager = ProfileManager()

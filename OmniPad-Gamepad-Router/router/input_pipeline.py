@@ -87,7 +87,12 @@ def build_normalized_input_state(
         elif cleaned_buttons.get("DPAD_LEFT") and not cleaned_buttons.get("DPAD_RIGHT"):
             lx = -1.0
 
-    effective_deadzone = 0.02 if input_surface == "touch" else deadzone
+    if input_surface in {"keyboard", "background_native"}:
+        effective_deadzone = 0.0
+    elif input_surface == "touch":
+        effective_deadzone = 0.02
+    else:
+        effective_deadzone = deadzone
     clean_lx, clean_ly = socd_cleaner.clean_stick(lx, ly, effective_deadzone)
     clean_rx, clean_ry = socd_cleaner.clean_stick(rx, ry, effective_deadzone)
 

@@ -19,6 +19,7 @@ function initWebSocket() {
   const wsUrl = `${protocol}//${window.location.host}/ws/host`;
 
   hostWs = new WebSocket(wsUrl);
+  window.hostWs = hostWs;
 
   hostWs.onopen = () => {
     const badge = document.getElementById("server-status-badge");
@@ -34,6 +35,9 @@ function initWebSocket() {
       if (msg.type === "telemetry" || msg.type === "initial_status") {
         if (typeof updateDashboard === "function") {
           updateDashboard(msg.data);
+        }
+        if (typeof renderTargetStatus === "function" && msg.data && msg.data.target) {
+          renderTargetStatus(msg.data.target);
         }
       }
     } catch (e) {

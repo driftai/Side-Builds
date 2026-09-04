@@ -372,8 +372,8 @@ async def test_local_background_routing_and_key_streaming():
         "input_surface": "keyboard",
         "mapping_profile": "universal",
         "background_routing": True,
-        "buttons": {},
-        "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+        "buttons": {"A": True, "X": True},
+        "axes": {"lx": 1.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
         "key_codes": ["KeyW", "KeyD", "Space", "KeyJ"]
     }
     await sm.process_input_packet(1, kb_frame)
@@ -390,8 +390,8 @@ async def test_local_background_routing_and_key_streaming():
         "input_surface": "keyboard",
         "mapping_profile": "universal",
         "background_routing": False,
-        "buttons": {},
-        "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+        "buttons": {"A": True},
+        "axes": {"lx": 0.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
         "key_codes": ["KeyW", "Space"]
     }
     await sm.process_input_packet(1, site_only_frame)

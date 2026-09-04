@@ -48,9 +48,32 @@ class TargetManager:
     """Enumerates top-level windows and maintains an optional selected target."""
 
     def __init__(self) -> None:
-        self.selected: Optional[WindowTarget] = None
+        self._selected: Optional[WindowTarget] = None
         self.selected_at: Optional[float] = None
         self.selection_mode: str = "target-process"
+        self._running_cache: Optional[bool] = None
+        self._running_cache_time: float = 0.0
+        self._fg_cache: Optional[bool] = None
+        self._fg_cache_time: float = 0.0
+        self._status_cache: Optional[Dict[str, Any]] = None
+        self._status_cache_time: float = 0.0
+
+    @property
+    def selected(self) -> Optional[WindowTarget]:
+        return self._selected
+
+    @selected.setter
+    def selected(self, val: Optional[WindowTarget]) -> None:
+        self._selected = val
+        self._invalidate_cache()
+
+    def _invalidate_cache(self) -> None:
+        self._running_cache = None
+        self._running_cache_time = 0.0
+        self._fg_cache = None
+        self._fg_cache_time = 0.0
+        self._status_cache = None
+        self._status_cache_time = 0.0
 
     def list_windows(self, include_empty_titles: bool = False) -> List[WindowTarget]:
         if not IS_WINDOWS:
@@ -124,6 +147,7 @@ class TargetManager:
         picked.selected = True
         self.selected = picked
         self.selected_at = time.time()
+        self._invalidate_cache()
         logger.info("Selected target: %s", picked.label)
         return picked
 
@@ -131,6 +155,7 @@ class TargetManager:
         logger.info("Cleared target selection")
         self.selected = None
         self.selected_at = None
+        self._invalidate_cache()
 
     def refresh_selection(self) -> Optional[WindowTarget]:
         if not self.selected:
@@ -174,16 +199,73 @@ class TargetManager:
         except Exception:
             return None
 
+    def _check_target_foreground_fast(self) -> bool:
+        if not self.selected or not IS_WINDOWS:
+            return False
+        try:
+            hwnd = win32gui.GetForegroundWindow()
+            if not hwnd:
+                return False
+            target_hwnd = getattr(self.selected, "hwnd", None)
+            if target_hwnd and hwnd == target_hwnd:
+                return True
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            return pid == getattr(self.selected, "pid", None)
+        except Exception:
+            return False
+
     def is_target_foreground(self) -> bool:
         if not self.selected:
             return True
-        fg = self.foreground()
-        if not fg:
+        if not IS_WINDOWS:
             return False
-        return fg.pid == self.selected.pid or fg.hwnd == self.selected.hwnd
+
+        now = time.time()
+        if self._fg_cache is not None and (now - self._fg_cache_time) < 0.15:
+            return self._fg_cache
+
+        is_fg = self._check_target_foreground_fast()
+        self._fg_cache = is_fg
+        self._fg_cache_time = now
+        return is_fg
+
+    def _check_target_running_fast(self) -> bool:
+        if not self.selected or not IS_WINDOWS:
+            return False
+        # 1. Fast HWND validity check
+        try:
+            hwnd = getattr(self.selected, "hwnd", None)
+            pid = getattr(self.selected, "pid", None)
+            if hwnd and win32gui.IsWindow(hwnd):
+                _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+                if window_pid == pid:
+                    return True
+        except Exception:
+            pass
+
+        # 2. Process check (handles case where game window was recreated/changed under same PID)
+        pid = getattr(self.selected, "pid", None)
+        if not pid:
+            return False
+        handle = None
+        try:
+            handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                return False
+            exit_code = win32process.GetExitCodeProcess(handle)
+            # STILL_ACTIVE is 259
+            return exit_code == 259
+        except Exception:
+            return False
+        finally:
+            if handle:
+                try:
+                    win32api.CloseHandle(handle)
+                except Exception:
+                    pass
 
     def is_target_running(self) -> bool:
-        """Return True while the selected target process still owns a window.
+        """Return True while the selected target process still owns a window or is alive.
 
         This intentionally ignores foreground focus so virtual controller outputs
         can keep reaching the selected game's input device while a screen-share,
@@ -193,23 +275,43 @@ class TargetManager:
             return True
         if not IS_WINDOWS:
             return False
-        try:
-            targets = self.list_windows(include_empty_titles=True)
-            return any(item.pid == self.selected.pid and win32gui.IsWindow(item.hwnd) for item in targets)
-        except Exception:
-            return False
+
+        now = time.time()
+        if self._running_cache is not None and (now - self._running_cache_time) < 0.25:
+            return self._running_cache
+
+        running = self._check_target_running_fast()
+        self._running_cache = running
+        self._running_cache_time = now
+        return running
 
     def get_status(self) -> Dict[str, Any]:
+        now = time.time()
+        if self._status_cache is not None and (now - self._status_cache_time) < 0.3:
+            return self._status_cache
+
         fg = self.foreground()
-        return {
-            "selected": self.selected.public_dict() if self.selected else None,
+        is_fg = None
+        is_running = None
+        if self.selected:
+            if fg and (fg.pid == getattr(self.selected, "pid", None) or fg.hwnd == getattr(self.selected, "hwnd", None)):
+                is_fg = True
+            else:
+                is_fg = self.is_target_foreground()
+            is_running = self.is_target_running()
+
+        status = {
+            "selected": self.selected.public_dict() if hasattr(self.selected, "public_dict") else (self.selected.__dict__ if self.selected else None),
             "selected_at": self.selected_at,
             "foreground": fg.public_dict() if fg else None,
-            "target_foreground": self.is_target_foreground() if self.selected else None,
-            "target_running": self.is_target_running() if self.selected else None,
+            "target_foreground": is_fg,
+            "target_running": is_running,
             "selection_mode": self.selection_mode,
             "platform_windows": IS_WINDOWS,
         }
+        self._status_cache = status
+        self._status_cache_time = now
+        return status
 
 
 # Singleton shared by REST handlers and controller backends.
