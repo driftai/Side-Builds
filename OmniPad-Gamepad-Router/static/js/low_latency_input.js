@@ -12,9 +12,6 @@
   const nativeSend = WebSocket.prototype.send;
   const socketState = new WeakMap();
 
-  // A normal OmniPad input packet is well below 1 KiB. If more than a few
-  // packets are waiting in the browser, prefer the next fresh snapshot instead
-  // of adding another stale analog position to the queue.
   const MAX_BUFFERED_BYTES = 8 * 1024;
   const MIN_ANALOG_SEND_MS = 12;
   const SAME_STATE_KEEPALIVE_MS = 90;
@@ -126,8 +123,6 @@
         return;
       }
     } else if (!changed && elapsed < 4) {
-      // The ordinary key handler and the microtask flush can observe the same
-      // transition in the same turn. Keep one copy, not two.
       stats.droppedDuplicate += 1;
       return;
     }
@@ -143,14 +138,10 @@
     });
   };
 
-  // Existing installs used 40% as the implicit default. Halve that default for
-  // mouse-camera users while preserving any deliberate custom sensitivity.
   try {
     if (!localStorage.getItem("omnipad.mouseSensitivityScaleV2")) {
       const stored = localStorage.getItem("omnipad.mouseSensitivity");
-      if (stored === null) {
-        localStorage.setItem("omnipad.mouseSensitivity", "20");
-      }
+      if (stored === null) localStorage.setItem("omnipad.mouseSensitivity", "20");
       localStorage.setItem("omnipad.mouseSensitivityScaleV2", "1");
     }
   } catch (_) {}
@@ -170,6 +161,15 @@
     scheduled = true;
     queueMicrotask(flushDigitalTransition);
   }
+
+  // Select boxes are setup controls, not gameplay focus targets. Once a choice
+  // is made, release focus so the following W/A/S/D or camera key is captured.
+  document.addEventListener("change", event => {
+    const target = event.target;
+    if (target?.matches?.("#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode")) {
+      target.blur();
+    }
+  });
 
   window.addEventListener("keydown", scheduleDigitalFlush, { capture: true });
   window.addEventListener("keyup", scheduleDigitalFlush, { capture: true });
