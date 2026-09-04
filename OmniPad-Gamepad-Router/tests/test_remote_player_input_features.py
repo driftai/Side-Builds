@@ -12,6 +12,7 @@ def read(relative: str) -> str:
 
 def main() -> None:
     play = read("static/play.html")
+    play_js = read("static/js/play.js")
     index = read("static/index.html")
     routing = read("static/js/target_routing.js")
     keyboard = read("static/js/keyboard_type_adapter.js")
@@ -41,7 +42,7 @@ def main() -> None:
     assert 'value="SF6-ROOM"' not in play
     assert 'maxlength="256"' in play
     assert "room_code.js?v=1.3.5" in play
-    assert "play.js?v=1.3.5" in play
+    assert "play.js?v=1.3.6" in play
     assert "roomCodeFromLocation" in room_code
     assert "resolveForJoin" in room_code
     assert 'new URLSearchParams(window.location.search).get("code")' in room_code
@@ -58,6 +59,21 @@ def main() -> None:
     assert 'code !== "SF6-ROOM"' in tunnel
     assert "encodeURIComponent(roomCode)" in tunnel
     assert 'waiting for the active room code' in tunnel
+
+    # Player joining is single-flight. Auto-connect, manual Connect, and reconnect
+    # attempts cannot replace each other's socket while an acknowledgement is in flight.
+    assert "let connectAttemptId = 0" in play_js
+    assert "const JOIN_TIMEOUT_MS = 6000" in play_js
+    assert "resolveJoinRoomCode" in play_js
+    assert "window.OmniPadRoomCode.resolveForJoin" in play_js
+    assert "WebSocket.CONNECTING || playerWs.readyState === WebSocket.OPEN" in play_js
+    assert "const ws = new WebSocket(wsUrl)" in play_js
+    assert "ws.onopen = () =>" in play_js
+    assert 'ws.send(JSON.stringify({ type: "join"' in play_js
+    assert "attemptId !== connectAttemptId || playerWs !== ws" in play_js
+    assert "No join response — retry" in play_js
+    assert "Join acknowledgement timeout" in play_js
+    assert "WebSocket connection failed" in play_js
 
     for key_type in ("standard", "compact65", "arrowless", "esdf", "vim_camera"):
         assert key_type in keyboard
@@ -151,9 +167,10 @@ def main() -> None:
 
     print(
         "Remote player input feature checks passed "
-        "(authoritative room-code links, physical/layout separation, keyboard-surface isolation, "
-        "backend-independent presets, gameplay focus recovery, profile synchronization, "
-        "Cloudflare backlog control, lower/coalesced mouse camera, and mobile controls)."
+        "(authoritative room-code links, single-flight player joins, physical/layout separation, "
+        "keyboard-surface isolation, backend-independent presets, gameplay focus recovery, "
+        "profile synchronization, Cloudflare backlog control, lower/coalesced mouse camera, "
+        "and mobile controls)."
     )
 
 
