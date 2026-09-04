@@ -92,6 +92,9 @@ function releaseAllKeys() {
   codeCount.clear();
   activeKeys.clear();
   pointerKeyMap.clear();
+  if (typeof window.resetKeyboardAnalogState === "function") {
+    window.resetKeyboardAnalogState();
+  }
   document.querySelectorAll(".vk-key.pressed").forEach(k => k.classList.remove("pressed"));
   updateActiveKeysDisplay();
 
@@ -100,6 +103,9 @@ function releaseAllKeys() {
     playerWs.send(JSON.stringify({
       type: "input",
       seq: typeof packetSeq !== "undefined" ? packetSeq : 1,
+      input_surface: window.currentMode || "keyboard",
+      mapping_profile: window.currentGamepadProfile || "universal",
+      background_routing: typeof isRoutingActive === "function" ? isRoutingActive() : true,
       buttons: {},
       axes: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 },
       key_codes: [],
