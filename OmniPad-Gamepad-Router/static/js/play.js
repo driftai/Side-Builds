@@ -176,6 +176,11 @@ function connect() {
   roomCode = (document.getElementById("join-room-code")?.value.trim().toUpperCase()) || "";
   activeSlot = parseInt(document.getElementById("join-slot")?.value, 10) || 1;
   if (!roomCode) {
+    const statusBadge = document.getElementById("status-badge");
+    if (statusBadge) {
+      statusBadge.className = "badge badge-red";
+      statusBadge.innerHTML = `<span class="status-dot"></span> Missing room code`;
+    }
     alert("Please enter the pairing room code shown on the host dashboard.");
     return;
   }
@@ -205,8 +210,9 @@ function connect() {
         handleDemotedToObserver(msg);
       } else if (msg.type === "error") {
         if (!isConnected) {
-          alert(`Connection error: ${msg.message || msg.error || "Failed to connect."}`);
-          disconnect();
+          const errMsg = msg.message || msg.error || "Failed to connect.";
+          console.error("Connection error:", errMsg);
+          disconnect(errMsg);
         }
       } else if (msg.type === "pong") {
         handlePong(msg);
@@ -293,7 +299,7 @@ function handleJoined(msg) {
   startInputLoop();
 }
 
-function disconnect() {
+function disconnect(errorMessage) {
   manualDisconnect = true;
   isConnected = false;
   window.isConnected = false;
@@ -318,8 +324,13 @@ function disconnect() {
   if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = "Connect to Host"; }
   const statusBadge = document.getElementById("status-badge");
   if (statusBadge) {
-    statusBadge.className = "badge badge-muted";
-    statusBadge.innerHTML = `<span class="status-dot"></span> Disconnected`;
+    if (errorMessage) {
+      statusBadge.className = "badge badge-red";
+      statusBadge.innerHTML = `<span class="status-dot"></span> ${errorMessage}`;
+    } else {
+      statusBadge.className = "badge badge-muted";
+      statusBadge.innerHTML = `<span class="status-dot"></span> Disconnected`;
+    }
   }
 }
 

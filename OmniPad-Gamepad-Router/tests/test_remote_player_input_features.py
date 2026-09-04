@@ -41,7 +41,7 @@ def main() -> None:
     assert 'value="SF6-ROOM"' not in play
     assert 'maxlength="256"' in play
     assert "room_code.js?v=1.3.5" in play
-    assert "play.js?v=1.3.4" in play
+    assert "play.js?v=1.3.5" in play
     assert "roomCodeFromLocation" in room_code
     assert "resolveForJoin" in room_code
     assert 'new URLSearchParams(window.location.search).get("code")' in room_code
