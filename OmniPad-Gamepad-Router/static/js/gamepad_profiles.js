@@ -2,7 +2,7 @@
  * OmniPad — Gamepad Profile Definitions & Reference Grid Renderer.
  */
 
-let currentGamepadProfile = "street_fighter_6";
+let currentGamepadProfile = localStorage.getItem("omnipad.gamepadProfile") || "street_fighter_6";
 
 let gamepadKeymap = {
   "KeyW": "DPAD_UP", "KeyS": "DPAD_DOWN", "KeyA": "DPAD_LEFT", "KeyD": "DPAD_RIGHT",
@@ -23,8 +23,10 @@ async function loadProfiles() {
       opt.textContent = p.name;
       select.appendChild(opt);
     });
-    select.value = "street_fighter_6";
-    renderKeybindingsGrid();
+    const available = Array.from(select.options).some(opt => opt.value === currentGamepadProfile);
+    if (!available) currentGamepadProfile = "street_fighter_6";
+    select.value = currentGamepadProfile;
+    selectGamepadProfile(select.value);
   } catch (e) {
     console.error("Failed to load profiles:", e);
   }
@@ -71,6 +73,9 @@ function selectGamepadProfile(profileId) {
       "Numpad0": "LB", "NumpadDecimal": "LT", "NumpadEnter": "START", "NumpadAdd": "BACK"
     };
   }
+  window.currentGamepadProfile = currentGamepadProfile;
+  window.gamepadKeymap = gamepadKeymap;
+  try { localStorage.setItem("omnipad.gamepadProfile", currentGamepadProfile); } catch (_) {}
   renderKeybindingsGrid();
 }
 
