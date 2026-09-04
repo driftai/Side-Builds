@@ -40,7 +40,7 @@ def main() -> None:
     assert 'id="join-room-code"' in play
     assert 'value="SF6-ROOM"' not in play
     assert 'maxlength="256"' in play
-    assert "room_code.js?v=1.3.4" in play
+    assert "room_code.js?v=1.3.5" in play
     assert "play.js?v=1.3.4" in play
     assert "roomCodeFromLocation" in room_code
     assert "resolveForJoin" in room_code
@@ -49,6 +49,9 @@ def main() -> None:
     assert 'event.target?.closest?.("#join-btn")' in room_code
     assert 'hostname.endsWith(".trycloudflare.com")' in room_code
     assert 'fetch("/api/status", { cache: "no-store" })' in room_code
+    assert "let installed = false" in room_code
+    assert "if (roomCodeInput())" in room_code
+    assert "do not wait for" in room_code
     assert 'id="room-code-display">--<' in index
     assert "dashboard_tunnel.js?v=1.3.4" in index
     assert "getActiveRoomCode" in tunnel
