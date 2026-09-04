@@ -21,9 +21,46 @@ def normalize(client_packets, latest_packet, deadzone=0.15):
     )
 
 
-def test_single_keyboard_packet():
+def test_single_keyboard_packet_uses_resolved_state():
     packet = {
         "input_surface": "keyboard",
+        "mapping_profile": "universal",
+        "buttons": {"A": True},
+        "axes": {"ly": 0.35},
+        "key_codes": ["KeyW", "Space"],
+    }
+    state = normalize({"client": packet}, packet)
+
+    assert state["buttons"]["A"] is True
+    assert "DPAD_UP" not in state["buttons"]
+    assert state["axes"]["lx"] == 0.0
+    assert 0.34 < state["axes"]["ly"] < 0.36
+    assert state["key_codes"] == ["KeyW", "Space"]
+    assert state["input_surface"] == "keyboard"
+    assert state["mapping_profile"] == "universal"
+
+
+def test_keyboard_camera_key_does_not_cross_talk_to_movement():
+    packet = {
+        "input_surface": "keyboard",
+        "mapping_profile": "universal",
+        "buttons": {},
+        "axes": {"ry": 0.45},
+        "key_codes": ["ArrowUp"],
+    }
+    state = normalize({"client": packet}, packet, deadzone=0.0)
+
+    assert not state["buttons"]
+    assert state["axes"]["lx"] == 0.0
+    assert state["axes"]["ly"] == 0.0
+    assert state["axes"]["rx"] == 0.0
+    assert state["axes"]["ry"] == 0.45
+    assert state["key_codes"] == ["ArrowUp"]
+
+
+def test_non_keyboard_surface_can_still_use_host_profile_mapping():
+    packet = {
+        "input_surface": "gamepad",
         "mapping_profile": "universal",
         "buttons": {},
         "axes": {},
@@ -33,11 +70,6 @@ def test_single_keyboard_packet():
 
     assert state["buttons"]["DPAD_UP"] is True
     assert state["buttons"]["A"] is True
-    assert state["axes"]["lx"] == 0.0
-    assert state["axes"]["ly"] == 1.0
-    assert state["key_codes"] == ["KeyW", "Space"]
-    assert state["input_surface"] == "keyboard"
-    assert state["mapping_profile"] == "universal"
 
 
 def test_background_native_does_not_remap_keys():
@@ -87,7 +119,12 @@ def test_surface_deadzone_and_socd_contracts():
     gamepad = {**touch, "input_surface": "gamepad"}
     opposing = {
         "input_surface": "keyboard",
-        "buttons": {},
+        "buttons": {
+            "DPAD_UP": True,
+            "DPAD_DOWN": True,
+            "DPAD_LEFT": True,
+            "DPAD_RIGHT": True,
+        },
         "axes": {},
         "key_codes": ["KeyW", "KeyS", "KeyA", "KeyD"],
     }
@@ -106,7 +143,9 @@ def test_surface_deadzone_and_socd_contracts():
 
 def main():
     tests = (
-        test_single_keyboard_packet,
+        test_single_keyboard_packet_uses_resolved_state,
+        test_keyboard_camera_key_does_not_cross_talk_to_movement,
+        test_non_keyboard_surface_can_still_use_host_profile_mapping,
         test_background_native_does_not_remap_keys,
         test_multi_client_fusion,
         test_surface_deadzone_and_socd_contracts,
