@@ -41,6 +41,14 @@ def main() -> None:
     assert "Xbox 360, DualShock 4, or the virtual keyboard port" in play
     assert "Physical Keyboard Type:" in play
 
+    # Physical keyboard semantics and clickable preset semantics are separate.
+    assert "FIXED_LAYOUTS" in keyboard
+    assert "wasd_fighter" in keyboard and "arrow_numpad" in keyboard
+    assert "sourceKeySets" in keyboard
+    assert 'startsWith("pointer_")' in keyboard
+    assert "pointerResolved" in keyboard and "physicalResolved" in keyboard
+    assert "window.keyboardLayoutSemantics" in keyboard
+
     assert "resetKeyboardAnalogState" in keyboard
     assert "window.resetKeyboardAnalogState" in keyboard
     assert "window.releaseAllKeys" in keyboard
@@ -87,6 +95,8 @@ def main() -> None:
     assert "hasAxisRelease" in latency
     assert "axisReleased" in latency
     assert "axes: next.axes" in latency
+    assert "#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode" in latency
+    assert "target.blur()" in latency
 
     assert "mouse-camera-pad.active" in css
     assert "mouse-camera-pad.locked" in css
@@ -103,8 +113,6 @@ def main() -> None:
     assert "openPopoutWindow" in mouse
     assert "centerArmed" in mouse
 
-    # Existing installs preserve deliberate custom sensitivity while new users
-    # get the lower default.
     assert "mouseSensitivityScaleV2" in latency
     assert "if (stored === null)" in latency
     assert 'stored === "40"' not in latency
@@ -116,8 +124,9 @@ def main() -> None:
 
     print(
         "Remote player input feature checks passed "
-        "(keyboard-surface isolation, backend-independent presets, profile synchronization, "
-        "Cloudflare backlog control, lower/coalesced mouse camera, and mobile controls)."
+        "(physical/layout separation, keyboard-surface isolation, backend-independent presets, "
+        "gameplay focus recovery, profile synchronization, Cloudflare backlog control, "
+        "lower/coalesced mouse camera, and mobile controls)."
     )
 
 
