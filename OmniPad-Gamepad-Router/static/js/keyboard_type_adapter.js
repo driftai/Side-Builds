@@ -1,6 +1,6 @@
 /**
- * OmniPad — Alternate Physical Keyboard Profiles & Dynamic Badge Adapter.
- * Remaps both analog sticks and action buttons according to physical keyboard type.
+ * OmniPad — Physical Keyboard Types + On-Screen Layout Semantics.
+ * Physical keyboard type and clickable layout preset are intentionally separate.
  */
 
 (() => {
@@ -10,12 +10,11 @@
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
       buttons: {
-        "Space": "A", "KeyE": "X", "KeyQ": "Y", "KeyR": "B",
-        "KeyZ": "LB", "KeyC": "RB", "ShiftLeft": "LT", "ControlLeft": "RT",
-        "ShiftRight": "LT", "ControlRight": "RT",
-        "Escape": "BACK", "Enter": "START", "F1": "GUIDE",
-        "CapsLock": "L3", "KeyF": "L3", "KeyG": "R3",
-        "Digit1": "DPAD_UP", "Digit2": "DPAD_DOWN", "Digit3": "DPAD_LEFT", "Digit4": "DPAD_RIGHT"
+        Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
+        KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
+        ShiftRight: "LT", ControlRight: "RT", Escape: "BACK", Enter: "START", F1: "GUIDE",
+        CapsLock: "L3", KeyF: "L3", KeyG: "R3",
+        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
       }
     },
     compact65: {
@@ -23,12 +22,11 @@
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
       buttons: {
-        "Space": "A", "KeyE": "X", "KeyQ": "Y", "KeyR": "B",
-        "KeyZ": "LB", "KeyC": "RB", "ShiftLeft": "LT", "ControlLeft": "RT",
-        "ShiftRight": "LT", "ControlRight": "RT",
-        "Escape": "BACK", "Enter": "START", "Backquote": "GUIDE",
-        "CapsLock": "L3", "KeyF": "L3", "KeyG": "R3",
-        "Digit1": "DPAD_UP", "Digit2": "DPAD_DOWN", "Digit3": "DPAD_LEFT", "Digit4": "DPAD_RIGHT"
+        Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
+        KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
+        ShiftRight: "LT", ControlRight: "RT", Escape: "BACK", Enter: "START", Backquote: "GUIDE",
+        CapsLock: "L3", KeyF: "L3", KeyG: "R3",
+        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
       }
     },
     arrowless: {
@@ -36,13 +34,13 @@
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "KeyI", down: "KeyK", left: "KeyJ", right: "KeyL" },
       buttons: {
-        "Space": "A", "KeyE": "X", "KeyQ": "Y", "KeyR": "B",
-        "KeyU": "X", "KeyO": "Y", "KeyP": "B", "Semicolon": "A",
-        "KeyZ": "LB", "KeyC": "RB", "ShiftLeft": "LT", "ControlLeft": "RT",
-        "ShiftRight": "LT", "BracketLeft": "LB", "BracketRight": "RB",
-        "Escape": "BACK", "Enter": "START", "Backquote": "GUIDE",
-        "CapsLock": "L3", "KeyF": "L3", "KeyH": "R3",
-        "Digit1": "DPAD_UP", "Digit2": "DPAD_DOWN", "Digit3": "DPAD_LEFT", "Digit4": "DPAD_RIGHT"
+        Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
+        KeyU: "X", KeyO: "Y", KeyP: "B", Semicolon: "A",
+        KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
+        ShiftRight: "LT", BracketLeft: "LB", BracketRight: "RB",
+        Escape: "BACK", Enter: "START", Backquote: "GUIDE",
+        CapsLock: "L3", KeyF: "L3", KeyH: "R3",
+        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
       }
     },
     esdf: {
@@ -50,12 +48,12 @@
       move: { up: "KeyE", down: "KeyD", left: "KeyS", right: "KeyF" },
       camera: { up: "KeyI", down: "KeyK", left: "KeyJ", right: "KeyL" },
       buttons: {
-        "Space": "A", "KeyR": "X", "KeyW": "Y", "KeyT": "B",
-        "KeyU": "X", "KeyO": "Y", "KeyP": "B", "Semicolon": "A",
-        "KeyZ": "LB", "KeyX": "RB", "ShiftLeft": "LT", "ControlLeft": "RT",
-        "ShiftRight": "LT", "Escape": "BACK", "Enter": "START", "F1": "GUIDE",
-        "KeyA": "L3", "KeyG": "R3", "KeyH": "R3",
-        "Digit1": "DPAD_UP", "Digit2": "DPAD_DOWN", "Digit3": "DPAD_LEFT", "Digit4": "DPAD_RIGHT"
+        Space: "A", KeyR: "X", KeyW: "Y", KeyT: "B",
+        KeyU: "X", KeyO: "Y", KeyP: "B", Semicolon: "A",
+        KeyZ: "LB", KeyX: "RB", ShiftLeft: "LT", ControlLeft: "RT",
+        ShiftRight: "LT", Escape: "BACK", Enter: "START", F1: "GUIDE",
+        KeyA: "L3", KeyG: "R3", KeyH: "R3",
+        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
       }
     },
     vim_camera: {
@@ -63,112 +61,137 @@
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "KeyK", down: "KeyJ", left: "KeyH", right: "KeyL" },
       buttons: {
-        "Space": "A", "KeyE": "X", "KeyQ": "Y", "KeyR": "B",
-        "KeyU": "A", "KeyI": "B", "KeyO": "Y", "KeyP": "X",
-        "KeyZ": "LB", "KeyC": "RB", "ShiftLeft": "LT", "ControlLeft": "RT",
-        "ShiftRight": "LT", "Escape": "BACK", "Enter": "START", "F1": "GUIDE",
-        "CapsLock": "L3", "KeyF": "L3", "KeyN": "R3", "KeyM": "R3",
-        "Digit1": "DPAD_UP", "Digit2": "DPAD_DOWN", "Digit3": "DPAD_LEFT", "Digit4": "DPAD_RIGHT"
+        Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
+        KeyU: "A", KeyI: "B", KeyO: "Y", KeyP: "X",
+        KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
+        ShiftRight: "LT", Escape: "BACK", Enter: "START", F1: "GUIDE",
+        CapsLock: "L3", KeyF: "L3", KeyN: "R3", KeyM: "R3",
+        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+      }
+    }
+  };
+
+  // Fixed clickable presets keep their own advertised semantics. Controller-
+  // labeled/full/compact layouts intentionally use the selected physical type,
+  // which makes the visual Xbox/PlayStation theme independent of host backend.
+  const FIXED_LAYOUTS = {
+    wasd_fighter: {
+      move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
+      camera: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
+      buttons: {
+        KeyJ: "X", KeyK: "Y", KeyL: "RB", KeyU: "A", KeyI: "B", KeyO: "RT",
+        Space: "LB", ShiftLeft: "LT", ShiftRight: "LT", ControlLeft: "RT", ControlRight: "RT",
+        CapsLock: "L3", Enter: "START", Backspace: "BACK", Escape: "BACK"
+      }
+    },
+    arrow_numpad: {
+      move: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
+      camera: {},
+      buttons: {
+        Numpad1: "X", Numpad2: "Y", Numpad3: "RB", Numpad4: "A", Numpad5: "B", Numpad6: "RT",
+        Numpad0: "LB", NumpadDecimal: "LT", NumpadEnter: "START", NumpadAdd: "BACK"
       }
     }
   };
 
   window.keyboardTypes = TYPES;
+  window.keyboardLayoutSemantics = FIXED_LAYOUTS;
   const savedType = localStorage.getItem("omnipad.keyboardType") || "standard";
   window.currentKeyboardType = TYPES[savedType] ? savedType : "standard";
 
+  function buttonLabels(playstation) {
+    const pairs = playstation ? {
+      A: "✕ / A", B: "○ / B", X: "□ / X", Y: "△ / Y",
+      LB: "L1 / LB", RB: "R1 / RB", LT: "L2 / LT", RT: "R2 / RT",
+      BACK: "SHARE", START: "OPTIONS", GUIDE: "PS"
+    } : {
+      A: "A / ✕", B: "B / ○", X: "X / □", Y: "Y / △",
+      LB: "LB / L1", RB: "RB / R1", LT: "LT / L2", RT: "RT / R2",
+      BACK: "BACK", START: "START", GUIDE: "GUIDE"
+    };
+    const labels = {};
+    for (const [action, badge] of Object.entries(pairs)) labels[action] = { badge, highlight: "vk-highlight-action" };
+    for (const action of ["LB", "RB", "LT", "RT"]) labels[action].highlight = "vk-highlight-modifier";
+    for (const action of ["L3", "R3"]) labels[action] = { badge: action, highlight: "vk-highlight-action" };
+    for (const [action, badge] of Object.entries({ DPAD_UP: "D↑", DPAD_DOWN: "D↓", DPAD_LEFT: "D←", DPAD_RIGHT: "D→" })) {
+      labels[action] = { badge, highlight: "vk-highlight-move" };
+    }
+    return labels;
+  }
+
   function getActiveControllerBadges(layoutName, keyboardType) {
-    const isPS = layoutName && layoutName.includes("playstation");
     const type = TYPES[keyboardType] || TYPES.standard;
     const badgeMap = {};
-
-    badgeMap[type.move.up] = { badge: "LS ↑", highlight: "vk-highlight-move" };
-    badgeMap[type.move.down] = { badge: "LS ↓", highlight: "vk-highlight-move" };
-    badgeMap[type.move.left] = { badge: "LS ←", highlight: "vk-highlight-move" };
-    badgeMap[type.move.right] = { badge: "LS →", highlight: "vk-highlight-move" };
-
-    badgeMap[type.camera.up] = { badge: "RS ↑", highlight: "vk-highlight-move" };
-    badgeMap[type.camera.down] = { badge: "RS ↓", highlight: "vk-highlight-move" };
-    badgeMap[type.camera.left] = { badge: "RS ←", highlight: "vk-highlight-move" };
-    badgeMap[type.camera.right] = { badge: "RS →", highlight: "vk-highlight-move" };
-
-    const btnLabels = isPS ? {
-      "A": { badge: "✕ / A", highlight: "vk-highlight-action" },
-      "B": { badge: "○ / B", highlight: "vk-highlight-action" },
-      "X": { badge: "□ / X", highlight: "vk-highlight-action" },
-      "Y": { badge: "△ / Y", highlight: "vk-highlight-action" },
-      "LB": { badge: "L1 / LB", highlight: "vk-highlight-modifier" },
-      "RB": { badge: "R1 / RB", highlight: "vk-highlight-modifier" },
-      "LT": { badge: "L2 / LT", highlight: "vk-highlight-modifier" },
-      "RT": { badge: "R2 / RT", highlight: "vk-highlight-modifier" },
-      "BACK": { badge: "SHARE", highlight: "vk-highlight-action" },
-      "START": { badge: "OPTIONS", highlight: "vk-highlight-action" },
-      "GUIDE": { badge: "PS", highlight: "vk-highlight-action" },
-      "L3": { badge: "L3", highlight: "vk-highlight-action" },
-      "R3": { badge: "R3", highlight: "vk-highlight-action" },
-      "DPAD_UP": { badge: "D↑", highlight: "vk-highlight-move" },
-      "DPAD_DOWN": { badge: "D↓", highlight: "vk-highlight-move" },
-      "DPAD_LEFT": { badge: "D←", highlight: "vk-highlight-move" },
-      "DPAD_RIGHT": { badge: "D→", highlight: "vk-highlight-move" }
-    } : {
-      "A": { badge: "A / ✕", highlight: "vk-highlight-action" },
-      "B": { badge: "B / ○", highlight: "vk-highlight-action" },
-      "X": { badge: "X / □", highlight: "vk-highlight-action" },
-      "Y": { badge: "Y / △", highlight: "vk-highlight-action" },
-      "LB": { badge: "LB / L1", highlight: "vk-highlight-modifier" },
-      "RB": { badge: "RB / R1", highlight: "vk-highlight-modifier" },
-      "LT": { badge: "LT / L2", highlight: "vk-highlight-modifier" },
-      "RT": { badge: "RT / R2", highlight: "vk-highlight-modifier" },
-      "BACK": { badge: "BACK", highlight: "vk-highlight-action" },
-      "START": { badge: "START", highlight: "vk-highlight-action" },
-      "GUIDE": { badge: "GUIDE", highlight: "vk-highlight-action" },
-      "L3": { badge: "L3", highlight: "vk-highlight-action" },
-      "R3": { badge: "R3", highlight: "vk-highlight-action" },
-      "DPAD_UP": { badge: "D↑", highlight: "vk-highlight-move" },
-      "DPAD_DOWN": { badge: "D↓", highlight: "vk-highlight-move" },
-      "DPAD_LEFT": { badge: "D←", highlight: "vk-highlight-move" },
-      "DPAD_RIGHT": { badge: "D→", highlight: "vk-highlight-move" }
-    };
-
-    for (const [code, btn] of Object.entries(type.buttons || {})) {
-      if (!badgeMap[code] && btnLabels[btn]) {
-        badgeMap[code] = btnLabels[btn];
-      }
+    const labels = buttonLabels(Boolean(layoutName && layoutName.includes("playstation")));
+    for (const [direction, badge] of Object.entries({ up: "LS ↑", down: "LS ↓", left: "LS ←", right: "LS →" })) {
+      if (type.move[direction]) badgeMap[type.move[direction]] = { badge, highlight: "vk-highlight-move" };
     }
-
+    for (const [direction, badge] of Object.entries({ up: "RS ↑", down: "RS ↓", left: "RS ←", right: "RS →" })) {
+      if (type.camera[direction]) badgeMap[type.camera[direction]] = { badge, highlight: "vk-highlight-move" };
+    }
+    for (const [code, action] of Object.entries(type.buttons || {})) {
+      if (!badgeMap[code] && labels[action]) badgeMap[code] = labels[action];
+    }
     return badgeMap;
   }
   window.getActiveControllerBadges = getActiveControllerBadges;
 
-  let smoothLx = 0;
-  let smoothLy = 0;
-  let smoothRx = 0;
-  let smoothRy = 0;
+  let smoothLx = 0, smoothLy = 0, smoothRx = 0, smoothRy = 0;
 
   function resetKeyboardAnalogState() {
-    smoothLx = 0;
-    smoothLy = 0;
-    smoothRx = 0;
-    smoothRy = 0;
+    smoothLx = smoothLy = smoothRx = smoothRy = 0;
   }
 
   function setKeyboardType(type) {
     if (!TYPES[type]) type = "standard";
-    if (type !== window.currentKeyboardType && typeof window.releaseAllKeys === "function") {
-      window.releaseAllKeys();
-    }
+    if (type !== window.currentKeyboardType && typeof window.releaseAllKeys === "function") window.releaseAllKeys();
     resetKeyboardAnalogState();
     window.currentKeyboardType = type;
     try { localStorage.setItem("omnipad.keyboardType", type); } catch (_) {}
     const hint = document.getElementById("keyboard-type-hint");
     if (hint) hint.textContent = TYPES[type].label;
+    window.renderVirtualKeyboard?.(window.currentKeyboardLayout || "xbox_controller");
+    window.transmitCurrentInputState?.();
+  }
 
-    if (typeof window.renderVirtualKeyboard === "function") {
-      window.renderVirtualKeyboard(window.currentKeyboardLayout || "xbox_controller");
+  function sourceKeySets() {
+    const pointer = new Set();
+    const physical = new Set();
+    const holds = window.srcHolds;
+    if (holds && holds.size) {
+      for (const [source, codes] of holds.entries()) {
+        const destination = String(source).startsWith("pointer_") ? pointer : physical;
+        for (const code of codes) destination.add(code);
+      }
+    } else {
+      for (const code of (window.activeKeys || [])) physical.add(code);
     }
-    if (typeof window.transmitCurrentInputState === "function") {
-      window.transmitCurrentInputState();
+    return { pointer, physical };
+  }
+
+  function resolve(keys, spec) {
+    const move = spec.move || {}, camera = spec.camera || {}, buttons = spec.buttons || {};
+    const resolved = {
+      moveUp: Boolean(move.up && keys.has(move.up)), moveDown: Boolean(move.down && keys.has(move.down)),
+      moveLeft: Boolean(move.left && keys.has(move.left)), moveRight: Boolean(move.right && keys.has(move.right)),
+      camUp: Boolean(camera.up && keys.has(camera.up)), camDown: Boolean(camera.down && keys.has(camera.down)),
+      camLeft: Boolean(camera.left && keys.has(camera.left)), camRight: Boolean(camera.right && keys.has(camera.right)),
+      buttons: {}
+    };
+    for (const code of keys) {
+      const action = buttons[code];
+      if (action) resolved.buttons[action] = true;
     }
+    return resolved;
+  }
+
+  function approach(current, target) {
+    if (target !== 0) {
+      const next = current + (target - current) * 0.35;
+      return Math.abs(target - next) < 0.03 ? target : next;
+    }
+    const next = current * 0.65;
+    return Math.abs(next) < 0.02 ? 0 : next;
   }
 
   const originalCaptureState = window.captureState;
@@ -177,68 +200,35 @@
     if ((window.currentMode || "keyboard") !== "keyboard") return state;
 
     const type = TYPES[window.currentKeyboardType] || TYPES.standard;
-    const keys = window.activeKeys || new Set();
-    const { move, camera, buttons } = type;
-
-    const moveUp = keys.has(move.up), moveDown = keys.has(move.down);
-    const moveLeft = keys.has(move.left), moveRight = keys.has(move.right);
-    const targetLy = moveUp && !moveDown ? 1.0 : (moveDown && !moveUp ? -1.0 : 0.0);
-    const targetLx = moveRight && !moveLeft ? 1.0 : (moveLeft && !moveRight ? -1.0 : 0.0);
-
-    if (targetLx !== 0) {
-      smoothLx += (targetLx - smoothLx) * 0.35;
-      if (Math.abs(targetLx - smoothLx) < 0.03) smoothLx = targetLx;
-    } else {
-      smoothLx *= 0.65;
-      if (Math.abs(smoothLx) < 0.02) smoothLx = 0;
+    const { pointer, physical } = sourceKeySets();
+    const physicalResolved = resolve(physical, type);
+    const layoutSpec = FIXED_LAYOUTS[window.currentKeyboardLayout] || type;
+    const pointerResolved = resolve(pointer, layoutSpec);
+    const combined = {};
+    for (const key of ["moveUp", "moveDown", "moveLeft", "moveRight", "camUp", "camDown", "camLeft", "camRight"]) {
+      combined[key] = physicalResolved[key] || pointerResolved[key];
     }
 
-    if (targetLy !== 0) {
-      smoothLy += (targetLy - smoothLy) * 0.35;
-      if (Math.abs(targetLy - smoothLy) < 0.03) smoothLy = targetLy;
-    } else {
-      smoothLy *= 0.65;
-      if (Math.abs(smoothLy) < 0.02) smoothLy = 0;
-    }
+    const targetLx = combined.moveRight !== combined.moveLeft ? (combined.moveRight ? 1 : -1) : 0;
+    const targetLy = combined.moveUp !== combined.moveDown ? (combined.moveUp ? 1 : -1) : 0;
+    const targetRx = combined.camRight !== combined.camLeft ? (combined.camRight ? 1 : -1) : 0;
+    const targetRy = combined.camUp !== combined.camDown ? (combined.camUp ? 1 : -1) : 0;
 
-    state.axes.lx = parseFloat(smoothLx.toFixed(4));
-    state.axes.ly = parseFloat(smoothLy.toFixed(4));
+    smoothLx = approach(smoothLx, targetLx);
+    smoothLy = approach(smoothLy, targetLy);
+    smoothRx = approach(smoothRx, targetRx);
+    smoothRy = approach(smoothRy, targetRy);
+    state.axes.lx = Number(smoothLx.toFixed(4));
+    state.axes.ly = Number(smoothLy.toFixed(4));
+    state.axes.rx = Number(smoothRx.toFixed(4));
+    state.axes.ry = Number(smoothRy.toFixed(4));
 
-    const camUp = keys.has(camera.up), camDown = keys.has(camera.down);
-    const camLeft = keys.has(camera.left), camRight = keys.has(camera.right);
-    const targetRy = camUp && !camDown ? 1.0 : (camDown && !camUp ? -1.0 : 0.0);
-    const targetRx = camRight && !camLeft ? 1.0 : (camLeft && !camRight ? -1.0 : 0.0);
-
-    if (targetRx !== 0) {
-      smoothRx += (targetRx - smoothRx) * 0.35;
-      if (Math.abs(targetRx - smoothRx) < 0.03) smoothRx = targetRx;
-    } else {
-      smoothRx *= 0.65;
-      if (Math.abs(smoothRx) < 0.02) smoothRx = 0;
-    }
-
-    if (targetRy !== 0) {
-      smoothRy += (targetRy - smoothRy) * 0.35;
-      if (Math.abs(targetRy - smoothRy) < 0.03) smoothRy = targetRy;
-    } else {
-      smoothRy *= 0.65;
-      if (Math.abs(smoothRy) < 0.02) smoothRy = 0;
-    }
-
-    state.axes.rx = parseFloat(smoothRx.toFixed(4));
-    state.axes.ry = parseFloat(smoothRy.toFixed(4));
-
-    for (const code of keys) {
-      const btn = buttons[code];
-      if (btn) {
-        state.buttons[btn] = true;
-        if (btn === "LT") state.axes.lt = 1;
-        if (btn === "RT") state.axes.rt = 1;
-      }
-    }
+    Object.assign(state.buttons, physicalResolved.buttons, pointerResolved.buttons);
+    if (state.buttons.LT) state.axes.lt = 1;
+    if (state.buttons.RT) state.axes.rt = 1;
 
     const mouse = window.mouseCameraState;
-    if (mouse && mouse.active) {
+    if (mouse?.active) {
       state.axes.rx = mouse.rx;
       state.axes.ry = mouse.ry;
     }
@@ -247,13 +237,10 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     const select = document.getElementById("keyboard-type-select");
-    if (select) {
-      select.value = window.currentKeyboardType;
-      setKeyboardType(select.value);
-      select.addEventListener("change", event => {
-        setKeyboardType(event.target.value);
-      });
-    }
+    if (!select) return;
+    select.value = window.currentKeyboardType;
+    setKeyboardType(select.value);
+    select.addEventListener("change", event => setKeyboardType(event.target.value));
   });
 
   window.setKeyboardType = setKeyboardType;
