@@ -4,7 +4,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-STATIC = ROOT / "static"
 
 
 def read(relative: str) -> str:
@@ -15,8 +14,11 @@ def main() -> None:
     play = read("static/play.html")
     routing = read("static/js/target_routing.js")
     keyboard = read("static/js/keyboard_type_adapter.js")
+    profiles = read("static/js/gamepad_profiles.js")
     mouse = read("static/js/mouse_camera.js")
     latency = read("static/js/low_latency_input.js")
+    virtual_keyboard = read("static/js/virtual_keyboard.js")
+    pipeline = read("router/input_pipeline.py")
     css = read("static/css/input_extensions.css")
 
     assert "isCloudflareRemoteSession" in routing
@@ -25,30 +27,53 @@ def main() -> None:
 
     assert 'id="mouse-camera-pad"' in play
     assert 'id="keyboard-type-select"' in play
-    assert "mouse_camera.js" in play
-    assert "keyboard_type_adapter.js" in play
-    assert "low_latency_input.js" in play
-    assert "input_extensions.css" in play
+    assert "mouse_camera.js?v=1.3.3" in play
+    assert "keyboard_type_adapter.js?v=1.3.3" in play
+    assert "low_latency_input.js?v=1.3.3" in play
+    assert "input_extensions.css?v=1.3.3" in play
 
     for key_type in ("standard", "compact65", "arrowless", "esdf", "vim_camera"):
         assert key_type in keyboard
 
-    assert "65% Compact" in play
+    assert "Xbox-Labeled Key Map (Any Output)" in play
+    assert "PlayStation-Labeled Key Map (Any Output)" in play
+    assert "does not choose the host output" in play
+    assert "Xbox 360, DualShock 4, or the virtual keyboard port" in play
+    assert "Physical Keyboard Type:" in play
+
+    assert "resetKeyboardAnalogState" in keyboard
+    assert "window.resetKeyboardAnalogState" in keyboard
+    assert "window.releaseAllKeys" in keyboard
+    assert "resetKeyboardAnalogState" in virtual_keyboard
+    assert 'input_surface: window.currentMode || "keyboard"' in virtual_keyboard
+
+    # Keyboard mode is resolved once in the browser. The host keeps raw key
+    # identity for keyboard backends but must not turn RS keys into movement or
+    # face buttons a second time.
+    assert 'input_surface not in {"background_native", "keyboard"}' in pipeline
+    assert "trust the resolved controller" in pipeline
+
+    # Profile selection must update the global value consumed by play.js.
+    assert "window.currentGamepadProfile = currentGamepadProfile" in profiles
+    assert "window.gamepadKeymap = gamepadKeymap" in profiles
+    assert 'localStorage.setItem("omnipad.gamepadProfile"' in profiles
+
     assert "window.mouseCameraState" in mouse
     assert "requestPointerLock" in mouse
     assert "pointerlockchange" in mouse
     assert "exitPointerLock" in mouse
-    assert "transmitCurrentInputState" in mouse
     assert "setPointerCapture" in mouse
     assert "pointerleave" in mouse
+    assert "scheduleMouseTransmit" in mouse
+    assert "requestAnimationFrame" in mouse
+    assert "boxScale" in mouse
+    assert '|| "20"' in mouse
+    assert "Math.max(1, Math.min(200" in mouse
+    assert 'id="mouse-sens-slider" min="1" max="200" value="20"' in play
+    assert "resetMouseCameraState" in mouse
+
     assert "queueMicrotask" in latency
     assert "keydown" in latency and "keyup" in latency
-    assert "mouse-camera-pad.active" in css
-    assert "mouse-camera-pad.locked" in css
-    assert "mouse-camera-card.fullscreen-mode" in css
-
-    # WAN / Cloudflare transport guard: input snapshots are latest-state-wins,
-    # while digital key transitions keep their immediate microtask flush.
     assert "WebSocket.prototype.send" in latency
     assert "bufferedAmount" in latency
     assert "MAX_BUFFERED_BYTES" in latency
@@ -63,29 +88,36 @@ def main() -> None:
     assert "axisReleased" in latency
     assert "axes: next.axes" in latency
 
+    assert "mouse-camera-pad.active" in css
+    assert "mouse-camera-pad.locked" in css
+    assert "mouse-camera-card.fullscreen-mode" in css
+    assert "layout-preset-hint" in css
+    assert "@media (max-width: 768px)" in css
+    assert ".vk-toolbar-left select" in css
+    assert ".mouse-sensitivity-container" in css
+    assert "white-space: normal" in css
+
     assert 'id="mouse-camera-fullscreen-btn"' in play
     assert 'id="mouse-camera-popout-btn"' in play
     assert "toggleFullscreen" in mouse
     assert "openPopoutWindow" in mouse
     assert "centerArmed" in mouse
 
-    assert 'id="mouse-sens-slider"' in play
-    assert "mouseSensitivity" in mouse
-    assert "setMouseSensitivity" in mouse
+    # Existing installs preserve deliberate custom sensitivity while new users
+    # get the lower default.
     assert "mouseSensitivityScaleV2" in latency
     assert "if (stored === null)" in latency
     assert 'stored === "40"' not in latency
     assert 'localStorage.setItem("omnipad.mouseSensitivity", "20")' in latency
     assert "smoothLx" in keyboard and "smoothLy" in keyboard
 
-    vk = read("static/js/virtual_keyboard.js")
     assert "getActiveControllerBadges" in keyboard
-    assert "getActiveControllerBadges" in vk
+    assert "getActiveControllerBadges" in virtual_keyboard
 
     print(
         "Remote player input feature checks passed "
-        "(Cloudflare routing UI, bounded WebSocket backlog, latest-state analog transport, "
-        "lower mouse default, keyboard variants, pointer lock, fullscreen/pop-out, and badges)."
+        "(keyboard-surface isolation, backend-independent presets, profile synchronization, "
+        "Cloudflare backlog control, lower/coalesced mouse camera, and mobile controls)."
     )
 
 
