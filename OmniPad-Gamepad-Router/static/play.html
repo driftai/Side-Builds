@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>OmniPad — Remote Player 2</title>
-  <link rel="stylesheet" href="/static/css/common.css?v=1.2.24">
-  <link rel="stylesheet" href="/static/css/play.css?v=1.2.24">
-  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.2.24">
-  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.2.24">
+  <link rel="stylesheet" href="/static/css/common.css?v=1.3.3">
+  <link rel="stylesheet" href="/static/css/play.css?v=1.3.3">
+  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.3.3">
+  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.3.3">
 </head>
 <body>
 
@@ -44,9 +44,7 @@
             <span>🎯 Target App:</span>
             <span class="target-name-badge" id="current-target-name">None (Site-Only)</span>
           </div>
-          <div class="target-scope-hint" style="font-size: 0.72rem; color: var(--text-muted);">
-            Configured on Host Dashboard
-          </div>
+          <div class="target-scope-hint" style="font-size: 0.72rem; color: var(--text-muted);">Configured on Host Dashboard</div>
         </div>
 
         <div class="background-input-controls-bar" id="background-input-controls">
@@ -57,9 +55,25 @@
 
       <section class="arena-section" id="section-keyboard">
         <div class="virtual-keyboard-card">
-          <div class="vk-toolbar"><div class="vk-toolbar-left"><label style="font-size:.8rem;font-weight:700;color:var(--text-secondary);">Layout Preset:</label><select id="vk-layout-select" style="max-width:240px;padding:6px 10px;"><option value="xbox_controller" selected>Xbox Controller Keyboard (Compact Map)</option><option value="standard_full">Standard Full PC Keyboard</option><option value="xbox_overlay">Xbox Overlay — Full PC Keyboard</option><option value="playstation_overlay">PlayStation Overlay — Full PC Keyboard</option><option value="playstation_controller">PlayStation Controller Keyboard (Compact Map)</option><option value="wasd_fighter">WASD Fighter & Action</option><option value="arrow_numpad">Arrow Keys / NumPad 2P</option><option value="compact_60">Compact (60% Mobile)</option></select></div><div class="vk-toolbar-right"><button class="btn btn-secondary btn-sm" id="vk-release-all-btn">⚡ Release Held Keys</button></div></div>
+          <div class="vk-toolbar">
+            <div class="vk-toolbar-left">
+              <label style="font-size:.8rem;font-weight:700;color:var(--text-secondary);">Layout Preset:</label>
+              <select id="vk-layout-select" style="max-width:280px;padding:6px 10px;">
+                <option value="xbox_controller" selected>Xbox-Labeled Key Map (Any Output)</option>
+                <option value="standard_full">Standard Full PC Keyboard</option>
+                <option value="xbox_overlay">Xbox-Labeled Full Overlay (Any Output)</option>
+                <option value="playstation_overlay">PlayStation-Labeled Full Overlay (Any Output)</option>
+                <option value="playstation_controller">PlayStation-Labeled Key Map (Any Output)</option>
+                <option value="wasd_fighter">WASD Fighter & Action</option>
+                <option value="arrow_numpad">Arrow Keys / NumPad 2P</option>
+                <option value="compact_60">Compact (60% Mobile)</option>
+              </select>
+            </div>
+            <div class="vk-toolbar-right"><button class="btn btn-secondary btn-sm" id="vk-release-all-btn">⚡ Release Held Keys</button></div>
+          </div>
+          <p class="layout-preset-hint"><strong>Layout Preset</strong> changes the on-screen keys and controller-style labels only. It does not choose the host output: the same preset can drive Xbox 360, DualShock 4, or the virtual keyboard port.</p>
           <div class="keyboard-type-control">
-            <label for="keyboard-type-select">Keyboard Type:</label>
+            <label for="keyboard-type-select">Physical Keyboard Type:</label>
             <select id="keyboard-type-select" aria-label="Physical keyboard input type">
               <option value="standard">Standard PC (WASD + Arrows)</option>
               <option value="compact65">65% Compact (WASD + Arrows / Fn Layer)</option>
@@ -74,15 +88,12 @@
           <p style="font-size:.75rem;color:var(--text-muted);text-align:center;margin:0;">💡 <strong>Physical & Virtual Sync:</strong> Type on your physical keyboard OR click/tap keys above.</p>
           <div class="mouse-camera-card" id="mouse-camera-card">
             <div class="mouse-camera-header">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <strong>🖱️ Mouse Camera / Right Stick</strong>
-                <span style="font-size:.72rem;color:var(--text-muted);">Click pad for Pointer Lock (ESC to exit) • Hold Mouse Click to sustain camera drag.</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <div class="mouse-camera-title"><strong>🖱️ Mouse Camera / Right Stick</strong><span style="font-size:.72rem;color:var(--text-muted);">Click pad for Pointer Lock (ESC to exit) • Hold Mouse Click to sustain camera drag.</span></div>
+              <div class="mouse-camera-actions">
                 <div class="mouse-sensitivity-container" title="Adjust Mouse Camera Aiming Sensitivity">
                   <label for="mouse-sens-slider" style="font-size:.72rem;color:var(--text-secondary);margin:0;font-weight:600;">Sens:</label>
-                  <input type="range" id="mouse-sens-slider" min="10" max="200" value="40" style="width:75px;height:4px;">
-                  <span id="mouse-sens-val" style="font-size:.72rem;color:var(--accent-cyan);min-width:32px;font-weight:700;">40%</span>
+                  <input type="range" id="mouse-sens-slider" min="1" max="200" value="20" style="width:100px;height:4px;">
+                  <span id="mouse-sens-val" style="font-size:.72rem;color:var(--accent-cyan);min-width:36px;font-weight:700;">20%</span>
                 </div>
                 <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-fullscreen-btn" title="Toggle Fullscreen Camera View">⛶ Fullscreen</button>
                 <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-popout-btn" title="Open Camera Pad in Detached Window">🗗 Pop-Out Window</button>
@@ -98,7 +109,7 @@
         </div>
       </section>
 
-      <section class="arena-section" id="section-gamepad" style="display:none;"><div class="player-viz-wrapper" id="local-viz-container"></div><div class="keyboard-guide-card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div><h3 style="font-size:.95rem;font-weight:700;">Gamepad Mapping Profile</h3><p style="font-size:.75rem;color:var(--text-muted);">Controls mapped to virtual Xbox 360 / DualShock 4 controller.</p></div><select id="profile-select" style="max-width:260px;"></select></div><div class="key-bindings-grid" id="key-bindings-grid"></div></div></section>
+      <section class="arena-section" id="section-gamepad" style="display:none;"><div class="player-viz-wrapper" id="local-viz-container"></div><div class="keyboard-guide-card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div><h3 style="font-size:.95rem;font-weight:700;">Gamepad Mapping Profile</h3><p style="font-size:.75rem;color:var(--text-muted);">Controls mapped to the host-selected virtual output.</p></div><select id="profile-select" style="max-width:260px;"></select></div><div class="key-bindings-grid" id="key-bindings-grid"></div></div></section>
 
       <section class="arena-section" id="section-touch" style="display:none;">
         <div class="touch-controller-toolbar touch-layout-toolbar">
@@ -111,9 +122,7 @@
               <button type="button" class="btn btn-xs touch-pill-btn" data-preset="compact_thumbs">Compact</button>
             </div>
           </div>
-          <div style="display:inline-flex;align-items:center;gap:6px;">
-            <button type="button" class="btn btn-xs btn-secondary" id="touch-routing-btn" title="Toggle phone touchscreen routing to game">🪟 Touch Routing: On</button>
-          </div>
+          <div style="display:inline-flex;align-items:center;gap:6px;"><button type="button" class="btn btn-xs btn-secondary" id="touch-routing-btn" title="Toggle phone touchscreen routing to game">🪟 Touch Routing: On</button></div>
           <label class="touch-layout-picker">Layout:
             <select id="touch-layout-select" aria-label="Touchscreen controller layout preset">
               <option value="classic_landscape" selected>Classic Landscape</option>
@@ -137,17 +146,17 @@
     </main>
   </div>
 
-  <script src="/static/js/gamepad_viz.js?v=1.2.24"></script>
-  <script src="/static/js/keyboard_layouts.js?v=1.2.24"></script>
-  <script src="/static/js/gamepad_profiles.js?v=1.2.24"></script>
-  <script src="/static/js/virtual_keyboard.js?v=1.2.24"></script>
-  <script src="/static/js/target_routing.js?v=1.2.24"></script>
-  <script src="/static/js/input_capture.js?v=1.2.24"></script>
-  <script src="/static/js/keyboard_type_adapter.js?v=1.2.24"></script>
-  <script src="/static/js/play.js?v=1.2.24"></script>
-  <script src="/static/js/low_latency_input.js?v=1.2.24"></script>
-  <script src="/static/js/mouse_camera.js?v=1.2.24"></script>
-  <script src="/static/js/remote_input_monitor.js?v=1.2.24"></script>
-  <script src="/static/js/touch_controller.js?v=1.2.24"></script>
+  <script src="/static/js/gamepad_viz.js?v=1.3.3"></script>
+  <script src="/static/js/keyboard_layouts.js?v=1.3.3"></script>
+  <script src="/static/js/gamepad_profiles.js?v=1.3.3"></script>
+  <script src="/static/js/virtual_keyboard.js?v=1.3.3"></script>
+  <script src="/static/js/target_routing.js?v=1.3.3"></script>
+  <script src="/static/js/input_capture.js?v=1.3.3"></script>
+  <script src="/static/js/keyboard_type_adapter.js?v=1.3.3"></script>
+  <script src="/static/js/play.js?v=1.3.3"></script>
+  <script src="/static/js/low_latency_input.js?v=1.3.3"></script>
+  <script src="/static/js/mouse_camera.js?v=1.3.3"></script>
+  <script src="/static/js/remote_input_monitor.js?v=1.3.3"></script>
+  <script src="/static/js/touch_controller.js?v=1.3.3"></script>
 </body>
 </html>
