@@ -8,13 +8,13 @@ set "UMDF_MANAGER=drivers\virtual-keyboard-umdf\manage-driver.ps1"
 :menu
 cls
 echo ======================================================================
-echo              OMNIPAD ROUTER -- CONTROL CENTER v1.3
+echo              OMNIPAD ROUTER -- CONTROL CENTER v1.4
 echo ======================================================================
 echo.
 echo   ROUTER
-echo   [1] Start Cloudflare + LAN router
-echo   [2] Start LAN-only router
-echo   [3] Start with custom port
+echo   [1] Start Cloudflare + LAN router ^(opens visible runtime console^)
+echo   [2] Start LAN-only router ^(opens visible runtime console^)
+echo   [3] Start with custom port ^(opens visible runtime console^)
 echo   [4] Show status, URLs, room code, and logs
 echo   [5] Open host dashboard
 echo   [6] Start Cloudflare tunnel on running router
