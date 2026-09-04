@@ -74,26 +74,24 @@
   };
 
   window.keyboardTypes = TYPES;
-  window.currentKeyboardType = localStorage.getItem("omnipad.keyboardType") || "standard";
+  const savedType = localStorage.getItem("omnipad.keyboardType") || "standard";
+  window.currentKeyboardType = TYPES[savedType] ? savedType : "standard";
 
   function getActiveControllerBadges(layoutName, keyboardType) {
     const isPS = layoutName && layoutName.includes("playstation");
     const type = TYPES[keyboardType] || TYPES.standard;
     const badgeMap = {};
 
-    // 1. Move stick badges
     badgeMap[type.move.up] = { badge: "LS ↑", highlight: "vk-highlight-move" };
     badgeMap[type.move.down] = { badge: "LS ↓", highlight: "vk-highlight-move" };
     badgeMap[type.move.left] = { badge: "LS ←", highlight: "vk-highlight-move" };
     badgeMap[type.move.right] = { badge: "LS →", highlight: "vk-highlight-move" };
 
-    // 2. Camera stick badges
     badgeMap[type.camera.up] = { badge: "RS ↑", highlight: "vk-highlight-move" };
     badgeMap[type.camera.down] = { badge: "RS ↓", highlight: "vk-highlight-move" };
     badgeMap[type.camera.left] = { badge: "RS ←", highlight: "vk-highlight-move" };
     badgeMap[type.camera.right] = { badge: "RS →", highlight: "vk-highlight-move" };
 
-    // 3. Action button labels
     const btnLabels = isPS ? {
       "A": { badge: "✕ / A", highlight: "vk-highlight-action" },
       "B": { badge: "○ / B", highlight: "vk-highlight-action" },
@@ -133,7 +131,6 @@
     };
 
     for (const [code, btn] of Object.entries(type.buttons || {})) {
-      // Don't overwrite LS or RS badges if keys share code
       if (!badgeMap[code] && btnLabels[btn]) {
         badgeMap[code] = btnLabels[btn];
       }
@@ -143,8 +140,24 @@
   }
   window.getActiveControllerBadges = getActiveControllerBadges;
 
+  let smoothLx = 0;
+  let smoothLy = 0;
+  let smoothRx = 0;
+  let smoothRy = 0;
+
+  function resetKeyboardAnalogState() {
+    smoothLx = 0;
+    smoothLy = 0;
+    smoothRx = 0;
+    smoothRy = 0;
+  }
+
   function setKeyboardType(type) {
     if (!TYPES[type]) type = "standard";
+    if (type !== window.currentKeyboardType && typeof window.releaseAllKeys === "function") {
+      window.releaseAllKeys();
+    }
+    resetKeyboardAnalogState();
     window.currentKeyboardType = type;
     try { localStorage.setItem("omnipad.keyboardType", type); } catch (_) {}
     const hint = document.getElementById("keyboard-type-hint");
@@ -158,11 +171,6 @@
     }
   }
 
-  let smoothLx = 0;
-  let smoothLy = 0;
-  let smoothRx = 0;
-  let smoothRy = 0;
-
   const originalCaptureState = window.captureState;
   window.captureState = function captureStateWithKeyboardType() {
     const state = originalCaptureState ? originalCaptureState() : { buttons: {}, axes: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 } };
@@ -172,7 +180,6 @@
     const keys = window.activeKeys || new Set();
     const { move, camera, buttons } = type;
 
-    // Movement axes (Left Stick SOCD Neutral with progressive analog ramping)
     const moveUp = keys.has(move.up), moveDown = keys.has(move.down);
     const moveLeft = keys.has(move.left), moveRight = keys.has(move.right);
     const targetLy = moveUp && !moveDown ? 1.0 : (moveDown && !moveUp ? -1.0 : 0.0);
@@ -197,7 +204,6 @@
     state.axes.lx = parseFloat(smoothLx.toFixed(4));
     state.axes.ly = parseFloat(smoothLy.toFixed(4));
 
-    // Camera axes (Right Stick SOCD Neutral with progressive analog ramping)
     const camUp = keys.has(camera.up), camDown = keys.has(camera.down);
     const camLeft = keys.has(camera.left), camRight = keys.has(camera.right);
     const targetRy = camUp && !camDown ? 1.0 : (camDown && !camUp ? -1.0 : 0.0);
@@ -222,7 +228,6 @@
     state.axes.rx = parseFloat(smoothRx.toFixed(4));
     state.axes.ry = parseFloat(smoothRy.toFixed(4));
 
-    // Buttons mapping for current keyboard type
     for (const code of keys) {
       const btn = buttons[code];
       if (btn) {
@@ -232,7 +237,6 @@
       }
     }
 
-    // Mouse camera pad override if active
     const mouse = window.mouseCameraState;
     if (mouse && mouse.active) {
       state.axes.rx = mouse.rx;
@@ -253,4 +257,5 @@
   });
 
   window.setKeyboardType = setKeyboardType;
+  window.resetKeyboardAnalogState = resetKeyboardAnalogState;
 })();
