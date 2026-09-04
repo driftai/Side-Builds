@@ -18,6 +18,7 @@ $statePath = Join-Path $runtimeDirectory 'omnipad-control.json'
 $logDirectory = Join-Path $root 'logs'
 $stdoutLog = Join-Path $logDirectory 'omnipad-control.out.log'
 $stderrLog = Join-Path $logDirectory 'omnipad-control.err.log'
+$runtimeViewer = Join-Path $PSScriptRoot 'watch_router_runtime.ps1'
 
 function Read-ControlState {
     if (-not (Test-Path -LiteralPath $statePath)) {
@@ -116,6 +117,26 @@ function Get-RouterStatus([object]$State) {
     }
 }
 
+function Start-RuntimeViewer([object]$State) {
+    if (-not (Test-Path -LiteralPath $runtimeViewer)) {
+        Write-Warning "Runtime viewer is missing: $runtimeViewer"
+        return
+    }
+    $viewerArguments = @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+        ('"' + $runtimeViewer + '"'),
+        '-ServerPid', [string]$State.pid,
+        '-Port', [string]$State.port,
+        '-StdoutLog', ('"' + $stdoutLog + '"'),
+        '-StderrLog', ('"' + $stderrLog + '"')
+    )
+    $viewer = Start-Process -FilePath 'powershell.exe' -ArgumentList $viewerArguments `
+        -WorkingDirectory $root -WindowStyle Normal -PassThru
+    $State | Add-Member -NotePropertyName viewer_pid -NotePropertyValue $viewer.Id -Force
+    Write-ControlState $State
+    Write-Host "Runtime console opened (viewer PID $($viewer.Id))." -ForegroundColor Green
+}
+
 function Show-RouterStatus {
     $state = Read-ControlState
     if (-not $state) {
@@ -139,6 +160,9 @@ function Show-RouterStatus {
     Write-Host "Mode:   $($state.mode)"
     Write-Host "Port:   $($state.port)"
     Write-Host "Host:   http://localhost:$($state.port)/"
+    if ($state.viewer_pid -and (Get-ProcessRecord ([int]$state.viewer_pid))) {
+        Write-Host "Viewer: PID $($state.viewer_pid) (visible runtime console)"
+    }
     if ($status) {
         Write-Host "Room:   $($status.room_code)"
         if ($status.primary_lan_url) {
@@ -222,6 +246,7 @@ function Start-Router {
         } else { 'No error log was created.' }
         throw "Router did not become ready.`n$tail"
     }
+    Start-RuntimeViewer $state
     Show-RouterStatus
 }
 
@@ -344,14 +369,22 @@ try {
         Show-RouterStatus
     }
     'StopTunnel' {
-        $state = Require-RunningState
+        $state = Read-ControlState
+        if (-not (Test-ManagedProcess $state)) {
+            Write-Host 'Cloudflare tunnel is already stopped; no managed router is running.' -ForegroundColor Yellow
+            break
+        }
         Invoke-ControlApi $state 'POST' '/api/tunnel/stop' | Out-Null
         $state.mode = 'lan'
         Write-ControlState $state
         Write-Host 'Cloudflare tunnel stopped; LAN router remains online.' -ForegroundColor Green
     }
     'Panic' {
-        $state = Require-RunningState
+        $state = Read-ControlState
+        if (-not (Test-ManagedProcess $state)) {
+            Write-Host 'No managed router is running; there are no routed inputs to release.' -ForegroundColor Yellow
+            break
+        }
         Invoke-ControlApi $state 'POST' '/api/panic' | Out-Null
         Write-Host 'All virtual controller and keyboard outputs released.' -ForegroundColor Green
     }
@@ -362,6 +395,6 @@ try {
     'Cleanup' { Cleanup-RepoProcesses }
     }
 } catch {
-    Write-Error $_.Exception.Message
+    Write-Host ("OmniPad control error: " + $_.Exception.Message) -ForegroundColor Red
     exit 1
 }
