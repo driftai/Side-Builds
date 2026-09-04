@@ -36,7 +36,7 @@ function initWebSocket() {
         if (typeof updateDashboard === "function") {
           updateDashboard(msg.data);
         }
-        if (typeof renderTargetStatus === "function" && msg.data && msg.data.target) {
+        if (msg.data && msg.data.target && typeof renderTargetStatus === "function") {
           renderTargetStatus(msg.data.target);
         }
       }
@@ -46,6 +46,7 @@ function initWebSocket() {
   };
 
   hostWs.onclose = () => {
+    if (window.hostWs === hostWs) window.hostWs = null;
     const badge = document.getElementById("server-status-badge");
     if (badge) {
       badge.innerHTML = `<span class="status-dot"></span> Disconnected`;
@@ -99,7 +100,16 @@ async function fetchInitialStatus() {
     // LAN URL
     if (data.primary_lan_url) {
       const lanEl = document.getElementById("lan-url-display");
-      if (lanEl) lanEl.textContent = data.primary_lan_url;
+      if (lanEl) {
+        lanEl.textContent = "";
+        const link = document.createElement("a");
+        link.href = data.primary_lan_url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = data.primary_lan_url;
+        link.style.color = "var(--accent-cyan)";
+        lanEl.appendChild(link);
+      }
       const lanQrBtn = document.getElementById("lan-qr-btn");
       if (lanQrBtn) lanQrBtn.onclick = () => showQR(data.primary_lan_url, "Local LAN Join Link");
     }

@@ -103,8 +103,8 @@ function setupTargetEvents() {
   const gateCheckbox = document.getElementById("target-gate-checkbox");
   if (gateCheckbox) gateCheckbox.onchange = (e) => setTargetGate(e.target.checked);
 
-  // Live target status is streamed at 30Hz over WebSocket telemetry.
-  // Polling via HTTP is only used as a relaxed fallback if the WebSocket is disconnected.
+  // Host telemetry normally supplies target state. This relaxed fallback only
+  // runs while that WebSocket is unavailable.
   setInterval(() => {
     if (!window.hostWs || window.hostWs.readyState !== WebSocket.OPEN) {
       refreshTargetStatus();

@@ -4,10 +4,8 @@
 
 let playerWs = null, activeSlot = 1, friendName = "Player 2", roomCode = "", isConnected = false;
 let packetSeq = 0, localVisualizer = null, inputLoopHandle = null, pingInterval = null;
-let backgroundCaptureStatusTimer = null, backgroundInputMirrorTimer = null, backgroundHeartbeatTimer = null;
+let backgroundHeartbeatTimer = null;
 let manualDisconnect = false, reconnectTimer = null, currentMode = "keyboard";
-let connectAttemptId = 0, connectTimeout = null;
-const JOIN_TIMEOUT_MS = 6000;
 window.currentMode = currentMode;
 window.isConnected = isConnected;
 
@@ -32,36 +30,17 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   if (typeof renderVirtualKeyboard === "function") renderVirtualKeyboard(window.currentKeyboardLayout || "xbox_controller");
   if (typeof loadProfiles === "function") loadProfiles();
-  if (typeof refreshTargetStatus === "function") refreshTargetStatus();
-  const isRemoteSession = typeof isCloudflareRemoteSession === "function" && isCloudflareRemoteSession();
-  if (!isRemoteSession && typeof refreshBackgroundCaptureStatus === "function") {
-    refreshBackgroundCaptureStatus();
-  }
+  if (typeof startRoutingStatusMonitor === "function") startRoutingStatusMonitor();
   if (typeof updateRoutingUI === "function") updateRoutingUI();
 
-  // Relaxed background polling: remote players check every 30s; local players every 10s.
-  // Polling is skipped entirely when the browser tab is hidden.
-  const targetPollInterval = isRemoteSession ? 30000 : 10000;
-  backgroundCaptureStatusTimer = setInterval(() => {
-    if (typeof document !== "undefined" && document.hidden) return;
-    if (typeof refreshTargetStatus === "function") refreshTargetStatus();
-    if (!isRemoteSession && window.backgroundCaptureEnabled && typeof refreshBackgroundCaptureStatus === "function") {
-      refreshBackgroundCaptureStatus();
-    }
-  }, targetPollInterval);
-
-  window.addEventListener("focus", () => {
-    if (typeof refreshTargetStatus === "function") refreshTargetStatus();
-  });
-
-  if (params.get("code")) setTimeout(() => connect("auto"), 150);
+  if (params.get("code")) setTimeout(connect, 150);
 });
 
 function setupEventListeners() {
   const joinBtn = document.getElementById("join-btn");
-  if (joinBtn) joinBtn.onclick = () => connect("manual");
+  if (joinBtn) joinBtn.onclick = connect;
   const dcBtn = document.getElementById("disconnect-btn");
-  if (dcBtn) dcBtn.onclick = () => disconnect();
+  if (dcBtn) dcBtn.onclick = disconnect;
 
   const bgBtn = document.getElementById("background-input-btn");
   if (bgBtn && typeof toggleBackgroundRouting === "function") bgBtn.onclick = toggleBackgroundRouting;
@@ -72,7 +51,7 @@ function setupEventListeners() {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); connect("manual"); }
+        if (e.key === "Enter") { e.preventDefault(); connect(); }
       });
     }
   });
@@ -170,97 +149,36 @@ function switchDeviceMode(mode) {
   }
 }
 
-function setConnectionStatus(text, tone = "muted") {
-  const statusBadge = document.getElementById("status-badge");
-  if (!statusBadge) return;
-  const badgeClass = tone === "red" ? "badge-red" :
-    tone === "green" ? "badge-green" :
-    tone === "yellow" ? "badge-yellow" :
-    tone === "cyan" ? "badge-cyan" : "badge-muted";
-  statusBadge.className = `badge ${badgeClass}`;
-  statusBadge.innerHTML = `<span class="status-dot"></span> ${text}`;
-}
-
-function clearConnectTimeout() {
-  if (connectTimeout) {
-    clearTimeout(connectTimeout);
-    connectTimeout = null;
-  }
-}
-
-function resolveJoinRoomCode() {
-  if (window.OmniPadRoomCode && typeof window.OmniPadRoomCode.resolveForJoin === "function") {
-    const resolved = window.OmniPadRoomCode.resolveForJoin();
-    if (resolved) return String(resolved).trim().toUpperCase();
-  }
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get("code");
-    if (fromUrl) return String(fromUrl).trim().toUpperCase();
-  } catch (_) {}
-  return (document.getElementById("join-room-code")?.value.trim().toUpperCase()) || "";
-}
-
-function connect(reason = "manual") {
-  if (isConnected) return;
-
-  if (playerWs && (playerWs.readyState === WebSocket.CONNECTING || playerWs.readyState === WebSocket.OPEN)) {
-    setConnectionStatus(playerWs.readyState === WebSocket.OPEN ? "Authenticating..." : "Connecting...", "cyan");
-    return;
-  }
-
+function connect() {
   manualDisconnect = false;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  clearConnectTimeout();
 
   friendName = (document.getElementById("join-name")?.value.trim()) || "Player 2";
-  roomCode = resolveJoinRoomCode();
+  roomCode = (document.getElementById("join-room-code")?.value.trim().toUpperCase()) || "";
   activeSlot = parseInt(document.getElementById("join-slot")?.value, 10) || 1;
   if (!roomCode) {
-    setConnectionStatus("Missing room code", "red");
-    const btn = document.getElementById("join-btn");
-    if (btn) { btn.disabled = false; btn.textContent = "Connect to Host"; }
+    alert("Please enter the pairing room code shown on the host dashboard.");
     return;
   }
 
   const btn = document.getElementById("join-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Connecting to Host..."; }
-  setConnectionStatus(reason === "reconnect" ? "Reconnecting..." : "Connecting...", "cyan");
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/ws/player`;
-  const attemptId = ++connectAttemptId;
-  const ws = new WebSocket(wsUrl);
-  playerWs = ws;
 
-  connectTimeout = setTimeout(() => {
-    if (attemptId !== connectAttemptId || isConnected || playerWs !== ws) return;
-    manualDisconnect = true;
-    playerWs = null;
-    try { ws.close(4000, "Join acknowledgement timeout"); } catch (_) {}
-    const retryBtn = document.getElementById("join-btn");
-    if (retryBtn) { retryBtn.disabled = false; retryBtn.textContent = "Connect to Host"; }
-    setConnectionStatus("No join response — retry", "red");
-  }, JOIN_TIMEOUT_MS);
+  playerWs = new WebSocket(wsUrl);
 
-  ws.onopen = () => {
-    if (attemptId !== connectAttemptId || playerWs !== ws) return;
-    setConnectionStatus("Authenticating...", "cyan");
-    try {
-      ws.send(JSON.stringify({ type: "join", slot_id: activeSlot, name: friendName, code: roomCode }));
-    } catch (error) {
-      console.error("Failed to send join frame:", error);
-      disconnect("Join request could not be sent.");
-    }
+  playerWs.onopen = () => {
+    playerWs.send(JSON.stringify({ type: "join", slot_id: activeSlot, name: friendName, code: roomCode }));
   };
 
   window.isObserverMode = false;
 
-  ws.onmessage = (event) => {
-    if (attemptId !== connectAttemptId || playerWs !== ws) return;
+  playerWs.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
       if (msg.type === "joined" || msg.type === "join_ack") {
-        clearConnectTimeout();
         window.isObserverMode = !!msg.observer;
         handleJoined(msg);
       } else if (msg.type === "demoted_to_observer") {
@@ -268,9 +186,8 @@ function connect(reason = "manual") {
         handleDemotedToObserver(msg);
       } else if (msg.type === "error") {
         if (!isConnected) {
-          const errMsg = msg.message || msg.error || "Failed to connect.";
-          console.error("Connection error:", errMsg);
-          disconnect(errMsg);
+          alert(`Connection error: ${msg.message || msg.error || "Failed to connect."}`);
+          disconnect();
         }
       } else if (msg.type === "pong") {
         handlePong(msg);
@@ -280,28 +197,23 @@ function connect(reason = "manual") {
     }
   };
 
-  ws.onerror = () => {
-    if (attemptId !== connectAttemptId || playerWs !== ws || isConnected) return;
-    setConnectionStatus("WebSocket connection failed", "red");
-  };
-
-  ws.onclose = () => {
-    if (attemptId !== connectAttemptId || playerWs !== ws) return;
-    playerWs = null;
-    clearConnectTimeout();
+  playerWs.onclose = () => {
     isConnected = false;
     window.isConnected = false;
-    const reconnectAllowed = !manualDisconnect;
-    const reconnectBtn = document.getElementById("join-btn");
-    if (reconnectBtn) { reconnectBtn.disabled = false; reconnectBtn.textContent = "Connect to Host"; }
-    if (reconnectAllowed) {
-      setConnectionStatus("Reconnecting to Host...", "yellow");
+    if (!manualDisconnect) {
+      const statusBadge = document.getElementById("status-badge");
+      if (statusBadge) {
+        statusBadge.className = "badge badge-warning";
+        statusBadge.innerHTML = `<span class="status-dot"></span> Reconnecting to Host...`;
+      }
       if (!reconnectTimer) {
         reconnectTimer = setTimeout(() => {
           reconnectTimer = null;
-          if (!manualDisconnect && !isConnected) connect("reconnect");
+          if (!manualDisconnect && !isConnected) connect();
         }, 1200);
       }
+    } else {
+      disconnect();
     }
   };
 }
@@ -316,7 +228,6 @@ function handleDemotedToObserver(msg) {
 }
 
 function handleJoined(msg) {
-  clearConnectTimeout();
   isConnected = true;
   window.isConnected = true;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -351,6 +262,7 @@ function handleJoined(msg) {
   switchDeviceMode(desiredMode);
   if (typeof releaseAllKeys === "function") releaseAllKeys();
   if (typeof window.resetTouchAll === "function") window.resetTouchAll();
+  if (typeof startBackgroundInputMirrorTimer === "function") startBackgroundInputMirrorTimer();
 
   if (!localVisualizer && typeof GamepadVisualizer !== "undefined") {
     localVisualizer = new GamepadVisualizer("local-viz-container", "player-viz");
@@ -360,13 +272,18 @@ function handleJoined(msg) {
   pingInterval = setInterval(sendPing, 1000);
   sendPing();
 
+  if (backgroundHeartbeatTimer) clearInterval(backgroundHeartbeatTimer);
+  backgroundHeartbeatTimer = setInterval(() => {
+    if (isConnected && playerWs && playerWs.readyState === WebSocket.OPEN) {
+      sendPing();
+    }
+  }, 2000);
+
   startInputLoop();
 }
 
-function disconnect(errorMessage) {
+function disconnect() {
   manualDisconnect = true;
-  connectAttemptId++;
-  clearConnectTimeout();
   isConnected = false;
   window.isConnected = false;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -376,14 +293,10 @@ function disconnect(errorMessage) {
   if (inputLoopHandle) cancelAnimationFrame(inputLoopHandle);
   if (pingInterval) clearInterval(pingInterval);
 
-  const ws = playerWs;
-  playerWs = null;
-  if (ws) {
-    try {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "leave" }));
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
-    } catch (_) {}
+  if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+    try { playerWs.send(JSON.stringify({ type: "leave" })); playerWs.close(); } catch (e) {}
   }
+  playerWs = null;
   if (typeof releaseAllKeys === "function") releaseAllKeys();
 
   const joinCard = document.getElementById("join-card");
@@ -392,8 +305,11 @@ function disconnect(errorMessage) {
   if (arena) arena.style.display = "none";
   const joinBtn = document.getElementById("join-btn");
   if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = "Connect to Host"; }
-  if (errorMessage) setConnectionStatus(errorMessage, "red");
-  else setConnectionStatus("Disconnected", "muted");
+  const statusBadge = document.getElementById("status-badge");
+  if (statusBadge) {
+    statusBadge.className = "badge badge-muted";
+    statusBadge.innerHTML = `<span class="status-dot"></span> Disconnected`;
+  }
 }
 
 function sendPing() {

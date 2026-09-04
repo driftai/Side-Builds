@@ -6,26 +6,10 @@ let backgroundRoutingActive = true;
 let selectedTargetInfo = null;
 let backgroundCaptureEnabled = false;
 let backgroundInputMirrorInFlight = false;
-const BACKGROUND_NATIVE_SOURCE = "background_native";
-
 let backgroundInputMirrorTimer = null;
-
-function startBackgroundInputMirrorTimer() {
-  if (backgroundInputMirrorTimer) return;
-  backgroundInputMirrorTimer = setInterval(() => {
-    if (typeof syncBackgroundInputMirror === "function") syncBackgroundInputMirror();
-  }, 50);
-}
-
-function stopBackgroundInputMirrorTimer() {
-  if (backgroundInputMirrorTimer) {
-    clearInterval(backgroundInputMirrorTimer);
-    backgroundInputMirrorTimer = null;
-  }
-  if (typeof releaseKeySource === "function") {
-    releaseKeySource(BACKGROUND_NATIVE_SOURCE);
-  }
-}
+let routingStatusTimer = null;
+let routingFocusBound = false;
+const BACKGROUND_NATIVE_SOURCE = "background_native";
 
 function isCloudflareRemoteSession() {
   return window.location.hostname.toLowerCase().endsWith(".trycloudflare.com");
@@ -37,8 +21,7 @@ function isRoutingActive() {
 
 async function refreshTargetStatus() {
   const nameEl = document.getElementById("current-target-name");
-  if (!nameEl) return;
-  if (typeof document !== "undefined" && document.hidden) return;
+  if (!nameEl || document.hidden) return;
   try {
     const res = await fetch("/api/target/status", { cache: "no-store" });
     if (!res.ok) return;
@@ -71,6 +54,7 @@ async function refreshBackgroundCaptureStatus() {
   if (isCloudflareRemoteSession()) {
     backgroundCaptureEnabled = false;
     stopBackgroundInputMirrorTimer();
+    updateRoutingUI();
     return;
   }
   try {
@@ -80,13 +64,51 @@ async function refreshBackgroundCaptureStatus() {
       backgroundCaptureEnabled = !!(data.running && data.ready);
       if (backgroundCaptureEnabled) {
         backgroundRoutingActive = true;
-        startBackgroundInputMirrorTimer();
-      } else {
-        stopBackgroundInputMirrorTimer();
       }
     }
   } catch (_) {}
+  if (backgroundCaptureEnabled) startBackgroundInputMirrorTimer();
+  else stopBackgroundInputMirrorTimer();
   updateRoutingUI();
+}
+
+function startBackgroundInputMirrorTimer() {
+  const connected = typeof isConnected !== "undefined" ? isConnected : false;
+  if (backgroundInputMirrorTimer || !backgroundCaptureEnabled || !connected || isCloudflareRemoteSession()) return;
+  backgroundInputMirrorTimer = setInterval(syncBackgroundInputMirror, 50);
+}
+
+function stopBackgroundInputMirrorTimer() {
+  if (backgroundInputMirrorTimer) {
+    clearInterval(backgroundInputMirrorTimer);
+    backgroundInputMirrorTimer = null;
+  }
+  if (typeof releaseKeySource === "function") releaseKeySource(BACKGROUND_NATIVE_SOURCE);
+}
+
+function startRoutingStatusMonitor() {
+  refreshTargetStatus();
+  if (!isCloudflareRemoteSession()) refreshBackgroundCaptureStatus();
+
+  if (routingStatusTimer) clearInterval(routingStatusTimer);
+  const intervalMs = isCloudflareRemoteSession() ? 30000 : 10000;
+  routingStatusTimer = setInterval(() => {
+    if (document.hidden) return;
+    refreshTargetStatus();
+    if (!isCloudflareRemoteSession() && backgroundCaptureEnabled) {
+      refreshBackgroundCaptureStatus();
+    }
+  }, intervalMs);
+
+  if (!routingFocusBound) {
+    window.addEventListener("focus", () => {
+      refreshTargetStatus();
+      if (!isCloudflareRemoteSession() && backgroundCaptureEnabled) {
+        refreshBackgroundCaptureStatus();
+      }
+    });
+    routingFocusBound = true;
+  }
 }
 
 function updateRoutingUI() {
@@ -156,16 +178,11 @@ async function toggleBackgroundRouting() {
       });
       const data = await res.json();
       backgroundCaptureEnabled = !!(data.ok && data.running && data.ready);
-      if (backgroundCaptureEnabled) {
-        startBackgroundInputMirrorTimer();
-        backgroundRoutingActive = true;
-      } else {
-        stopBackgroundInputMirrorTimer();
-        backgroundRoutingActive = !backgroundRoutingActive;
-      }
+      backgroundRoutingActive = backgroundCaptureEnabled || !backgroundRoutingActive;
+      if (backgroundCaptureEnabled) startBackgroundInputMirrorTimer();
+      else stopBackgroundInputMirrorTimer();
     } catch (err) {
       backgroundRoutingActive = !backgroundRoutingActive;
-      stopBackgroundInputMirrorTimer();
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -227,4 +244,5 @@ window.toggleBackgroundRouting = toggleBackgroundRouting;
 window.syncBackgroundInputMirror = syncBackgroundInputMirror;
 window.startBackgroundInputMirrorTimer = startBackgroundInputMirrorTimer;
 window.stopBackgroundInputMirrorTimer = stopBackgroundInputMirrorTimer;
+window.startRoutingStatusMonitor = startRoutingStatusMonitor;
 window.isCloudflareRemoteSession = isCloudflareRemoteSession;

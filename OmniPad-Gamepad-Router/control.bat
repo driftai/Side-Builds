@@ -12,15 +12,16 @@ echo              OMNIPAD ROUTER -- CONTROL CENTER v1.4
 echo ======================================================================
 echo.
 echo   ROUTER
-echo   [1] Start Cloudflare + LAN router ^(opens visible runtime console^)
-echo   [2] Start LAN-only router ^(opens visible runtime console^)
-echo   [3] Start with custom port ^(opens visible runtime console^)
+echo   [1] Start Cloudflare + LAN router (opens visible runtime console)
+echo   [2] Start LAN-only router (opens visible runtime console)
+echo   [3] Start with custom port (opens visible runtime console)
 echo   [4] Show status, URLs, room code, and logs
 echo   [5] Open host dashboard
 echo   [6] Start Cloudflare tunnel on running router
 echo   [7] Stop Cloudflare tunnel only (keep LAN online)
 echo   [8] Panic release all virtual inputs
 echo   [9] Stop router, tunnel, helper, and all routed input
+echo   [V] Open/reopen live router runtime console
 echo.
 echo   TOOLS
 echo   [I] Install/repair and show component readiness
@@ -41,6 +42,7 @@ if /i "%opt%"=="6" goto tunnel_start
 if /i "%opt%"=="7" goto tunnel_stop
 if /i "%opt%"=="8" goto panic
 if /i "%opt%"=="9" goto router_stop
+if /i "%opt%"=="V" goto runtime_viewer
 if /i "%opt%"=="I" goto install_repair
 if /i "%opt%"=="D" goto diagnostics
 if /i "%opt%"=="K" goto keyboard
@@ -96,6 +98,11 @@ goto menu
 
 :router_stop
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROUTER_MANAGER%" -Action Stop
+pause
+goto menu
+
+:runtime_viewer
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROUTER_MANAGER%" -Action ShowRuntime
 pause
 goto menu
 

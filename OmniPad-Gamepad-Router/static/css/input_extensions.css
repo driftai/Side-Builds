@@ -2,6 +2,7 @@
 
 .layout-preset-hint {
   margin: -4px 0 2px;
+  padding: 0 6px;
   text-align: center;
   font-size: .72rem;
   line-height: 1.45;
@@ -60,9 +61,7 @@
   flex-wrap: wrap;
 }
 
-.mouse-camera-actions {
-  gap: 6px;
-}
+.mouse-camera-actions { gap: 6px; }
 
 .mouse-sensitivity-container {
   display: inline-flex;
@@ -176,10 +175,10 @@
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
-  max-width: calc(100% - 20px);
   font-size: .7rem;
   color: var(--text-muted);
   pointer-events: none;
+  max-width: calc(100% - 20px);
   white-space: normal;
   text-align: center;
 }
@@ -231,9 +230,17 @@
 }
 
 @media (max-width: 768px) {
-  .layout-preset-hint {
-    margin-top: 0;
-    padding: 0 4px;
+  .layout-preset-hint { margin-top: 0; }
+
+  .vk-chassis {
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .vk-chassis .vk-key {
+    flex-shrink: 0;
+    touch-action: pan-x pan-y;
   }
 
   .vk-toolbar-left,
@@ -274,11 +281,6 @@
 }
 
 @media (max-width: 480px) {
-  .mouse-camera-actions .btn {
-    flex: 1 1 calc(50% - 6px);
-  }
-
-  .mouse-camera-pad {
-    height: 145px;
-  }
+  .mouse-camera-actions .btn { flex: 1 1 calc(50% - 6px); }
+  .mouse-camera-pad { height: 145px; }
 }

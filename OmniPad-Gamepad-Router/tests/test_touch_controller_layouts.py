@@ -52,7 +52,7 @@ def test_layout_classes_are_styled():
 def test_classic_is_single_default():
     print("\n--- 3. Testing Single Default Preset & Persistence ---")
     # Verify exactly one selected option in HTML
-    touch_select = HTML.split('id="touch-layout-select"')[1].split('</select>')[0]
+    touch_select = HTML.split('id="touch-layout-select"', 1)[1].split("</select>", 1)[0]
     selected_matches = [m for m in touch_select.split('<option') if 'selected' in m and any(k in m for k in EXPECTED_LAYOUTS)]
     assert len(selected_matches) == 1, f"Expected exactly 1 default selected layout, found {len(selected_matches)}"
     assert 'value="classic_landscape" selected' in HTML, "classic_landscape must be the default preset"

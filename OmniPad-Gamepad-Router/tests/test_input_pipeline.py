@@ -33,8 +33,9 @@ def test_single_keyboard_packet_uses_resolved_state():
 
     assert state["buttons"]["A"] is True
     assert "DPAD_UP" not in state["buttons"]
+    assert "BACK" not in state["buttons"]
     assert state["axes"]["lx"] == 0.0
-    assert 0.34 < state["axes"]["ly"] < 0.36
+    assert state["axes"]["ly"] == 0.35
     assert state["key_codes"] == ["KeyW", "Space"]
     assert state["input_surface"] == "keyboard"
     assert state["mapping_profile"] == "universal"
@@ -43,22 +44,36 @@ def test_single_keyboard_packet_uses_resolved_state():
 def test_keyboard_camera_key_does_not_cross_talk_to_movement():
     packet = {
         "input_surface": "keyboard",
-        "mapping_profile": "universal",
+        "mapping_profile": "arrow_keys_player2",
         "buttons": {},
         "axes": {"ry": 0.45},
         "key_codes": ["ArrowUp"],
     }
-    state = normalize({"client": packet}, packet, deadzone=0.0)
+    state = normalize({"client": packet}, packet)
 
-    assert not state["buttons"]
+    assert state["buttons"] == {}
     assert state["axes"]["lx"] == 0.0
     assert state["axes"]["ly"] == 0.0
     assert state["axes"]["rx"] == 0.0
     assert state["axes"]["ry"] == 0.45
-    assert state["key_codes"] == ["ArrowUp"]
 
 
-def test_non_keyboard_surface_can_still_use_host_profile_mapping():
+def test_keyboard_dpad_button_does_not_become_left_stick():
+    packet = {
+        "input_surface": "keyboard",
+        "mapping_profile": "universal",
+        "buttons": {"DPAD_UP": True},
+        "axes": {},
+        "key_codes": ["Digit1"],
+    }
+    state = normalize({"client": packet}, packet)
+
+    assert state["buttons"]["DPAD_UP"] is True
+    assert state["axes"]["lx"] == 0.0
+    assert state["axes"]["ly"] == 0.0
+
+
+def test_non_keyboard_surface_can_use_host_profile_mapping():
     packet = {
         "input_surface": "gamepad",
         "mapping_profile": "universal",
@@ -120,10 +135,8 @@ def test_surface_deadzone_and_socd_contracts():
     opposing = {
         "input_surface": "keyboard",
         "buttons": {
-            "DPAD_UP": True,
-            "DPAD_DOWN": True,
-            "DPAD_LEFT": True,
-            "DPAD_RIGHT": True,
+            "DPAD_UP": True, "DPAD_DOWN": True,
+            "DPAD_LEFT": True, "DPAD_RIGHT": True,
         },
         "axes": {},
         "key_codes": ["KeyW", "KeyS", "KeyA", "KeyD"],
@@ -145,7 +158,8 @@ def main():
     tests = (
         test_single_keyboard_packet_uses_resolved_state,
         test_keyboard_camera_key_does_not_cross_talk_to_movement,
-        test_non_keyboard_surface_can_still_use_host_profile_mapping,
+        test_keyboard_dpad_button_does_not_become_left_stick,
+        test_non_keyboard_surface_can_use_host_profile_mapping,
         test_background_native_does_not_remap_keys,
         test_multi_client_fusion,
         test_surface_deadzone_and_socd_contracts,

@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Start', 'Status', 'Stop', 'StartTunnel', 'StopTunnel', 'Panic', 'OpenDashboard', 'Cleanup')]
+    [ValidateSet('Start', 'Status', 'Stop', 'StartTunnel', 'StopTunnel', 'Panic', 'OpenDashboard', 'ShowRuntime', 'Cleanup')]
     [string]$Action,
     [ValidateSet('lan', 'tunnel')]
     [string]$Mode = 'lan',
@@ -118,19 +118,21 @@ function Get-RouterStatus([object]$State) {
 }
 
 function Start-RuntimeViewer([object]$State) {
-    if (-not (Test-Path -LiteralPath $runtimeViewer)) {
-        Write-Warning "Runtime viewer is missing: $runtimeViewer"
+    if ($State.viewer_pid -and (Get-ProcessRecord ([int]$State.viewer_pid))) {
+        Write-Host "Runtime console is already open (PID $($State.viewer_pid))." -ForegroundColor Green
         return
     }
-    $viewerArguments = @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-        ('"' + $runtimeViewer + '"'),
+    if (-not (Test-Path -LiteralPath $runtimeViewer)) {
+        throw "Runtime viewer is missing: $runtimeViewer"
+    }
+    $arguments = @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $runtimeViewer + '"'),
         '-ServerPid', [string]$State.pid,
         '-Port', [string]$State.port,
         '-StdoutLog', ('"' + $stdoutLog + '"'),
         '-StderrLog', ('"' + $stderrLog + '"')
     )
-    $viewer = Start-Process -FilePath 'powershell.exe' -ArgumentList $viewerArguments `
+    $viewer = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments `
         -WorkingDirectory $root -WindowStyle Normal -PassThru
     $State | Add-Member -NotePropertyName viewer_pid -NotePropertyValue $viewer.Id -Force
     Write-ControlState $State
@@ -162,6 +164,8 @@ function Show-RouterStatus {
     Write-Host "Host:   http://localhost:$($state.port)/"
     if ($state.viewer_pid -and (Get-ProcessRecord ([int]$state.viewer_pid))) {
         Write-Host "Viewer: PID $($state.viewer_pid) (visible runtime console)"
+    } else {
+        Write-Host 'Viewer: closed (use control.bat option V to reopen)'
     }
     if ($status) {
         Write-Host "Room:   $($status.room_code)"
@@ -186,8 +190,10 @@ function Start-Router {
     }
     $existing = Read-ControlState
     if (Test-ManagedProcess $existing) {
+        Start-RuntimeViewer $existing
         Show-RouterStatus
-        throw 'A managed OmniPad router is already running. Stop it before starting another.'
+        Write-Host 'The existing managed router was left running.' -ForegroundColor Yellow
+        return
     }
     if ($existing) {
         Remove-ControlState
@@ -361,6 +367,7 @@ try {
     }
     'StartTunnel' {
         $state = Require-RunningState
+        Start-RuntimeViewer $state
         $response = Invoke-ControlApi $state 'POST' '/api/tunnel/start'
         if (-not $response.ok) { throw 'Tunnel failed to start.' }
         $state.mode = 'tunnel'
@@ -391,6 +398,10 @@ try {
     'OpenDashboard' {
         $state = Require-RunningState
         Start-Process "http://localhost:$($state.port)/"
+    }
+    'ShowRuntime' {
+        $state = Require-RunningState
+        Start-RuntimeViewer $state
     }
     'Cleanup' { Cleanup-RepoProcesses }
     }

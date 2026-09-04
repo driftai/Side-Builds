@@ -52,28 +52,28 @@ class TargetManager:
         self.selected_at: Optional[float] = None
         self.selection_mode: str = "target-process"
         self._running_cache: Optional[bool] = None
-        self._running_cache_time: float = 0.0
-        self._fg_cache: Optional[bool] = None
-        self._fg_cache_time: float = 0.0
+        self._running_cache_at = 0.0
+        self._foreground_cache: Optional[bool] = None
+        self._foreground_cache_at = 0.0
         self._status_cache: Optional[Dict[str, Any]] = None
-        self._status_cache_time: float = 0.0
+        self._status_cache_at = 0.0
 
     @property
     def selected(self) -> Optional[WindowTarget]:
         return self._selected
 
     @selected.setter
-    def selected(self, val: Optional[WindowTarget]) -> None:
-        self._selected = val
-        self._invalidate_cache()
+    def selected(self, value: Optional[WindowTarget]) -> None:
+        self._selected = value
+        self._invalidate_caches()
 
-    def _invalidate_cache(self) -> None:
+    def _invalidate_caches(self) -> None:
         self._running_cache = None
-        self._running_cache_time = 0.0
-        self._fg_cache = None
-        self._fg_cache_time = 0.0
+        self._running_cache_at = 0.0
+        self._foreground_cache = None
+        self._foreground_cache_at = 0.0
         self._status_cache = None
-        self._status_cache_time = 0.0
+        self._status_cache_at = 0.0
 
     def list_windows(self, include_empty_titles: bool = False) -> List[WindowTarget]:
         if not IS_WINDOWS:
@@ -147,7 +147,6 @@ class TargetManager:
         picked.selected = True
         self.selected = picked
         self.selected_at = time.time()
-        self._invalidate_cache()
         logger.info("Selected target: %s", picked.label)
         return picked
 
@@ -155,7 +154,6 @@ class TargetManager:
         logger.info("Cleared target selection")
         self.selected = None
         self.selected_at = None
-        self._invalidate_cache()
 
     def refresh_selection(self) -> Optional[WindowTarget]:
         if not self.selected:
@@ -199,73 +197,54 @@ class TargetManager:
         except Exception:
             return None
 
-    def _check_target_foreground_fast(self) -> bool:
-        if not self.selected or not IS_WINDOWS:
-            return False
-        try:
-            hwnd = win32gui.GetForegroundWindow()
-            if not hwnd:
-                return False
-            target_hwnd = getattr(self.selected, "hwnd", None)
-            if target_hwnd and hwnd == target_hwnd:
-                return True
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            return pid == getattr(self.selected, "pid", None)
-        except Exception:
-            return False
-
     def is_target_foreground(self) -> bool:
         if not self.selected:
             return True
         if not IS_WINDOWS:
             return False
+        now = time.monotonic()
+        if self._foreground_cache is not None and now - self._foreground_cache_at < 0.15:
+            return self._foreground_cache
+        try:
+            hwnd = win32gui.GetForegroundWindow()
+            _, pid = win32process.GetWindowThreadProcessId(hwnd) if hwnd else (0, 0)
+            result = bool(hwnd and (hwnd == self.selected.hwnd or pid == self.selected.pid))
+        except Exception:
+            result = False
+        self._foreground_cache = result
+        self._foreground_cache_at = now
+        return result
 
-        now = time.time()
-        if self._fg_cache is not None and (now - self._fg_cache_time) < 0.15:
-            return self._fg_cache
-
-        is_fg = self._check_target_foreground_fast()
-        self._fg_cache = is_fg
-        self._fg_cache_time = now
-        return is_fg
-
-    def _check_target_running_fast(self) -> bool:
+    def _check_target_running(self) -> bool:
         if not self.selected or not IS_WINDOWS:
             return False
-        # 1. Fast HWND validity check
         try:
-            hwnd = getattr(self.selected, "hwnd", None)
-            pid = getattr(self.selected, "pid", None)
-            if hwnd and win32gui.IsWindow(hwnd):
-                _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
-                if window_pid == pid:
+            if win32gui.IsWindow(self.selected.hwnd):
+                _, pid = win32process.GetWindowThreadProcessId(self.selected.hwnd)
+                if pid == self.selected.pid:
                     return True
         except Exception:
             pass
 
-        # 2. Process check (handles case where game window was recreated/changed under same PID)
-        pid = getattr(self.selected, "pid", None)
-        if not pid:
-            return False
         handle = None
         try:
-            handle = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not handle:
-                return False
-            exit_code = win32process.GetExitCodeProcess(handle)
-            # STILL_ACTIVE is 259
-            return exit_code == 259
+            handle = win32api.OpenProcess(
+                win32con.PROCESS_QUERY_LIMITED_INFORMATION,
+                False,
+                self.selected.pid,
+            )
+            return bool(handle and win32process.GetExitCodeProcess(handle) == 259)
         except Exception:
             return False
         finally:
-            if handle:
-                try:
+            try:
+                if handle:
                     win32api.CloseHandle(handle)
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
     def is_target_running(self) -> bool:
-        """Return True while the selected target process still owns a window or is alive.
+        """Return True while the selected target process still owns a window.
 
         This intentionally ignores foreground focus so virtual controller outputs
         can keep reaching the selected game's input device while a screen-share,
@@ -275,43 +254,38 @@ class TargetManager:
             return True
         if not IS_WINDOWS:
             return False
-
-        now = time.time()
-        if self._running_cache is not None and (now - self._running_cache_time) < 0.25:
+        now = time.monotonic()
+        if self._running_cache is not None and now - self._running_cache_at < 0.25:
             return self._running_cache
-
-        running = self._check_target_running_fast()
-        self._running_cache = running
-        self._running_cache_time = now
-        return running
+        self._running_cache = self._check_target_running()
+        self._running_cache_at = now
+        return self._running_cache
 
     def get_status(self) -> Dict[str, Any]:
-        now = time.time()
-        if self._status_cache is not None and (now - self._status_cache_time) < 0.3:
-            return self._status_cache
+        now = time.monotonic()
+        if self._status_cache is not None and now - self._status_cache_at < 0.5:
+            return dict(self._status_cache)
 
-        fg = self.foreground()
-        is_fg = None
-        is_running = None
+        # Foreground metadata is only relevant after the host selects a target.
+        # Avoid opening the foreground process twice per second on an idle router.
+        fg = self.foreground() if self.selected else None
+        target_foreground = None
+        target_running = None
         if self.selected:
-            if fg and (fg.pid == getattr(self.selected, "pid", None) or fg.hwnd == getattr(self.selected, "hwnd", None)):
-                is_fg = True
-            else:
-                is_fg = self.is_target_foreground()
-            is_running = self.is_target_running()
-
+            target_foreground = self.is_target_foreground()
+            target_running = self.is_target_running()
         status = {
             "selected": self.selected.public_dict() if hasattr(self.selected, "public_dict") else (self.selected.__dict__ if self.selected else None),
             "selected_at": self.selected_at,
             "foreground": fg.public_dict() if fg else None,
-            "target_foreground": is_fg,
-            "target_running": is_running,
+            "target_foreground": target_foreground,
+            "target_running": target_running,
             "selection_mode": self.selection_mode,
             "platform_windows": IS_WINDOWS,
         }
         self._status_cache = status
-        self._status_cache_time = now
-        return status
+        self._status_cache_at = now
+        return dict(status)
 
 
 # Singleton shared by REST handlers and controller backends.

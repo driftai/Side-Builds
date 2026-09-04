@@ -18,9 +18,10 @@ OmniPad should converge on focused modules with explicit ownership:
 ## Current migration queue
 
 ### 1. server.py (COMPLETED - Phase 1)
-**Status:** Thin composition root (**278 lines**).
+**Status:** Thin composition root (**280 lines**).
 - REST API routes extracted to `router/api_routes.py` (**353 lines**).
 - Background keyboard helper lifecycle extracted to `router/background_helper.py` (**183 lines**).
+- Routine access-log filtering extracted to `router/access_logging.py` (**40 lines**).
 
 ### 2. router/controller.py (COMPLETED - Phase 1)
 **Status:** Controller factory & registry (**151 lines**).
@@ -36,18 +37,18 @@ OmniPad should converge on focused modules with explicit ownership:
 **Status:** Focused slot lifecycle, output gating, and backend routing (**357 lines**).
 - `PlayerSlot` data structure extracted to `router/slot.py` (**61 lines**).
 - Profile key mapping extracted to `router/key_mapping.py` (**89 lines**).
-- Multi-client packet fusion, SOCD application, and input normalization extracted to `router/input_pipeline.py` (**102 lines**).
+- Multi-client packet fusion, SOCD application, and input normalization extracted to `router/input_pipeline.py` (**99 lines**).
 
 ### 4. Browser UI Modules (COMPLETED - Phase 2)
-- **`static/js/play.js` (COMPLETED)**: Reduced from **1140 lines to 404 lines**.
+- **`static/js/play.js` (COMPLETED)**: Reduced from **1140 lines to 399 lines**.
   - Keyboard layout definitions and controller badges extracted to `static/js/keyboard_layouts.js` (**268 lines**).
-  - Gamepad profile configurations and keybinding grid extracted to `static/js/gamepad_profiles.js` (**120 lines**).
-  - Virtual keyboard state engine and pointer tracking extracted to `static/js/virtual_keyboard.js` (**197 lines**).
-  - Target scoping and background companion synchronization extracted to `static/js/target_routing.js` (**197 lines**).
+  - Gamepad profile configurations and keybinding grid extracted to `static/js/gamepad_profiles.js` (**126 lines**).
+  - Virtual keyboard state engine and pointer tracking extracted to `static/js/virtual_keyboard.js` (**205 lines**).
+  - Target scoping and demand-driven background companion synchronization extracted to `static/js/target_routing.js` (**248 lines**).
   - Input capture aggregation extracted to `static/js/input_capture.js` (**59 lines**).
-- **`static/js/dashboard.js` (COMPLETED)**: Reduced from **486 lines to 168 lines**.
-  - Target enumeration and safety gating extracted to `static/js/dashboard_targets.js` (**113 lines**).
-  - Cloudflare Quick Tunnel management extracted to `static/js/dashboard_tunnel.js` (**109 lines**).
+- **`static/js/dashboard.js` (COMPLETED)**: Reduced from **486 lines to 182 lines**.
+  - Target enumeration and safety gating extracted to `static/js/dashboard_targets.js` (**119 lines**).
+  - Cloudflare Quick Tunnel management extracted to `static/js/dashboard_tunnel.js` (**115 lines**).
   - Slot cards, visualizer synchronization, and controls extracted to `static/js/dashboard_slots.js` (**271 lines**).
 
 ## Rules for extraction
@@ -60,4 +61,4 @@ OmniPad should converge on focused modules with explicit ownership:
 
 ## Success condition
 
-The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and every covered source file in the repository (both Python and JavaScript) is at or below the 450-line maximum ceiling. All 21 test suites and the architecture checker are 100% green.
+The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and every covered source file in the repository (both Python and JavaScript) is at or below the 450-line maximum ceiling. All 22 test suites and the architecture checker are 100% green.

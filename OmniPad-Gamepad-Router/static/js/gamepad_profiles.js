@@ -2,7 +2,8 @@
  * OmniPad — Gamepad Profile Definitions & Reference Grid Renderer.
  */
 
-let currentGamepadProfile = localStorage.getItem("omnipad.gamepadProfile") || "street_fighter_6";
+let currentGamepadProfile = "street_fighter_6";
+try { currentGamepadProfile = localStorage.getItem("omnipad.gamepadProfile") || currentGamepadProfile; } catch (_) {}
 
 let gamepadKeymap = {
   "KeyW": "DPAD_UP", "KeyS": "DPAD_DOWN", "KeyA": "DPAD_LEFT", "KeyD": "DPAD_RIGHT",

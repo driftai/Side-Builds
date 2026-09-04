@@ -28,30 +28,24 @@ async def run_surface_combinations_e2e():
         "seq": 1,
         "input_surface": "keyboard",
         "mapping_profile": "universal",
-        "buttons": {
-            "A": True,
-            "B": True,
-            "LB": True,
-            "LT": True,
-            "START": True,
-            "BACK": True,
-        },
-        "axes": {"lx": -1.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 1.0, "rt": 0.0},
+        # Browser keyboard semantics are already resolved before transport.
+        # Raw codes remain alongside them for virtual-keyboard output only.
+        "buttons": {"A": True, "B": True, "LB": True, "LT": True, "START": True, "BACK": True},
+        "axes": {"lx": -0.35, "ly": 0.35, "rx": 0, "ry": 0, "lt": 1, "rt": 0},
         "key_codes": ["KeyW", "KeyA", "KeyU", "KeyI", "Space", "ShiftLeft", "Enter", "KeyZ", "Escape"],
     }
     await sm.process_input_packet(1, kb_to_xbox_packet)
     assert slot1.last_state["input_surface"] == "keyboard"
-    assert slot1.last_state["axes"]["ly"] == 1.0
-    assert slot1.last_state["axes"]["lx"] == -1.0
-    assert slot1.last_state["axes"]["lt"] == 1.0
+    assert slot1.last_state["axes"]["ly"] == 0.35
+    assert slot1.last_state["axes"]["lx"] == -0.35
     assert slot1.last_state["buttons"]["A"] is True
     assert slot1.last_state["buttons"]["B"] is True
     assert slot1.last_state["buttons"]["LB"] is True
     assert slot1.last_state["buttons"]["LT"] is True
     assert slot1.last_state["buttons"]["START"] is True
     assert slot1.last_state["buttons"]["BACK"] is True
-    assert "KeyW" in slot1.last_state["key_codes"]
-    print("  [PASS] Combination A: Remote Keyboard Surface -> Xbox 360 Output (Resolved browser axes/buttons applied, raw keys preserved)")
+    assert slot1.last_state["key_codes"] == kb_to_xbox_packet["key_codes"]
+    print("  [PASS] Combination A: Remote Keyboard Surface -> Xbox 360 Output (client-resolved state, raw codes preserved)")
 
     # -------------------------------------------------------------
     # Combination B: Remote Keyboard surface -> Keyboard Output

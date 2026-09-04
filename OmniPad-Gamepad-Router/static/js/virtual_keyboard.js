@@ -92,9 +92,8 @@ function releaseAllKeys() {
   codeCount.clear();
   activeKeys.clear();
   pointerKeyMap.clear();
-  if (typeof window.resetKeyboardAnalogState === "function") {
-    window.resetKeyboardAnalogState();
-  }
+  window.resetKeyboardAnalogState?.();
+  window.resetMouseCameraState?.(false);
   document.querySelectorAll(".vk-key.pressed").forEach(k => k.classList.remove("pressed"));
   updateActiveKeysDisplay();
 
@@ -117,6 +116,7 @@ function releaseAllKeys() {
 function renderVirtualKeyboard(layoutName) {
   const chassis = document.getElementById("vk-chassis");
   if (!chassis) return;
+  window.currentKeyboardLayout = layoutName;
   chassis.innerHTML = "";
 
   const isControllerPreset = layoutName === "xbox_controller" ||
@@ -160,12 +160,14 @@ function renderVirtualKeyboard(layoutName) {
         try { keyEl.setPointerCapture(e.pointerId); } catch (_) {}
         pointerKeyMap.set(e.pointerId, keyDef.code);
         pressKeySource(`pointer_${e.pointerId}`, keyDef.code);
+        window.transmitCurrentInputState?.();
       });
 
       const handlePointerRelease = (e) => {
         const code = pointerKeyMap.get(e.pointerId) || keyDef.code;
         pointerKeyMap.delete(e.pointerId);
         releaseKeySource(`pointer_${e.pointerId}`, code);
+        window.transmitCurrentInputState?.();
       };
 
       keyEl.addEventListener("pointerup", handlePointerRelease);

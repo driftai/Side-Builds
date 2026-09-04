@@ -52,6 +52,10 @@ echo Running OmniPad Target Discovery Tests...
 "%PYTHON%" tests\test_targeting.py
 if errorlevel 1 exit /b 1
 
+echo Running OmniPad Runtime Efficiency ^& Log Noise Tests...
+"%PYTHON%" tests\test_runtime_efficiency.py
+if errorlevel 1 exit /b 1
+
 echo Running OmniPad Keyboard Bridge Tests...
 "%PYTHON%" tests\test_keyboard_bridge.py
 if errorlevel 1 exit /b 1

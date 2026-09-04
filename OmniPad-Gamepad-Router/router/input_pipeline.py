@@ -53,13 +53,10 @@ def build_normalized_input_state(
 
         raw_key_codes = list(raw_key_codes_set)[:64]
 
-    # Browser Keyboard mode is already resolved by keyboard_type_adapter.js into
-    # backend-neutral buttons + LS/RS axes. Mapping its raw key identities again
-    # here makes one key perform two jobs (for example ArrowUp => RS + D-pad, or
-    # I/J/K/L camera keys => unrelated face buttons). Keep raw key_codes intact
-    # for the physical/UMDF keyboard backends, but trust the resolved controller
-    # state for this surface. Gamepad-mode keyboard shortcuts still use the host
-    # profile map, and the native helper already sends resolved controller state.
+    # Browser Keyboard mode is already resolved into backend-neutral buttons
+    # and LS/RS axes. Mapping its raw key identities here a second time makes
+    # camera keys perform unrelated movement/actions. Raw key_codes are still
+    # retained for the physical and UMDF keyboard backends.
     if input_surface not in {"background_native", "keyboard"}:
         mapped_buttons = map_key_codes_to_gamepad(raw_key_codes, mapping_profile)
         for action, pressed in mapped_buttons.items():
@@ -75,18 +72,8 @@ def build_normalized_input_state(
     lt = max(0.0, min(1.0, float(raw_axes.get("lt", 0.0) or 0.0)))
     rt = max(0.0, min(1.0, float(raw_axes.get("rt", 0.0) or 0.0)))
 
-    # Keyboard directions normally arrive as progressive analog axes from the
-    # browser. Retain D-pad fallback only for explicit resolved D-pad buttons.
-    if input_surface == "keyboard" and lx == 0.0 and ly == 0.0:
-        if cleaned_buttons.get("DPAD_UP") and not cleaned_buttons.get("DPAD_DOWN"):
-            ly = 1.0
-        elif cleaned_buttons.get("DPAD_DOWN") and not cleaned_buttons.get("DPAD_UP"):
-            ly = -1.0
-        if cleaned_buttons.get("DPAD_RIGHT") and not cleaned_buttons.get("DPAD_LEFT"):
-            lx = 1.0
-        elif cleaned_buttons.get("DPAD_LEFT") and not cleaned_buttons.get("DPAD_RIGHT"):
-            lx = -1.0
-
+    # Keyboard ramping and low-sensitivity mouse input are already deliberate
+    # values, so the controller deadzone must not attenuate them again.
     if input_surface in {"keyboard", "background_native"}:
         effective_deadzone = 0.0
     elif input_surface == "touch":

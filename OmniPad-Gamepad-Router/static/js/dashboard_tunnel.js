@@ -2,16 +2,6 @@
  * OmniPad Host Dashboard — Cloudflare Quick Tunnel Management.
  */
 
-function getActiveRoomCode() {
-  const roomCodeEl = document.getElementById("room-code-display");
-  const candidates = [window.currentRoomCode, roomCodeEl ? roomCodeEl.textContent : ""];
-  for (const value of candidates) {
-    const code = String(value || "").trim().toUpperCase();
-    if (code && code !== "SF6-ROOM" && code !== "--") return code;
-  }
-  return "";
-}
-
 function updateTunnelUI(tunnel) {
   if (!tunnel) return;
   const badge = document.getElementById("tunnel-status-badge");
@@ -31,21 +21,12 @@ function updateTunnelUI(tunnel) {
   }
 
   if (tunnel.status === "active" && tunnel.public_url) {
-    const roomCode = getActiveRoomCode();
-    const publicPlayUrl = roomCode
-      ? `${tunnel.public_url}/play?code=${encodeURIComponent(roomCode)}`
-      : "";
-
+    const roomCodeEl = document.getElementById("room-code-display");
+    const roomCode = roomCodeEl ? roomCodeEl.textContent.trim() : "";
+    const roomCodeReady = roomCode && roomCode !== "--" && roomCode !== "SF6-ROOM";
     if (badge) {
       badge.className = "badge badge-cyan";
       badge.innerHTML = `<span class="status-dot"></span> Quick Tunnel Active`;
-    }
-    if (urlDisplay) {
-      if (publicPlayUrl) {
-        urlDisplay.innerHTML = `<a href="${publicPlayUrl}" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">${publicPlayUrl}</a>`;
-      } else {
-        urlDisplay.textContent = "Tunnel ready — waiting for the active room code...";
-      }
     }
     if (tunnelBtn) {
       tunnelBtn.textContent = "Stop Tunnel";
@@ -53,11 +34,20 @@ function updateTunnelUI(tunnel) {
       tunnelBtn.disabled = false;
       tunnelBtn.onclick = stopTunnel;
     }
+    if (!roomCodeReady) {
+      if (urlDisplay) urlDisplay.textContent = "Tunnel ready; waiting for the current room code...";
+      if (qrBtn) qrBtn.style.display = "none";
+      return;
+    }
+    const publicPlayUrl = `${tunnel.public_url}/play?code=${encodeURIComponent(roomCode)}`;
+    if (urlDisplay) {
+      urlDisplay.innerHTML = `<a href="${publicPlayUrl}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: underline;">${publicPlayUrl}</a>`;
+    }
     if (qrBtn) {
-      qrBtn.style.display = publicPlayUrl ? "inline-flex" : "none";
-      qrBtn.onclick = publicPlayUrl ? () => {
+      qrBtn.style.display = "inline-flex";
+      qrBtn.onclick = () => {
         if (typeof showQR === "function") showQR(publicPlayUrl, "Public Cloudflare Link");
-      } : null;
+      };
     }
   } else if (tunnel.status === "starting") {
     if (badge) {
@@ -119,7 +109,6 @@ async function pollTunnel() {
   }
 }
 
-window.getActiveRoomCode = getActiveRoomCode;
 window.updateTunnelUI = updateTunnelUI;
 window.startTunnel = startTunnel;
 window.stopTunnel = stopTunnel;

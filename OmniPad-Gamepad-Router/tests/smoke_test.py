@@ -373,16 +373,17 @@ async def test_local_background_routing_and_key_streaming():
         "mapping_profile": "universal",
         "background_routing": True,
         "buttons": {"A": True, "X": True},
-        "axes": {"lx": 1.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+        "axes": {"lx": 0.35, "ly": 0.35, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
         "key_codes": ["KeyW", "KeyD", "Space", "KeyJ"]
     }
     await sm.process_input_packet(1, kb_frame)
-    assert slot.last_state["axes"]["ly"] == 1.0, "KeyW must map to Left Stick Y=1.0"
-    assert slot.last_state["axes"]["lx"] == 1.0, "KeyD must map to Left Stick X=1.0"
+    assert slot.last_state["axes"]["ly"] == 0.35, "Browser-resolved W must preserve progressive Left Stick Y"
+    assert slot.last_state["axes"]["lx"] == 0.35, "Browser-resolved D must preserve progressive Left Stick X"
     assert slot.last_state["buttons"].get("A") is True, "Space must map to A button"
     assert slot.last_state["buttons"].get("X") is True, "KeyJ must map to X button"
     assert slot.is_active is True
-    print("  [PASS] Key codes (WASD + Space + J) correctly map to axes and buttons with background routing ON")
+    assert slot.last_state["key_codes"] == kb_frame["key_codes"]
+    print("  [PASS] Browser-resolved keyboard state and raw key identity route together without remapping")
 
     # Test 2: When background_routing is toggled OFF (Site-Only), controller outputs neutralize
     site_only_frame = {
@@ -390,8 +391,8 @@ async def test_local_background_routing_and_key_streaming():
         "input_surface": "keyboard",
         "mapping_profile": "universal",
         "background_routing": False,
-        "buttons": {"A": True},
-        "axes": {"lx": 0.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+        "buttons": {},
+        "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
         "key_codes": ["KeyW", "Space"]
     }
     await sm.process_input_packet(1, site_only_frame)

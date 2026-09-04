@@ -345,7 +345,6 @@ class TargetGateRequest(BaseModel):
 async def set_target_gate(req: TargetGateRequest, request: Request):
     require_local_request(request)
     config.target_gate_enabled = bool(req.enabled)
-    target_manager._invalidate_cache()
     return {"ok": True, "enabled": config.target_gate_enabled}
 
 

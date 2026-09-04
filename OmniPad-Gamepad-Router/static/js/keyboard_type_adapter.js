@@ -4,6 +4,10 @@
  */
 
 (() => {
+  const commonDpad = {
+    Digit1: "DPAD_UP", Digit2: "DPAD_DOWN",
+    Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+  };
   const TYPES = {
     standard: {
       label: "Standard PC (WASD + Arrows)",
@@ -13,8 +17,7 @@
         Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
         KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
         ShiftRight: "LT", ControlRight: "RT", Escape: "BACK", Enter: "START", F1: "GUIDE",
-        CapsLock: "L3", KeyF: "L3", KeyG: "R3",
-        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+        CapsLock: "L3", KeyF: "L3", KeyG: "R3", ...commonDpad
       }
     },
     compact65: {
@@ -25,8 +28,7 @@
         Space: "A", KeyE: "X", KeyQ: "Y", KeyR: "B",
         KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
         ShiftRight: "LT", ControlRight: "RT", Escape: "BACK", Enter: "START", Backquote: "GUIDE",
-        CapsLock: "L3", KeyF: "L3", KeyG: "R3",
-        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+        CapsLock: "L3", KeyF: "L3", KeyG: "R3", ...commonDpad
       }
     },
     arrowless: {
@@ -39,8 +41,7 @@
         KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
         ShiftRight: "LT", BracketLeft: "LB", BracketRight: "RB",
         Escape: "BACK", Enter: "START", Backquote: "GUIDE",
-        CapsLock: "L3", KeyF: "L3", KeyH: "R3",
-        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+        CapsLock: "L3", KeyF: "L3", KeyH: "R3", ...commonDpad
       }
     },
     esdf: {
@@ -52,8 +53,7 @@
         KeyU: "X", KeyO: "Y", KeyP: "B", Semicolon: "A",
         KeyZ: "LB", KeyX: "RB", ShiftLeft: "LT", ControlLeft: "RT",
         ShiftRight: "LT", Escape: "BACK", Enter: "START", F1: "GUIDE",
-        KeyA: "L3", KeyG: "R3", KeyH: "R3",
-        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+        KeyA: "L3", KeyG: "R3", KeyH: "R3", ...commonDpad
       }
     },
     vim_camera: {
@@ -65,15 +65,13 @@
         KeyU: "A", KeyI: "B", KeyO: "Y", KeyP: "X",
         KeyZ: "LB", KeyC: "RB", ShiftLeft: "LT", ControlLeft: "RT",
         ShiftRight: "LT", Escape: "BACK", Enter: "START", F1: "GUIDE",
-        CapsLock: "L3", KeyF: "L3", KeyN: "R3", KeyM: "R3",
-        Digit1: "DPAD_UP", Digit2: "DPAD_DOWN", Digit3: "DPAD_LEFT", Digit4: "DPAD_RIGHT"
+        CapsLock: "L3", KeyF: "L3", KeyN: "R3", KeyM: "R3", ...commonDpad
       }
     }
   };
 
-  // Fixed clickable presets keep their own advertised semantics. Controller-
-  // labeled/full/compact layouts intentionally use the selected physical type,
-  // which makes the visual Xbox/PlayStation theme independent of host backend.
+  // These two clickable layouts advertise fixed controls. Other layouts use
+  // the selected physical keyboard type while remaining backend-independent.
   const FIXED_LAYOUTS = {
     wasd_fighter: {
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
@@ -94,9 +92,10 @@
     }
   };
 
+  let savedType = "standard";
+  try { savedType = localStorage.getItem("omnipad.keyboardType") || savedType; } catch (_) {}
   window.keyboardTypes = TYPES;
   window.keyboardLayoutSemantics = FIXED_LAYOUTS;
-  const savedType = localStorage.getItem("omnipad.keyboardType") || "standard";
   window.currentKeyboardType = TYPES[savedType] ? savedType : "standard";
 
   function buttonLabels(playstation) {
@@ -113,38 +112,37 @@
     for (const [action, badge] of Object.entries(pairs)) labels[action] = { badge, highlight: "vk-highlight-action" };
     for (const action of ["LB", "RB", "LT", "RT"]) labels[action].highlight = "vk-highlight-modifier";
     for (const action of ["L3", "R3"]) labels[action] = { badge: action, highlight: "vk-highlight-action" };
-    for (const [action, badge] of Object.entries({ DPAD_UP: "D↑", DPAD_DOWN: "D↓", DPAD_LEFT: "D←", DPAD_RIGHT: "D→" })) {
-      labels[action] = { badge, highlight: "vk-highlight-move" };
-    }
+    for (const [action, badge] of Object.entries({
+      DPAD_UP: "D↑", DPAD_DOWN: "D↓", DPAD_LEFT: "D←", DPAD_RIGHT: "D→"
+    })) labels[action] = { badge, highlight: "vk-highlight-move" };
     return labels;
   }
 
   function getActiveControllerBadges(layoutName, keyboardType) {
     const type = TYPES[keyboardType] || TYPES.standard;
+    const spec = FIXED_LAYOUTS[layoutName] || type;
     const badgeMap = {};
     const labels = buttonLabels(Boolean(layoutName && layoutName.includes("playstation")));
     for (const [direction, badge] of Object.entries({ up: "LS ↑", down: "LS ↓", left: "LS ←", right: "LS →" })) {
-      if (type.move[direction]) badgeMap[type.move[direction]] = { badge, highlight: "vk-highlight-move" };
+      if (spec.move[direction]) badgeMap[spec.move[direction]] = { badge, highlight: "vk-highlight-move" };
     }
     for (const [direction, badge] of Object.entries({ up: "RS ↑", down: "RS ↓", left: "RS ←", right: "RS →" })) {
-      if (type.camera[direction]) badgeMap[type.camera[direction]] = { badge, highlight: "vk-highlight-move" };
+      if (spec.camera[direction]) badgeMap[spec.camera[direction]] = { badge, highlight: "vk-highlight-move" };
     }
-    for (const [code, action] of Object.entries(type.buttons || {})) {
+    for (const [code, action] of Object.entries(spec.buttons || {})) {
       if (!badgeMap[code] && labels[action]) badgeMap[code] = labels[action];
     }
     return badgeMap;
   }
-  window.getActiveControllerBadges = getActiveControllerBadges;
 
   let smoothLx = 0, smoothLy = 0, smoothRx = 0, smoothRy = 0;
-
   function resetKeyboardAnalogState() {
     smoothLx = smoothLy = smoothRx = smoothRy = 0;
   }
 
   function setKeyboardType(type) {
     if (!TYPES[type]) type = "standard";
-    if (type !== window.currentKeyboardType && typeof window.releaseAllKeys === "function") window.releaseAllKeys();
+    if (type !== window.currentKeyboardType) window.releaseAllKeys?.();
     resetKeyboardAnalogState();
     window.currentKeyboardType = type;
     try { localStorage.setItem("omnipad.keyboardType", type); } catch (_) {}
@@ -158,7 +156,7 @@
     const pointer = new Set();
     const physical = new Set();
     const holds = window.srcHolds;
-    if (holds && holds.size) {
+    if (holds?.size) {
       for (const [source, codes] of holds.entries()) {
         const destination = String(source).startsWith("pointer_") ? pointer : physical;
         for (const code of codes) destination.add(code);
@@ -196,14 +194,15 @@
 
   const originalCaptureState = window.captureState;
   window.captureState = function captureStateWithKeyboardType() {
-    const state = originalCaptureState ? originalCaptureState() : { buttons: {}, axes: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 } };
+    const state = originalCaptureState ? originalCaptureState() : {
+      buttons: {}, axes: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 }
+    };
     if ((window.currentMode || "keyboard") !== "keyboard") return state;
 
     const type = TYPES[window.currentKeyboardType] || TYPES.standard;
     const { pointer, physical } = sourceKeySets();
     const physicalResolved = resolve(physical, type);
-    const layoutSpec = FIXED_LAYOUTS[window.currentKeyboardLayout] || type;
-    const pointerResolved = resolve(pointer, layoutSpec);
+    const pointerResolved = resolve(pointer, FIXED_LAYOUTS[window.currentKeyboardLayout] || type);
     const combined = {};
     for (const key of ["moveUp", "moveDown", "moveLeft", "moveRight", "camUp", "camDown", "camLeft", "camRight"]) {
       combined[key] = physicalResolved[key] || pointerResolved[key];
@@ -213,7 +212,6 @@
     const targetLy = combined.moveUp !== combined.moveDown ? (combined.moveUp ? 1 : -1) : 0;
     const targetRx = combined.camRight !== combined.camLeft ? (combined.camRight ? 1 : -1) : 0;
     const targetRy = combined.camUp !== combined.camDown ? (combined.camUp ? 1 : -1) : 0;
-
     smoothLx = approach(smoothLx, targetLx);
     smoothLy = approach(smoothLy, targetLy);
     smoothRx = approach(smoothRx, targetRx);
@@ -226,7 +224,6 @@
     Object.assign(state.buttons, physicalResolved.buttons, pointerResolved.buttons);
     if (state.buttons.LT) state.axes.lt = 1;
     if (state.buttons.RT) state.axes.rt = 1;
-
     const mouse = window.mouseCameraState;
     if (mouse?.active) {
       state.axes.rx = mouse.rx;
@@ -243,6 +240,8 @@
     select.addEventListener("change", event => setKeyboardType(event.target.value));
   });
 
+  window.getActiveControllerBadges = getActiveControllerBadges;
   window.setKeyboardType = setKeyboardType;
   window.resetKeyboardAnalogState = resetKeyboardAnalogState;
+  window.OmniPadKeyboardSemantics = { TYPES, FIXED_LAYOUTS, resolve };
 })();

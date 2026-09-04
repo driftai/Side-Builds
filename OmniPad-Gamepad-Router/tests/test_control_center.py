@@ -22,7 +22,7 @@ def test_control_surface_contract():
     tunnel = (ROOT / "tools" / "start_with_tunnel.bat").read_text(encoding="utf-8")
     repair = (ROOT / "install_or_repair.bat").read_text(encoding="utf-8")
 
-    for action in ("StartTunnel", "StopTunnel", "Panic", "OpenDashboard", "Cleanup"):
+    for action in ("StartTunnel", "StopTunnel", "Panic", "OpenDashboard", "ShowRuntime", "Cleanup"):
         assert action in manager
     assert ".runtime" in manager and "omnipad-control.json" in manager
     assert "Test-ManagedProcess" in manager
@@ -31,13 +31,15 @@ def test_control_surface_contract():
     assert "/api/control/shutdown" in manager
     assert "Get-DescendantProcessIds" in manager
     assert "Start-RuntimeViewer" in manager
-    assert "watch_router_runtime.ps1" in manager
     assert "-WindowStyle Normal" in manager
-    assert "visible runtime console" in manager
     assert "Cloudflare tunnel is already stopped; no managed router is running." in manager
-    assert "Write-Error $_.Exception.Message" not in manager
-    assert "OmniPad Router Runtime" in viewer
-    assert "closing this viewer" in viewer and "does not stop the router" in viewer
+    assert "Write-Error" not in manager
+    assert "[V] Open/reopen live router runtime console" in control
+    assert "Managed launcher PID" in viewer
+    assert "Uvicorn writes ordinary INFO lifecycle messages to stderr" in viewer
+    assert 'Write-Host ("[ERROR] " + $Line)' in viewer
+    assert 'Write-Host ("[ERR] " + $Line)' not in viewer
+    assert "Closing this viewer in 5 seconds" in viewer
     assert "taskkill /F /IM" not in control
     assert "taskkill /F /IM" not in cleanup
     assert "REMOVE UMDF" in control
@@ -47,7 +49,7 @@ def test_control_surface_contract():
     assert "leave current router state unchanged" in control
     assert "manage_router.ps1" in lan and "-Mode lan" in lan
     assert "manage_router.ps1" in tunnel and "-Mode tunnel" in tunnel
-    print("  [PASS] Control center owns visible start/status/tunnel/panic/stop and scoped cleanup")
+    print("  [PASS] Control center owns start/status/tunnel/panic/stop and scoped cleanup")
 
 
 def test_driver_management_contract():
