@@ -9,6 +9,7 @@
 (() => {
   const INPUT_ID = "join-room-code";
   const STALE_PLACEHOLDERS = new Set(["SF6-ROOM", "--"]);
+  let installed = false;
 
   function normalizeRoomCode(value) {
     let text = String(value ?? "").trim();
@@ -88,8 +89,17 @@
   }
 
   function install() {
-    // Apply the URL code before play.js's DOMContentLoaded handler gets to its
-    // delayed auto-connect path.
+    if (installed) {
+      // Even on pageshow/history restore, refresh the URL-owned code immediately.
+      const code = roomCodeFromLocation();
+      if (code) setRoomCodeField(code);
+      return;
+    }
+    installed = true;
+
+    // The player form is above this script in play.html, so do not wait for
+    // DOMContentLoaded when the input already exists. This guarantees the
+    // ?code= value is present before play.js can auto-connect.
     const initialCode = roomCodeFromLocation();
     if (initialCode) setRoomCodeField(initialCode);
     else fillLocalCodeIfMissing();
@@ -138,7 +148,9 @@
     resolveForJoin,
   };
 
-  if (document.readyState === "loading") {
+  if (roomCodeInput()) {
+    install();
+  } else if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", install, { once: true });
   } else {
     install();
