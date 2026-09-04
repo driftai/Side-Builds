@@ -12,11 +12,14 @@ def read(relative: str) -> str:
 
 def main() -> None:
     play = read("static/play.html")
+    index = read("static/index.html")
     routing = read("static/js/target_routing.js")
     keyboard = read("static/js/keyboard_type_adapter.js")
     profiles = read("static/js/gamepad_profiles.js")
     mouse = read("static/js/mouse_camera.js")
     latency = read("static/js/low_latency_input.js")
+    room_code = read("static/js/room_code.js")
+    tunnel = read("static/js/dashboard_tunnel.js")
     virtual_keyboard = read("static/js/virtual_keyboard.js")
     pipeline = read("router/input_pipeline.py")
     css = read("static/css/input_extensions.css")
@@ -31,6 +34,27 @@ def main() -> None:
     assert "keyboard_type_adapter.js?v=1.3.3" in play
     assert "low_latency_input.js?v=1.3.3" in play
     assert "input_extensions.css?v=1.3.3" in play
+
+    # Join URLs are the source of truth for remote room pairing. A stale HTML
+    # placeholder must never override ?code= from LAN/Cloudflare/QR links.
+    assert 'id="join-room-code"' in play
+    assert 'value="SF6-ROOM"' not in play
+    assert 'maxlength="256"' in play
+    assert "room_code.js?v=1.3.4" in play
+    assert "play.js?v=1.3.4" in play
+    assert "roomCodeFromLocation" in room_code
+    assert "resolveForJoin" in room_code
+    assert 'new URLSearchParams(window.location.search).get("code")' in room_code
+    assert "A code embedded in the link always wins" in room_code
+    assert 'event.target?.closest?.("#join-btn")' in room_code
+    assert 'hostname.endsWith(".trycloudflare.com")' in room_code
+    assert 'fetch("/api/status", { cache: "no-store" })' in room_code
+    assert 'id="room-code-display">--<' in index
+    assert "dashboard_tunnel.js?v=1.3.4" in index
+    assert "getActiveRoomCode" in tunnel
+    assert 'code !== "SF6-ROOM"' in tunnel
+    assert "encodeURIComponent(roomCode)" in tunnel
+    assert 'waiting for the active room code' in tunnel
 
     for key_type in ("standard", "compact65", "arrowless", "esdf", "vim_camera"):
         assert key_type in keyboard
@@ -124,9 +148,9 @@ def main() -> None:
 
     print(
         "Remote player input feature checks passed "
-        "(physical/layout separation, keyboard-surface isolation, backend-independent presets, "
-        "gameplay focus recovery, profile synchronization, Cloudflare backlog control, "
-        "lower/coalesced mouse camera, and mobile controls)."
+        "(authoritative room-code links, physical/layout separation, keyboard-surface isolation, "
+        "backend-independent presets, gameplay focus recovery, profile synchronization, "
+        "Cloudflare backlog control, lower/coalesced mouse camera, and mobile controls)."
     )
 
 
