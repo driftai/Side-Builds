@@ -271,7 +271,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/status') {
     json(res, 200, {
       name: 'VoxelVision',
-      version: '1.9.3',
+      version: '1.9.4',
       status: 'ready',
       port: PORT,
       hardware: SYSTEM_HARDWARE,
@@ -334,7 +334,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const youtube = getYoutubeStatus();
   console.log('============================================================');
-  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.3');
+  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.4');
   console.log(`   Running at: http://${HOST}:${PORT}`);
   console.log(`   Serving: ${PUBLIC_DIR}`);
   console.log(`   Machine: ${SYSTEM_HARDWARE.cpuModel || 'CPU'} · ${SYSTEM_HARDWARE.logicalCores || '?'} threads · ${SYSTEM_HARDWARE.totalMemoryGb || '?'} GB RAM`);

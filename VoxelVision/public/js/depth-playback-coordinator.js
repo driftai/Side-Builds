@@ -44,6 +44,7 @@ export class DepthPlaybackCoordinator {
     this.configureGeneration += 1;
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
+    this.app.updateDepthDiagnostic?.();
     if (this.mode === 'live') {
       await this.controller.stop({ clearMemory: true });
       this.renderStatus({ phase: 'live', message: 'Live-only mode · no analysis buffer or persistent cache.' });
@@ -57,6 +58,7 @@ export class DepthPlaybackCoordinator {
     this.configureGeneration += 1;
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
+    this.app.updateDepthDiagnostic?.();
     this.#resetHybridScore();
     if (this.mode === 'hybrid') return this.configure();
     return null;
@@ -66,6 +68,7 @@ export class DepthPlaybackCoordinator {
     this.fusion.setMode(mode);
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
+    this.app.updateDepthDiagnostic?.();
   }
 
   async clearSource() {
@@ -73,6 +76,7 @@ export class DepthPlaybackCoordinator {
     this.source = null;
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
+    this.app.updateDepthDiagnostic?.();
     this.fusion.reset();
     this.#resetBundledScore();
     this.#resetHybridScore();
@@ -235,6 +239,23 @@ export class DepthPlaybackCoordinator {
       videoFrameVersion: this.app.videoFrameVersion
     });
     if (!result.reused && result.frame) this.app.scene.updateDepthBuffers(result.frame, result.frame, 1);
+    if (result.frame) {
+      this.cachedDiagnostic = {
+        frame: result.frame,
+        width: depthData.cols,
+        height: depthData.rows,
+        mediaTime: Number(time) || 0,
+        firstIndex: state.first,
+        secondIndex: state.second,
+        blend: state.blend,
+        origin: 'bundled',
+        provisional: false,
+        detailRecovery: result.detailRecovery,
+        nativeFrames: depthData.frameCount,
+        reusedFrames: 0,
+        totalFrames: depthData.frameCount
+      };
+    }
     const scoreKey = `${state.first}:${state.second}`;
     if (result.frame && result.guide && scoreKey !== this.lastBundledScoreKey) {
       const quality = scoreDepthConversion({
@@ -419,6 +440,7 @@ export class DepthPlaybackCoordinator {
         ? 'working'
         : 'ready';
     this.renderQuality(state.quality);
+    this.app.updateDepthDiagnostic?.();
   }
 
   renderQuality(quality) {

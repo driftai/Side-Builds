@@ -1,6 +1,6 @@
 {
   "name": "voxelvision",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "private": true,
   "type": "module",
   "description": "Interactive voxel video engine with DA3/DA2 depth, video-evidence fusion, quality scoring and replayable recalibratable caching",

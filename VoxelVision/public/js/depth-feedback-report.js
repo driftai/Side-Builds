@@ -2,7 +2,7 @@
 
 import { mergeConversionScoreSnapshots } from './depth-conversion-score.js';
 
-export const VOXELVISION_VERSION = '1.9.3';
+export const VOXELVISION_VERSION = '1.9.4';
 export const FEEDBACK_SCHEMA_VERSION = 1;
 
 const KNOWN_ISSUES = new Set([

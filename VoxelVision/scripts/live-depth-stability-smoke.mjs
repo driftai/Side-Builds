@@ -18,8 +18,31 @@ import {
   stabilizeDepthStatistics,
   stabilizeRangeBounds
 } from '../public/js/live-depth.js';
+import { resolveDepthDiagnosticView } from '../public/js/depth-diagnostic-view.js';
 
 const approximately = (actual, expected, epsilon = 1e-6) => Math.abs(actual - expected) <= epsilon;
+
+const waitingDiagnostic = resolveDepthDiagnosticView({ stage: 'final', depthMode: 'live', playbackMode: 'hybrid' });
+assert.equal(waitingDiagnostic.visible, true, 'A selected diagnostic must remain visible while its frame is pending');
+assert.equal(waitingDiagnostic.ready, false, 'A pending diagnostic must not reuse a stale canvas frame');
+
+const diagnosticFrame = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+const playbackDiagnostic = { frame: diagnosticFrame, width: 2, height: 2, origin: 'bundled' };
+const bundledFinal = resolveDepthDiagnosticView({ stage: 'final', depthMode: 'cached', playbackDiagnostic });
+assert.equal(bundledFinal.ready, true, 'Final Render Depth must accept the bundled authored cache');
+assert.equal(bundledFinal.kind, 'playback', 'Hybrid and bundled final diagnostics must reflect rendered playback depth');
+
+const unavailableRaw = resolveDepthDiagnosticView({ stage: 'raw', depthMode: 'cached', playbackDiagnostic });
+assert.equal(unavailableRaw.visible, true, 'Unavailable stages must explain themselves instead of hiding the panel');
+assert.match(unavailableRaw.message, /imported video/i);
+
+const liveRaw = resolveDepthDiagnosticView({
+  stage: 'raw',
+  depthMode: 'live',
+  playbackMode: 'live',
+  liveDiagnostics: { raw: diagnosticFrame, width: 2, height: 2 }
+});
+assert.equal(liveRaw.ready, true, 'Live diagnostic frames must become renderable when asynchronously published');
 
 for (const [width, height, expectedWidth, expectedHeight] of [
   [1920, 1080, 518, 291],

@@ -10,6 +10,7 @@ import { gridForLiveDetail } from './capability-profile.js';
 import { DEFAULT_DEPTH_MODEL, depthFrameToRgba, LiveDepthEngine } from './live-depth.js';
 import { blendDepthFrames, resampleFloatBilinear } from './depth-processing.js';
 import { DepthPlaybackCoordinator } from './depth-playback-coordinator.js';
+import { resolveDepthDiagnosticView } from './depth-diagnostic-view.js';
 import { VoxelScene } from './voxel-scene.js';
 
 const MAX_LIVE_VOXELS = 65536;
@@ -150,33 +151,39 @@ class VoxelVisionApp {
   updateDepthDiagnostic() {
     const panel = this.depthDiagnosticPanel;
     if (!panel) return;
-    const diagnostics = this.liveDepth?.getDiagnostics?.();
     const stage = this.depthDiagnosticStage;
-    const cached = stage === 'cached' ? this.depthPlayback?.getCachedDiagnostic?.() : null;
-    const frame = stage === 'cached' ? cached?.frame : (stage !== 'off' ? diagnostics?.[stage] : null);
-    const width = stage === 'cached' ? cached?.width : diagnostics?.width;
-    const height = stage === 'cached' ? cached?.height : diagnostics?.height;
-    if (this.depthMode !== 'live' || !frame || !width || !height) {
-      panel.hidden = true;
+    const view = resolveDepthDiagnosticView({
+      stage,
+      depthMode: this.depthMode,
+      playbackMode: this.depthPlayback?.mode,
+      liveDiagnostics: this.liveDepth?.getDiagnostics?.(),
+      playbackDiagnostic: this.depthPlayback?.getCachedDiagnostic?.()
+    });
+    panel.hidden = !view.visible;
+    if (!view.visible) {
+      panel.removeAttribute('aria-busy');
       return;
     }
 
-    const rgba = depthFrameToRgba(frame, { normalize: stage === 'raw' });
-    this.depthDiagnosticCanvas.width = width;
-    this.depthDiagnosticCanvas.height = height;
-    this.depthDiagnosticCtx.putImageData(new ImageData(rgba, width, height), 0, 0);
+    document.getElementById('depthDiagnosticTitle').textContent = view.label;
+    if (!view.ready) {
+      panel.setAttribute('aria-busy', 'true');
+      this.depthDiagnosticCanvas.hidden = true;
+      document.getElementById('depthDiagnosticGrid').textContent = 'Waiting';
+      document.getElementById('depthDiagnosticMetrics').textContent = view.message;
+      return;
+    }
 
-    const labels = {
-      cached: 'Cached Playback Depth',
-      raw: 'Raw Model Depth',
-      normalized: 'Normalized Depth',
-      stabilized: 'Stabilized Depth',
-      final: 'Final Render Depth'
-    };
-    document.getElementById('depthDiagnosticTitle').textContent = labels[stage] || stage;
-    document.getElementById('depthDiagnosticGrid').textContent = `${width} × ${height}`;
+    panel.setAttribute('aria-busy', 'false');
+    this.depthDiagnosticCanvas.hidden = false;
+    const rgba = depthFrameToRgba(view.frame, { normalize: stage === 'raw' });
+    this.depthDiagnosticCanvas.width = view.width;
+    this.depthDiagnosticCanvas.height = view.height;
+    this.depthDiagnosticCtx.putImageData(new ImageData(rgba, view.width, view.height), 0, 0);
+    document.getElementById('depthDiagnosticGrid').textContent = `${view.width} × ${view.height}`;
 
-    if (stage === 'cached') {
+    if (view.kind === 'playback') {
+      const cached = view.snapshot;
       const blend = Math.round((Number(cached.blend) || 0) * 100);
       document.getElementById('depthDiagnosticMetrics').textContent = [
         `${Number(cached.mediaTime || 0).toFixed(3)}s media time`,
@@ -189,7 +196,7 @@ class VoxelVisionApp {
       return;
     }
 
-    const metrics = diagnostics.metrics || {};
+    const metrics = view.snapshot.metrics || {};
     const bias = metrics.broadBias || {};
     const borderCount = metrics.borders?.repairedSegments || 0;
     const relief = metrics.relief || {};
@@ -914,7 +921,6 @@ class VoxelVisionApp {
             ? this.videoFrameMetadata.mediaTime
             : this.video.currentTime;
           this.depthPlayback.renderFrame(mediaTime);
-          if (this.depthDiagnosticStage === 'cached' && hasFreshVideoFrame) this.updateDepthDiagnostic();
         } else if (this.depthMode === 'live') {
           if (this.liveDepthFrameA && this.liveDepthFrameB) {
             const elapsed = timestamp - this.liveDepthBlendStartedAt;
@@ -976,6 +982,7 @@ class VoxelVisionApp {
             }).catch(err => console.warn('Live depth frame failed:', err));
           }
         }
+        if (hasFreshVideoFrame && this.depthDiagnosticStage !== 'off') this.updateDepthDiagnostic();
       }
 
       this.scene.render(deltaTime);
