@@ -612,6 +612,8 @@ class VoxelVisionApp {
     const snapshotBtn = document.getElementById('snapshotBtn');
     const recordBtn = document.getElementById('recordBtn');
     const fileInput = document.getElementById('fileInput');
+    const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
+    const settingsDrawer = document.getElementById('settingsDrawer');
     const youtubeBtn = document.getElementById('youtubeBtn');
     const sourcePanel = document.getElementById('sourcePanel');
     const sourcePanelClose = document.getElementById('sourcePanelClose');
@@ -722,6 +724,7 @@ class VoxelVisionApp {
       a.click();
     });
     recordBtn.addEventListener('click', () => this.isRecording ? this.stopRecording() : this.startRecording());
+    toggleSettingsBtn.addEventListener('click', () => settingsDrawer.classList.toggle('collapsed'));
 
     window.addEventListener('dragover', e => e.preventDefault());
     window.addEventListener('drop', e => {

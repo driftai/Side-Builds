@@ -2,7 +2,7 @@
 
 VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab. It turns ordinary video into an interactive, depth-aware voxel relief in Three.js, with live browser inference, analyze-ahead caching, temporal stabilization, and reusable conversion profiles.
 
-**Current release:** v1.9.2
+**Current release:** v1.9.3
 
 > VoxelVision began as an evolution of Joey Cato's original VoxelTV experience. Visit the original [VoxelTV “Take On Me” demo](https://voxeltv.surge.sh/#take-on-me-aha). The public VoxelVision distribution uses its own procedural demo and does not redistribute the original music video or its depth data.
 
@@ -16,7 +16,9 @@ VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab.
 - Recovers bounded foreground details such as illustrated hair, headwear, and other thin structures when model evidence supports them.
 - Interpolates cached depth against decoded video presentation timestamps for smoother playback.
 
-## Current v1.9.2 Workflow
+v1.9.3 removes inline script, event-handler, and style dependencies so VoxelVision remains fully interactive under its strict local Content Security Policy. Header controls are connected through the application lifecycle and Three.js modules use explicit local paths.
+
+## Current v1.9.3 Workflow
 
 ### Hybrid playback and durable caching
 

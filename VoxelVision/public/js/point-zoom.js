@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { Vector3 } from '../vendor/three.module.js';
 
 function waitForApp(timeoutMs = 5000) {
   if (window.app) return Promise.resolve(window.app);

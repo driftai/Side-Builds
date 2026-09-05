@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+
+const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+
+function listJavaScriptFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const target = join(directory, entry.name);
+    if (entry.isDirectory()) return listJavaScriptFiles(target);
+    return entry.isFile() && entry.name.endsWith('.js') ? [target] : [];
+  });
+}
 
 const port = 21000 + (process.pid % 20000);
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -27,9 +40,22 @@ async function waitForServer() {
 try {
   const root = await waitForServer();
   const policy = root.headers.get('content-security-policy') || '';
+  const html = await root.text();
   assert.match(policy, /script-src 'self'/, 'CSP must restrict executable scripts');
-  assert.match(policy, /sha256-/, 'CSP must hash the inline import map');
   assert.doesNotMatch(policy, /'unsafe-inline'/, 'CSP must not allow arbitrary inline script');
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i, 'HTML must not depend on inline scripts or import maps');
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'HTML must not depend on inline event handlers');
+  assert.doesNotMatch(html, /\sstyle\s*=/i, 'HTML must not depend on inline styles');
+  const bareSpecifiers = [
+    /\bfrom\s*['"](?!(?:\.{1,2}\/|\/|https?:\/\/|data:|blob:))([^'"]+)['"]/g,
+    /\bimport\s*\(\s*['"](?!(?:\.{1,2}\/|\/|https?:\/\/|data:|blob:))([^'"]+)['"]/g,
+    /^\s*import\s*['"](?!(?:\.{1,2}\/|\/|https?:\/\/|data:|blob:))([^'"]+)['"]/gm
+  ];
+  for (const file of listJavaScriptFiles(publicDir)) {
+    const source = readFileSync(file, 'utf8');
+    const imports = bareSpecifiers.flatMap(pattern => [...source.matchAll(pattern)].map(match => match[1]));
+    assert.deepEqual(imports, [], `${file.slice(dirname(publicDir).length + 1)} must use browser-resolvable module paths`);
+  }
   assert.equal(root.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(root.headers.get('access-control-allow-origin'), null, 'local responses must not opt into cross-origin reads');
 

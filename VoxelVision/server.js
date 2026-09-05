@@ -1,5 +1,4 @@
 import http from 'http';
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -45,16 +44,13 @@ const MIME_TYPES = {
 let youtubeImportBusy = false;
 
 function buildContentSecurityPolicy() {
-  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
-  const importMap = html.match(/<script\s+type=["']importmap["'][^>]*>([\s\S]*?)<\/script>/i)?.[1] || '';
-  const importMapHash = crypto.createHash('sha256').update(importMap, 'utf8').digest('base64');
   return [
     "default-src 'self'",
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'none'",
-    `script-src 'self' 'sha256-${importMapHash}' 'wasm-unsafe-eval' https://cdn.jsdelivr.net`,
+    "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
     "style-src 'self'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
@@ -275,7 +271,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/status') {
     json(res, 200, {
       name: 'VoxelVision',
-      version: '1.9.2',
+      version: '1.9.3',
       status: 'ready',
       port: PORT,
       hardware: SYSTEM_HARDWARE,
@@ -338,7 +334,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const youtube = getYoutubeStatus();
   console.log('============================================================');
-  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.2');
+  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.3');
   console.log(`   Running at: http://${HOST}:${PORT}`);
   console.log(`   Serving: ${PUBLIC_DIR}`);
   console.log(`   Machine: ${SYSTEM_HARDWARE.cpuModel || 'CPU'} · ${SYSTEM_HARDWARE.logicalCores || '?'} threads · ${SYSTEM_HARDWARE.totalMemoryGb || '?'} GB RAM`);

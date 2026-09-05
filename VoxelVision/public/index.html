@@ -7,14 +7,6 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./css/style.css" />
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "./vendor/three.module.js",
-      "three/addons/": "./vendor/"
-    }
-  }
-  </script>
 </head>
 <body>
   <canvas id="renderCanvas"></canvas>
@@ -41,9 +33,9 @@
         <button id="recordBtn" class="btn" title="Record 3D Canvas with Audio">⏺ Record</button>
         <label class="btn" title="Load a local video and generate matching live AI depth">
           📁 Import
-          <input type="file" id="fileInput" accept="video/*" style="display: none;" />
+          <input type="file" id="fileInput" accept="video/*" />
         </label>
-        <button id="toggleSettingsBtn" class="btn" title="Toggle Settings Drawer" onclick="document.getElementById('settingsDrawer').classList.toggle('collapsed')">⚙ Settings</button>
+        <button id="toggleSettingsBtn" class="btn" title="Toggle Settings Drawer">⚙ Settings</button>
       </div>
     </header>
 

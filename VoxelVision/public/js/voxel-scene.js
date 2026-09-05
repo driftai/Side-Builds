@@ -4,8 +4,8 @@
  * retro CRT TV cabinet model, and audio-reactive lighting.
  */
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/OrbitControls.js';
+import * as THREE from '../vendor/three.module.js';
+import { OrbitControls } from '../vendor/OrbitControls.js';
 
 function depthFrameScale(frame) {
   if (frame instanceof Float32Array || frame instanceof Float64Array) return 1;
