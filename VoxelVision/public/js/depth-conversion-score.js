@@ -171,3 +171,16 @@ export function mergeConversionScoreSnapshots(...snapshots) {
   }
   return new ConversionScoreAccumulator(merged).snapshot();
 }
+
+/** Prefer evidence from the depth/color diagnostic actually presented. */
+export function conversionScoreForSession(session = {}) {
+  const rendered = mergeConversionScoreSnapshots(session.renderQualityAccumulator);
+  if (rendered.count) {
+    return { quality: rendered, basis: 'final rendered depth + decoded video' };
+  }
+  const analyzed = mergeConversionScoreSnapshots(session.qualityAccumulator, session.sharedQualityAccumulator);
+  return {
+    quality: analyzed,
+    basis: session.sharedQualityAccumulator?.count ? 'native + shared analyzed maps' : 'native analyzed maps'
+  };
+}

@@ -5,6 +5,7 @@ import {
   descriptorsShareDepthTimeline,
   materializeDepthReusePlan
 } from './depth-cache-reuse.js';
+import { descriptorConversionMode } from './depth-conversion-mode.js';
 
 export class DepthCacheTimeline {
   constructor(store) {
@@ -15,15 +16,25 @@ export class DepthCacheTimeline {
   }
 
   async prepare(cacheId, descriptor, frameCount, exactIndices) {
-    const sessions = (await this.store.listSessions()).filter(session => (
-      session.id !== cacheId && descriptorsShareDepthTimeline(descriptor, session.descriptor || {})
-    ));
+    const target = {
+      ...descriptor,
+      conversion: descriptorConversionMode(descriptor)
+    };
+    const sessions = (await this.store.listSessions())
+      .map(session => ({
+        ...session,
+        descriptor: {
+          ...(session.descriptor || {}),
+          conversion: descriptorConversionMode(session.descriptor, session.generationEnvironment)
+        }
+      }))
+      .filter(session => session.id !== cacheId && descriptorsShareDepthTimeline(target, session.descriptor));
     const indicesByCacheId = new Map();
     await Promise.all(sessions.map(async session => {
       indicesByCacheId.set(session.id, await this.store.frameIndices(session.id));
     }));
     this.plans = buildDepthReusePlans({
-      target: descriptor,
+      target,
       targetFrameCount: frameCount,
       sessions,
       indicesByCacheId,

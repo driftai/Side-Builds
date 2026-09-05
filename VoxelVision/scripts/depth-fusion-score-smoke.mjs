@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { calibrateDepthFrame, planSceneAwareCalibration } from '../public/js/depth-cache-recalibrator.js';
 import { scoreDepthConversion } from '../public/js/depth-conversion-score.js';
 import { DepthRenderFusion, fuseDepthWithVideoEvidence } from '../public/js/depth-render-fusion.js';
+import { RenderedDepthScorer } from '../public/js/depth-render-score.js';
 
 const width = 32;
 const height = 24;
@@ -69,6 +70,20 @@ for (let y = 0; y < height; y++) {
 }
 const badScore = scoreDepthConversion({ frame: bad, width, height, rgba, previousFrame: badPrevious, previousGuide: flatFusion.guide });
 assert.ok(goodScore.score > badScore.score + 15, 'stable aligned depth should outscore flickering unsupported geometry');
+
+const presentedScorer = new RenderedDepthScorer({ maxSamplesPerSecond: 12 });
+const firstPresented = presentedScorer.sample({
+  frame: alignedFusion.frame, width, height, rgba, frameVersion: 1, mediaTime: 0
+});
+const duplicatePresented = presentedScorer.sample({
+  frame: alignedFusion.frame, width, height, rgba, frameVersion: 1, mediaTime: 0
+});
+const secondPresented = presentedScorer.sample({
+  frame: alignedFusion.frame, width, height, rgba, frameVersion: 2, mediaTime: 0.1
+});
+assert.ok(firstPresented && secondPresented, 'presented diagnostic frames must be scored against decoded color');
+assert.equal(duplicatePresented, null, 'render-loop repeats must not inflate diagnostic sample counts');
+assert.equal(secondPresented.components.temporalStability, 100, 'unchanged presented depth and color should score as stable');
 
 const shifted = Float32Array.from(aligned, value => Math.min(1, value + 0.08));
 const shiftedAgain = Float32Array.from(aligned, value => Math.min(1, value + 0.16));

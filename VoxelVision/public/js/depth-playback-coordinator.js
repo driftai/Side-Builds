@@ -3,11 +3,18 @@ import { DepthAheadController } from './depth-ahead-controller.js';
 import { installCacheSampling, selectedCacheRate, restoreCacheSampling } from './cache-sampling.js';
 import { DepthCacheRecalibrator } from './depth-cache-recalibrator.js';
 import { DEPTH_CACHE_PIPELINE_VERSION } from './depth-cache-codec.js';
-import { ConversionScoreAccumulator, scoreDepthConversion } from './depth-conversion-score.js';
+import { ConversionScoreAccumulator } from './depth-conversion-score.js';
 import { DepthRenderFusion } from './depth-render-fusion.js';
 import { DepthCacheLibrary } from './depth-cache-library.js';
 import { normalizeConversionFeedback } from './depth-feedback-report.js';
 import { restoredProfileState, selectBestResumableProfile } from './depth-profile-resume.js';
+import {
+  conversionLabel,
+  conversionRenderMode,
+  conversionUsesAi,
+  normalizeDepthConversionMode
+} from './depth-conversion-mode.js';
+import { RenderedDepthScorer } from './depth-render-score.js';
 
 export class DepthPlaybackCoordinator {
   constructor(app) {
@@ -18,14 +25,14 @@ export class DepthPlaybackCoordinator {
     this.configureGeneration = 0;
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
-    this.fusion = new DepthRenderFusion({ mode: document.getElementById('depthFusionMode')?.value });
+    this.conversionMode = normalizeDepthConversionMode(document.getElementById('depthFusionMode')?.value);
+    this.app.liveDepth.setConversionMode(this.conversionMode);
+    this.fusion = new DepthRenderFusion({ mode: conversionRenderMode(this.conversionMode) });
     this.bundledScore = new ConversionScoreAccumulator();
-    this.lastBundledScoreKey = '';
-    this.lastBundledScoreFrame = null;
-    this.lastBundledScoreGuide = null;
-    this.lastHybridScoreKey = '';
-    this.lastHybridScoreFrame = null;
-    this.lastHybridScoreGuide = null;
+    this.bundledScorer = new RenderedDepthScorer();
+    this.hybridScorer = new RenderedDepthScorer();
+    this.liveScore = new ConversionScoreAccumulator();
+    this.liveScorer = new RenderedDepthScorer();
     this.controller = new DepthAheadController({
       engine: app.liveDepth,
       onStatus: state => this.renderStatus(state)
@@ -33,6 +40,7 @@ export class DepthPlaybackCoordinator {
     this.controller.setMode(this.mode);
     this.library = new DepthCacheLibrary(this);
     installCacheSampling(this);
+    this.#renderConversionStatus();
     this.renderStatus({ phase: 'idle', message: 'Hybrid cache starts when a live video is imported.' });
   }
   setSystemMemory(systemMemoryGb) {
@@ -64,11 +72,24 @@ export class DepthPlaybackCoordinator {
     return null;
   }
 
-  setFusionMode(mode) {
-    this.fusion.setMode(mode);
+  async setConversionMode(mode, { load = true, reconfigure = true } = {}) {
+    this.conversionMode = normalizeDepthConversionMode(mode);
+    this.app.liveDepth.setConversionMode(this.conversionMode);
+    this.fusion.setMode(conversionRenderMode(this.conversionMode));
     this.lastPairKey = '';
     this.cachedDiagnostic = null;
+    this.#renderConversionStatus();
     this.app.updateDepthDiagnostic?.();
+    if (load && conversionUsesAi(this.conversionMode)) await this.app.liveDepth.ensureReady();
+    else if (load) this.app.liveDepth.announceReady();
+    if (reconfigure && this.mode === 'hybrid' && this.source && this.app.depthMode === 'live') {
+      return this.configure();
+    }
+    return this.conversionMode;
+  }
+
+  setFusionMode(mode) {
+    return this.setConversionMode(mode);
   }
 
   async clearSource() {
@@ -110,6 +131,13 @@ export class DepthPlaybackCoordinator {
     const configureGeneration = ++this.configureGeneration;
     const video = this.app.video;
     const activeModel = this.app.liveDepth.getActiveModelProfile?.() || this.app.liveDepth.getRequestedModelProfile?.();
+    const priorDescriptor = this.controller.source?.descriptor || this.source.resumeSession?.descriptor || null;
+    const effectiveBackend = this.app.liveDepth.getEffectiveBackend?.() || this.app.liveDepth.backend;
+    const effectiveConversion = this.app.liveDepth.getEffectiveConversionMode?.() || this.conversionMode;
+    const canRetainAiIdentity = conversionUsesAi(this.conversionMode)
+      && effectiveBackend === 'idle'
+      && priorDescriptor
+      && priorDescriptor.backend !== 'luma';
     const machine = this.app.machineProfile || {};
     const config = {
       src: this.source.src,
@@ -122,10 +150,11 @@ export class DepthPlaybackCoordinator {
       cols: this.app.activeCols,
       rows: this.app.activeRows,
       fps: selectedCacheRate(this.app, this.source),
-      modelKey: activeModel?.key,
-      backend: this.app.liveDepth.backend,
-      precision: this.app.liveDepth.precision,
+      modelKey: canRetainAiIdentity ? priorDescriptor.model : this.app.liveDepth.getEffectiveModelKey?.() || activeModel?.key,
+      backend: canRetainAiIdentity ? priorDescriptor.backend : effectiveBackend,
+      precision: canRetainAiIdentity ? priorDescriptor.precision : this.app.liveDepth.getEffectivePrecision?.() || this.app.liveDepth.precision,
       invert: this.app.liveDepth.invert,
+      conversionMode: canRetainAiIdentity ? this.conversionMode : effectiveConversion,
       sourceTitle: this.source.title,
       sourceBlob: this.source.blob || null,
       mediaInfo: this.source.mediaInfo || null,
@@ -145,14 +174,16 @@ export class DepthPlaybackCoordinator {
           width: this.app.liveDepth.captureWidth,
           height: this.app.liveDepth.captureHeight
         },
-        fusion: this.fusion.mode
-      }
+        conversion: canRetainAiIdentity ? this.conversionMode : effectiveConversion
+      },
+      resumeSession: this.source.resumeSession || null
     };
     const result = await this.controller.loadSource(config);
     if (configureGeneration !== this.configureGeneration) return null;
     this.lastPairKey = '';
     this.fusion.reset();
     this.#resetHybridScore();
+    if (this.source) this.source.resumeSession = null;
     this.library.refresh().catch(() => {});
     return result;
   }
@@ -203,21 +234,18 @@ export class DepthPlaybackCoordinator {
         totalFrames: snapshot.totalFrames
       };
     }
-    const scoreKey = `${state.firstIndex}:${state.secondIndex}`;
-    if (!state.quality && result.frame && result.guide && scoreKey !== this.lastHybridScoreKey) {
-      const quality = scoreDepthConversion({
+    if (result.frame) {
+      const quality = this.hybridScorer.sample({
         frame: result.frame,
         width: this.app.activeCols,
         height: this.app.activeRows,
+        rgba: this.app.latestVideoPixels,
         guide: result.guide,
-        previousFrame: this.lastHybridScoreFrame,
-        previousGuide: this.lastHybridScoreGuide,
+        frameVersion: this.app.videoFrameVersion,
+        mediaTime: time,
         sceneCut: state.sceneCut
       });
-      this.controller.recordPlaybackQuality(quality);
-      this.lastHybridScoreKey = scoreKey;
-      this.lastHybridScoreFrame = result.frame;
-      this.lastHybridScoreGuide = result.guide;
+      if (quality) this.controller.recordPlaybackQuality(quality);
     }
     this.lastPairKey = state.key;
     return true;
@@ -256,23 +284,38 @@ export class DepthPlaybackCoordinator {
         totalFrames: depthData.frameCount
       };
     }
-    const scoreKey = `${state.first}:${state.second}`;
-    if (result.frame && result.guide && scoreKey !== this.lastBundledScoreKey) {
-      const quality = scoreDepthConversion({
+    if (result.frame) {
+      const quality = this.bundledScorer.sample({
         frame: result.frame,
         width: depthData.cols,
         height: depthData.rows,
+        rgba: this.app.latestVideoPixels,
         guide: result.guide,
-        previousFrame: this.lastBundledScoreFrame,
-        previousGuide: this.lastBundledScoreGuide,
-        sceneCut: state.first === state.second && state.blend === 0
+        frameVersion: this.app.videoFrameVersion,
+        mediaTime: time,
+        sceneCut: Boolean(state.sceneCut)
       });
-      this.bundledScore.add(quality);
-      this.lastBundledScoreKey = scoreKey;
-      this.lastBundledScoreFrame = result.frame;
-      this.lastBundledScoreGuide = result.guide;
-      this.renderQuality(this.bundledScore.snapshot());
+      if (quality) {
+        this.bundledScore.add(quality);
+        this.renderQuality(this.bundledScore.snapshot(), 'presented diagnostic + decoded video');
+      }
     }
+  }
+
+  scoreLiveFrame(frame, { mediaTime = 0, sceneCut = false } = {}) {
+    const quality = this.liveScorer.sample({
+      frame,
+      width: this.app.activeCols,
+      height: this.app.activeRows,
+      rgba: this.app.latestVideoPixels,
+      frameVersion: this.app.videoFrameVersion,
+      mediaTime,
+      sceneCut
+    });
+    if (!quality) return null;
+    const snapshot = this.liveScore.add(quality);
+    this.renderQuality(snapshot, 'final rendered depth + decoded video');
+    return snapshot;
   }
 
   async listSessions() {
@@ -325,11 +368,11 @@ export class DepthPlaybackCoordinator {
       active,
       mediaTimeSeconds: active ? Number(this.app.video.currentTime.toFixed(3)) : null,
       paused: active ? this.app.video.paused : null,
-      fusion: this.fusion.mode,
+      conversion: this.conversionMode,
       tuning: active ? (this.app.qualityGovernor?.snapshot?.() || null) : null,
       depthEngine: active ? {
-        backend: this.app.liveDepth.backend,
-        precision: this.app.liveDepth.precision,
+        backend: this.app.liveDepth.getEffectiveBackend?.() || this.app.liveDepth.backend,
+        precision: this.app.liveDepth.getEffectivePrecision?.() || this.app.liveDepth.precision,
         inputDetail: this.app.liveDepth.inputDetail,
         captureSize: [this.app.liveDepth.captureWidth, this.app.liveDepth.captureHeight]
       } : null
@@ -349,7 +392,13 @@ export class DepthPlaybackCoordinator {
         : (Object.hasOwn(feedback || {}, 'playbackTimeSeconds') ? requested.playbackTimeSeconds : previous.playbackTimeSeconds),
       updatedAt: Date.now()
     });
-    await this.controller.store.touchVariant(sessionId, { feedback: stored });
+    const liveSnapshot = runtime.active ? this.controller.snapshot() : null;
+    await this.controller.store.touchVariant(sessionId, {
+      feedback: stored,
+      ...(liveSnapshot?.renderQuality?.count
+        ? { renderQualityAccumulator: liveSnapshot.renderQuality }
+        : {})
+    });
     return this.controller.store.getSession(sessionId);
   }
 
@@ -371,14 +420,19 @@ export class DepthPlaybackCoordinator {
       await this.app.restoreCachedQualityProfile(restored);
     } else {
       const state = restoredProfileState(restored);
+      await this.setConversionMode(state.conversionMode, { load: false, reconfigure: false });
       this.app.liveDepth.setTargetFps(state.activeFps);
       this.app.liveDepth.setInvert(state.invert);
-      await this.app.liveDepth.setModelProfile(state.model, { load: false });
+      if (state.conversionMode !== 'luma') {
+        await this.app.liveDepth.setModelProfile(state.model, { load: false });
+      }
       this.app.currentGridCols = state.activeDetail;
       this.app.setGridResolution(state.activeDetail);
     }
     const total = Math.max(1, Number(restored.totalFrames) || 1);
     const complete = indices.length + (Number(restored.reusableFrames) || 0) >= total;
+    restored.cacheComplete = complete;
+    restored.playableFrames = Math.min(total, indices.length + (Number(restored.reusableFrames) || 0));
     await this.controller.store.touchVariant(selected.id, {
       frameCount: indices.length,
       analysisState: complete ? 'complete' : 'in-progress',
@@ -439,34 +493,47 @@ export class DepthPlaybackCoordinator {
       : state.phase === 'working' || state.phase === 'buffering'
         ? 'working'
         : 'ready';
-    this.renderQuality(state.quality);
+    this.renderQuality(state.quality, state.qualityBasis);
     this.app.updateDepthDiagnostic?.();
   }
 
-  renderQuality(quality) {
+  renderQuality(quality, basis = null) {
     const scoreLine = document.getElementById('conversionScoreValue');
     if (scoreLine) {
+      const sampleLabel = String(basis || '').startsWith('final rendered') || String(basis || '').startsWith('presented')
+        ? 'presented samples'
+        : 'analyzed samples';
       scoreLine.textContent = quality?.score == null
         ? 'Waiting for analyzed frames...'
-        : `${quality.score}/100 - ${quality.grade} - ${quality.count} samples`;
+        : `${quality.score}/100 - ${quality.grade} - ${quality.count} ${sampleLabel}`;
       scoreLine.dataset.state = quality?.score == null ? 'working' : quality.score >= 55 ? 'ready' : 'missing';
       const components = quality?.components || {};
       scoreLine.title = quality?.score == null
         ? 'No-reference estimate of temporal stability, depth/image edge agreement, relief, borders and precision.'
-        : `Edges ${components.edgeAlignment ?? '-'} - temporal ${components.temporalStability ?? '-'} - relief ${components.usefulRelief ?? '-'} - borders ${components.borderIntegrity ?? '-'} - precision ${components.precision ?? '-'}`;
+        : `${basis || 'presented diagnostic + decoded video'} - edges ${components.edgeAlignment ?? '-'} - temporal ${components.temporalStability ?? '-'} - relief ${components.usefulRelief ?? '-'} - borders ${components.borderIntegrity ?? '-'} - precision ${components.precision ?? '-'}`;
     }
   }
 
   #resetBundledScore() {
     this.bundledScore = new ConversionScoreAccumulator();
-    this.lastBundledScoreKey = '';
-    this.lastBundledScoreFrame = null;
-    this.lastBundledScoreGuide = null;
+    this.bundledScorer.reset();
   }
 
   #resetHybridScore() {
-    this.lastHybridScoreKey = '';
-    this.lastHybridScoreFrame = null;
-    this.lastHybridScoreGuide = null;
+    this.hybridScorer.reset();
+    this.liveScore = new ConversionScoreAccumulator();
+    this.liveScorer.reset();
+  }
+
+  #renderConversionStatus() {
+    const line = document.getElementById('depthConversionCapability');
+    if (!line) return;
+    const descriptions = {
+      fused: 'AI estimates depth; decoded video improves boundaries, motion alignment and interpolation.',
+      model: 'Only AI geometry is rendered; decoded color is retained for display and quality scoring.',
+      luma: 'Local luminance creates depth without downloading or running an AI model.'
+    };
+    line.textContent = `${conversionLabel(this.conversionMode)} - ${descriptions[this.conversionMode]}`;
+    line.dataset.state = this.conversionMode === 'luma' ? 'working' : 'ready';
   }
 }

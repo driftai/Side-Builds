@@ -8,6 +8,7 @@ import {
   dequantizeDepth16,
   frameIndexAtTime,
   quantizeDepth16,
+  resumableDescriptorForConfig,
   timeForFrameIndex
 } from './depth-cache-codec.js';
 import { DepthCacheStore } from './depth-cache-store.js';
@@ -16,6 +17,7 @@ import { delay, formatMegabytes, waitForVideoEvent } from './depth-ahead-utils.j
 import { ConversionScoreAccumulator, mergeConversionScoreSnapshots, scoreDepthConversion } from './depth-conversion-score.js';
 import { DepthFrameRing, memoryBudgetForSystemRam } from './depth-frame-ring.js';
 import { buildLumaGuide } from './depth-processing.js';
+import { descriptorConversionMode } from './depth-conversion-mode.js';
 const HAVE_CURRENT_DATA = 2;
 
 export class DepthAheadController {
@@ -49,6 +51,7 @@ export class DepthAheadController {
     this.lastStatusAt = 0;
     this.lastStatusText = '';
     this.scoreAccumulator = new ConversionScoreAccumulator();
+    this.renderScoreAccumulator = new ConversionScoreAccumulator();
     this.previousScoredFrame = null;
     this.previousScoredGuide = null;
   }
@@ -64,8 +67,10 @@ export class DepthAheadController {
     await this.stop({ clearMemory: true });
     if (this.mode !== 'hybrid') return null;
 
-    const descriptor = createDepthCacheDescriptor(config);
-    const cacheId = cacheIdForDescriptor(descriptor);
+    const generatedDescriptor = createDepthCacheDescriptor(config);
+    const resumed = resumableDescriptorForConfig(config.resumeSession, config);
+    const descriptor = resumed?.descriptor || generatedDescriptor;
+    const cacheId = resumed?.cacheId || cacheIdForDescriptor(descriptor);
     const fps = descriptor.fps;
     const duration = Math.max(0.001, Number(config.duration) || 0.001);
     const frameCount = Math.max(1, Math.ceil(duration * fps));
@@ -108,8 +113,13 @@ export class DepthAheadController {
       });
       const session = await this.store.getSession(cacheId);
       this.completedIndices = new Set(this.knownPersistent);
-      const reuse = await this.timeline.prepare(cacheId, descriptor, frameCount, this.knownPersistent);
+      const timelineDescriptor = {
+        ...descriptor,
+        conversion: descriptorConversionMode(descriptor, config.generationEnvironment)
+      };
+      const reuse = await this.timeline.prepare(cacheId, timelineDescriptor, frameCount, this.knownPersistent);
       this.scoreAccumulator = new ConversionScoreAccumulator(session?.qualityAccumulator);
+      this.renderScoreAccumulator = new ConversionScoreAccumulator(session?.renderQualityAccumulator);
       for (let index = 0; index < frameCount; index++) {
         if (this.timeline.isAuthoritative(index)) this.completedIndices.add(index);
       }
@@ -151,6 +161,7 @@ export class DepthAheadController {
         reusableFrames: this.timeline.snapshot().reusableFrames,
         donorProfiles: this.timeline.snapshot().donorProfiles,
         qualityAccumulator: this.scoreAccumulator.snapshot(),
+        renderQualityAccumulator: this.renderScoreAccumulator.snapshot(),
         sharedQualityAccumulator: this.timeline.quality,
         analysisState: this.completedIndices.size >= endingSource.frameCount ? 'complete' : 'paused',
         lastCheckpointAt: Date.now()
@@ -165,6 +176,7 @@ export class DepthAheadController {
     this.lastAnalyzedIndex = null;
     this.failureCount = 0;
     this.scoreAccumulator = new ConversionScoreAccumulator();
+    this.renderScoreAccumulator = new ConversionScoreAccumulator();
     this.previousScoredFrame = null;
     this.previousScoredGuide = null;
     if (clearMemory) this.ring.clear();
@@ -231,7 +243,9 @@ export class DepthAheadController {
     const reuse = this.timeline.snapshot();
     const playable = new Set(this.knownPersistent);
     for (const index of this.timeline.plans.keys()) playable.add(index);
-    const quality = mergeConversionScoreSnapshots(this.scoreAccumulator.snapshot(), reuse.quality);
+    const analysisQuality = mergeConversionScoreSnapshots(this.scoreAccumulator.snapshot(), reuse.quality);
+    const renderQuality = this.renderScoreAccumulator.snapshot();
+    const quality = renderQuality.count ? renderQuality : analysisQuality;
     return {
       mode: this.mode,
       active: Boolean(this.source),
@@ -247,15 +261,18 @@ export class DepthAheadController {
       persistent: this.store.persistent,
       storageAvailable: this.store.available,
       quotaLimited: this.store.quotaLimited,
-      quality
+      quality,
+      qualityBasis: renderQuality.count ? 'final rendered depth + decoded video' : 'analyzed depth maps',
+      analysisQuality,
+      renderQuality
     };
   }
   recordPlaybackQuality(quality) {
-    const snapshot = this.scoreAccumulator.add(quality);
+    const snapshot = this.renderScoreAccumulator.add(quality);
     if (this.source && snapshot.count % 12 === 0) {
-      this.store.touchVariant(this.source.cacheId, { qualityAccumulator: snapshot }).catch(() => {});
+      this.store.touchVariant(this.source.cacheId, { renderQualityAccumulator: snapshot }).catch(() => {});
     }
-    this.#emit('working', null, true);
+    this.#emit('working');
     return snapshot;
   }
 
@@ -296,6 +313,7 @@ export class DepthAheadController {
           frameCount: this.knownPersistent.size,
           reusableFrames: this.timeline.snapshot().reusableFrames,
           qualityAccumulator: this.scoreAccumulator.snapshot(),
+          renderQualityAccumulator: this.renderScoreAccumulator.snapshot(),
           sharedQualityAccumulator: this.timeline.quality,
           analysisState: 'complete',
           completedAt: Date.now()
@@ -309,6 +327,14 @@ export class DepthAheadController {
         this.#emit('working');
       } catch (error) {
         if (epoch !== this.epoch) return;
+        if (error?.code === 'DEPTH_CACHE_PATH_MISMATCH') {
+          await this.store.touchVariant(this.source.cacheId, {
+            analysisState: 'paused',
+            lastCheckpointAt: Date.now()
+          }).catch(() => {});
+          this.#emit('paused', error.message, true);
+          return;
+        }
         this.failureCount += 1;
         console.warn(`Depth lookahead frame ${task.index} failed:`, error);
         if (this.failureCount >= 3) {
@@ -382,6 +408,7 @@ export class DepthAheadController {
     if (!job) throw new Error('Depth engine did not accept the lookahead frame.');
     const frame = await job;
     if (!frame || !this.source || epoch !== this.epoch) return;
+    this.#assertAnalysisPathCompatible();
 
     const sceneCut = this.engine.consumeSceneCut();
     const mediaTime = timeForFrameIndex(index, this.source.fps, this.source.duration);
@@ -431,6 +458,23 @@ export class DepthAheadController {
     // seeked already establishes the decoded seek target. Registering a frame
     // callback afterwards can miss that presentation on a paused decoder and
     // impose a 500 ms timeout on every cached map.
+  }
+
+  #assertAnalysisPathCompatible() {
+    const descriptor = this.source?.descriptor || {};
+    const expectedMode = descriptorConversionMode(descriptor, this.source?.generationEnvironment);
+    const actualMode = this.engine.getEffectiveConversionMode?.() || expectedMode;
+    const expectedBackend = String(descriptor.backend || '');
+    const actualBackend = String(this.engine.getEffectiveBackend?.() || this.engine.backend || '');
+    const expectedModel = String(descriptor.model || '');
+    const actualModel = String(this.engine.getEffectiveModelKey?.() || expectedModel);
+    const expectedPrecision = String(descriptor.precision || '');
+    const actualPrecision = String(this.engine.getEffectivePrecision?.() || this.engine.precision || '');
+    if (expectedMode === actualMode && expectedBackend === actualBackend
+      && expectedModel === actualModel && expectedPrecision === actualPrecision) return;
+    const error = new Error('The restored cache remains playable, but analysis paused because its original depth path is unavailable. Choose Local Luminance to build a separate local cache.');
+    error.code = 'DEPTH_CACHE_PATH_MISMATCH';
+    throw error;
   }
 
   #emit(phase = 'working', message = null, force = false) {

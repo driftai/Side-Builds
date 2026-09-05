@@ -1,5 +1,7 @@
 /** Deterministic selection of the best resumable depth profile for one source. */
 
+import { descriptorConversionMode } from './depth-conversion-mode.js';
+
 function profileDetail(descriptor = {}) {
   return Math.max(1, Number(descriptor.cols) || 1, Number(descriptor.rows) || 1);
 }
@@ -76,6 +78,7 @@ export function restoredProfileState(session) {
     activeDetail: profileDetail(descriptor),
     activeFps: Number(tuning.activeFps) || Number(descriptor.fps) || 3,
     model: descriptor.model || 'enhanced',
-    invert: Boolean(descriptor.invert)
+    invert: Boolean(descriptor.invert),
+    conversionMode: descriptorConversionMode(descriptor, session?.generationEnvironment)
   };
 }

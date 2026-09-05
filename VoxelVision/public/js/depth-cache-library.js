@@ -4,7 +4,8 @@ import {
   createConversionFeedbackReport,
   normalizeConversionFeedback
 } from './depth-feedback-report.js';
-import { mergeConversionScoreSnapshots } from './depth-conversion-score.js';
+import { conversionScoreForSession } from './depth-conversion-score.js';
+import { conversionLabel, descriptorConversionMode } from './depth-conversion-mode.js';
 import { DEPTH_CACHE_PIPELINE_VERSION } from './depth-cache-codec.js';
 import { sortDepthProfilesByQuality } from './depth-profile-resume.js';
 
@@ -28,7 +29,7 @@ function sourceIdentity(session) {
 }
 
 function sessionQuality(session) {
-  return mergeConversionScoreSnapshots(session.qualityAccumulator, session.sharedQualityAccumulator);
+  return conversionScoreForSession(session).quality;
 }
 
 export function groupDepthCacheSessions(sessions = []) {
@@ -156,7 +157,8 @@ export class DepthCacheLibrary {
 
     const meta = document.createElement('div');
     meta.className = 'cache-meta';
-    meta.textContent = `${descriptor.cols || '?'} × ${descriptor.rows || '?'} · ${descriptor.fps || '?'} depth FPS · ${descriptor.model || 'model'} · ${percent}% playable (${frameCount} native${reusedFrames ? ` + ${reusedFrames} shared` : ''})`;
+    const conversion = conversionLabel(descriptorConversionMode(descriptor, session.generationEnvironment));
+    meta.textContent = `${descriptor.cols || '?'} × ${descriptor.rows || '?'} · ${descriptor.fps || '?'} depth FPS · ${conversion} · ${descriptor.model || 'model'} · ${percent}% playable (${frameCount} native${reusedFrames ? ` + ${reusedFrames} shared` : ''})`;
 
     const detail = document.createElement('div');
     detail.className = 'cache-meta';
@@ -179,7 +181,8 @@ export class DepthCacheLibrary {
   }
 
   #renderFeedback(session, card) {
-    const quality = sessionQuality(session);
+    const scored = conversionScoreForSession(session);
+    const quality = scored.quality;
     const saved = normalizeConversionFeedback(session.feedback);
     const details = document.createElement('details');
     details.className = 'cache-feedback';
@@ -189,7 +192,7 @@ export class DepthCacheLibrary {
     const automatic = document.createElement('div');
     automatic.className = 'feedback-diagnostics';
     const components = quality.components || {};
-    automatic.textContent = `Tool ${quality.score ?? '?'}/100 ${quality.grade || ''} - ${quality.count || 0} analyzed samples - edges ${components.edgeAlignment ?? '?'} - temporal ${components.temporalStability ?? '?'} - relief ${components.usefulRelief ?? '?'} - borders ${components.borderIntegrity ?? '?'} - precision ${components.precision ?? '?'}`;
+    automatic.textContent = `Tool ${quality.score ?? '?'}/100 ${quality.grade || ''} - ${quality.count || 0} samples (${scored.basis}) - edges ${components.edgeAlignment ?? '?'} - temporal ${components.temporalStability ?? '?'} - relief ${components.usefulRelief ?? '?'} - borders ${components.borderIntegrity ?? '?'} - precision ${components.precision ?? '?'}`;
 
     const scoreLabel = document.createElement('label');
     scoreLabel.className = 'feedback-field';

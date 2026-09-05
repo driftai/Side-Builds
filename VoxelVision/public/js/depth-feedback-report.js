@@ -1,8 +1,9 @@
 /** Portable, privacy-conscious conversion feedback reports. */
 
-import { mergeConversionScoreSnapshots } from './depth-conversion-score.js';
+import { conversionScoreForSession } from './depth-conversion-score.js';
+import { descriptorConversionMode } from './depth-conversion-mode.js';
 
-export const VOXELVISION_VERSION = '1.9.4';
+export const VOXELVISION_VERSION = '1.9.5';
 export const FEEDBACK_SCHEMA_VERSION = 1;
 
 const KNOWN_ISSUES = new Set([
@@ -73,7 +74,8 @@ export function createConversionFeedbackReport(session, {
 } = {}) {
   if (!session?.id) throw new TypeError('A cached conversion session is required.');
   const descriptor = session.descriptor || {};
-  const quality = mergeConversionScoreSnapshots(session.qualityAccumulator, session.sharedQualityAccumulator);
+  const scored = conversionScoreForSession(session);
+  const quality = scored.quality;
   const components = quality.components || {};
   const environment = session.generationEnvironment || {};
   const modelInput = environment.modelInput || {};
@@ -98,7 +100,7 @@ export function createConversionFeedbackReport(session, {
       depthFps: descriptor.fps || null,
       inverted: Boolean(descriptor.invert),
       tuning: tuning.mode || null,
-      fusion: environment.fusion || null,
+      conversion: descriptorConversionMode(descriptor, environment),
       cache: cacheSummary(frameCount, totalFrames, reusedFrames),
       recalibration: calibrationSummary(session.calibration)
     })
@@ -107,7 +109,7 @@ export function createConversionFeedbackReport(session, {
     payload.toolScore = compact({
       overall: quality.score,
       samples: quality.count,
-      sampleBasis: session.sharedQualityAccumulator?.count ? 'native + shared cache' : 'native analyzed maps',
+      sampleBasis: scored.basis,
       edges: components.edgeAlignment,
       edgeIntegrity: components.edgeIntegrity,
       temporal: components.temporalStability,

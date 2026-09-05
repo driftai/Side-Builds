@@ -77,7 +77,7 @@ async function installHardwareAutotune() {
 
   function renderCapabilityStatus(extra = '') {
     if (!capabilityLine) return;
-    const isLuma = app.liveDepth?.backend === 'luma';
+    const isLuma = (app.liveDepth?.getEffectiveBackend?.() || app.liveDepth?.backend) === 'luma';
     const machine = isLuma
       ? `Luma fallback · ${LUMA_FALLBACK_LIMITS.maxGridCols} detail / ${LUMA_FALLBACK_LIMITS.maxDepthFps} FPS quality sweet spot (not a cap)`
       : describeMachineProfile(profile);
@@ -124,7 +124,8 @@ async function installHardwareAutotune() {
   const originalSetGridResolution = app.setGridResolution.bind(app);
 
   function primeFromLast(state) {
-    if (!lastMeasurement || lastMeasurement.backend !== app.liveDepth.backend
+    const backend = app.liveDepth.getEffectiveBackend?.() || app.liveDepth.backend;
+    if (!lastMeasurement || lastMeasurement.backend !== backend
       || lastMeasurement.sourceGeneration !== app.sourceGeneration) return state;
     return governor.prime(lastMeasurement.durationMs, lastMeasurement.detail);
   }
@@ -181,11 +182,16 @@ async function installHardwareAutotune() {
 
   app.restoreCachedQualityProfile = async session => {
     const cached = restoredProfileState(session);
-    await app.liveDepth.setModelProfile(cached.model, { load: false });
+    await app.depthPlayback.setConversionMode(cached.conversionMode, { load: false, reconfigure: false });
+    if (cached.conversionMode !== 'luma') {
+      await app.liveDepth.setModelProfile(cached.model, { load: false });
+    }
     app.liveDepth.setInvert(cached.invert);
     const modelSelect = document.getElementById('depthModelSelect');
+    const conversionSelect = document.getElementById('depthFusionMode');
     const invertCheck = document.getElementById('invertDepthCheck');
     if (modelSelect && [...modelSelect.options].some(option => option.value === cached.model)) modelSelect.value = cached.model;
+    if (conversionSelect) conversionSelect.value = cached.conversionMode;
     if (invertCheck) invertCheck.checked = cached.invert;
     if (tuningSelect) tuningSelect.value = cached.mode;
     const state = governor.restoreProfile(cached);
@@ -234,19 +240,20 @@ async function installHardwareAutotune() {
   // playback, in the next task after app.js consumes the completed frame.
   const originalMaybeUpdate = app.liveDepth.maybeUpdate.bind(app.liveDepth);
   app.liveDepth.maybeUpdate = (...args) => {
-    const readyBefore = Boolean(app.liveDepth.pipeline) || app.liveDepth.backend === 'luma';
-    const backendBefore = app.liveDepth.backend;
+    const effectiveBackend = () => app.liveDepth.getEffectiveBackend?.() || app.liveDepth.backend;
+    const readyBefore = Boolean(app.liveDepth.pipeline) || effectiveBackend() === 'luma';
+    const backendBefore = effectiveBackend();
     const started = performance.now();
     const result = originalMaybeUpdate(...args);
     if (!result || typeof result.then !== 'function') return result;
 
     return result.then(frame => {
-      if (readyBefore && frame && backendBefore === app.liveDepth.backend) {
+      if (readyBefore && frame && backendBefore === effectiveBackend()) {
         const elapsed = performance.now() - started;
         lastMeasurement = {
           durationMs: elapsed,
           detail: app.activeGridDetail,
-          backend: app.liveDepth.backend,
+          backend: effectiveBackend(),
           sourceGeneration: app.sourceGeneration
         };
         if (app.video.paused || !app.isPlaying) return frame;
@@ -268,7 +275,8 @@ async function installHardwareAutotune() {
   const originalOnStatus = app.liveDepth.onStatus?.bind(app.liveDepth);
   app.liveDepth.onStatus = state => {
     if (typeof originalOnStatus === 'function') originalOnStatus(state);
-    if (state?.phase === 'fallback' || (state?.phase === 'ready' && !restoringCachedMedia)) {
+    if (state?.phase === 'fallback' || state?.phase === 'local'
+      || (state?.phase === 'ready' && !restoringCachedMedia)) {
       restoringCachedMedia = false;
       lastMeasurement = null;
       const reset = governor.reset({ restoreRequested: true });

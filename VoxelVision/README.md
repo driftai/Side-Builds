@@ -2,7 +2,7 @@
 
 VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab. It turns ordinary video into an interactive, depth-aware voxel relief in Three.js, with live browser inference, analyze-ahead caching, temporal stabilization, and reusable conversion profiles.
 
-**Current release:** v1.9.4
+**Current release:** v1.9.5
 
 > VoxelVision began as an evolution of Joey Cato's original VoxelTV experience. Visit the original [VoxelTV “Take On Me” demo](https://voxeltv.surge.sh/#take-on-me-aha). The public VoxelVision distribution uses its own procedural demo and does not redistribute the original music video or its depth data.
 
@@ -16,15 +16,23 @@ VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab.
 - Recovers bounded foreground details such as illustrated hair, headwear, and other thin structures when model evidence supports them.
 - Interpolates cached depth against decoded video presentation timestamps for smoother playback.
 
-v1.9.4 keeps a selected depth diagnostic visible across bundled, hybrid, live-only, waiting, and unavailable states. Final Render Depth now follows bundled or synchronized hybrid playback, while Live only shows the latest fully conditioned model frame.
+v1.9.5 adds explicit **AI + decoded video**, **AI model only**, and **Local luminance** conversion paths. Cache replay is no longer gated by a fresh AI-model startup, and quality scoring now samples the depth actually presented by Final Render Depth against the matching decoded color frames.
 
-## Current v1.9.4 Workflow
+## Current v1.9.5 Workflow
+
+### Selectable conversion paths
+
+- **AI + decoded video** keeps AI near/far semantics while decoded video guides bounded boundaries, motion alignment, and interpolation.
+- **AI model only** keeps decoded color out of geometry conditioning and render fusion while retaining it for display and quality assessment.
+- **Local luminance depth** runs entirely in the browser without an AI-model download. It is useful for fast, deterministic conversion and as an explicit alternative when AI is unavailable.
+
+Each path has a distinct cache identity. Legacy cache descriptors remain readable and restore their historical mode.
 
 ### Hybrid playback and durable caching
 
 Hybrid mode analyzes ahead of playback, keeps a bounded hot queue in system RAM, and stores completed maps in browser IndexedDB. This absorbs short inference slowdowns without pretending RAM can replace GPU compute.
 
-- Cached frames replay immediately and remain synchronized during normal playback and seeking.
+- Cached frames replay immediately and remain synchronized during normal playback and seeking, without requiring either AI backend to initialize first.
 - Interrupted conversions resume after a reload when the same source is available.
 - Compatible frames can be reused across detail and FPS profiles instead of starting every conversion from zero.
 - Higher cache sampling rates can retain more source moments than the visible live-depth rate.
@@ -45,7 +53,7 @@ Automatic governors downshift under sustained overload and recover upward after 
 
 ### Conversion diagnostics
 
-The depth diagnostic selector can show raw, normalized, stabilized, final, and cached-playback depth. Cached conversions receive a compact no-reference score covering edge agreement, temporal stability, useful relief, border behavior, and precision.
+The depth diagnostic selector can show raw, normalized, stabilized, final, and cached-playback depth. The compact no-reference score samples the final depth actually presented during playback and compares it with the corresponding decoded video color, covering edge agreement, temporal stability, useful relief, border behavior, and precision. Before a conversion has been viewed, analyzed-map scores remain available as a fallback.
 
 The score estimates conversion consistency and plausibility; it is not metric-depth ground truth. Cache cards also accept a user score, issue flags, scene notes, and timestamp. **Copy Report** produces a compact generation-focused report containing the source title/URL, conversion settings, cache state, score components, and user feedback.
 

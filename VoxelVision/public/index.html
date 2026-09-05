@@ -119,18 +119,19 @@
       </div>
 
       <div class="settings-group">
-        <label class="settings-label"><span>Depth Fusion</span></label>
+        <label class="settings-label"><span>Depth Conversion Path</span></label>
         <select id="depthFusionMode">
-          <option value="fused" selected>AI + decoded video evidence</option>
-          <option value="model">Model depth only</option>
+          <option value="fused" selected>AI + decoded video</option>
+          <option value="model">AI model only</option>
+          <option value="luma">Local luminance depth</option>
         </select>
-        <div class="capability-line" data-state="ready">Video evidence guides model boundaries and interpolation without deriving height from brightness.</div>
+        <div id="depthConversionCapability" class="capability-line" data-state="ready">AI estimates depth while decoded video improves boundaries, motion alignment and interpolation.</div>
       </div>
 
       <div class="settings-group">
         <label class="settings-label"><span>Estimated Conversion Quality</span></label>
         <div id="conversionScoreValue" class="capability-line" data-state="working">Waiting for analyzed frames...</div>
-        <div class="capability-line">No-reference score: stability, image/depth edge agreement, useful relief, borders and precision.</div>
+        <div class="capability-line">Scores the presented diagnostic depth against decoded color for stability, edge agreement, relief, borders and precision.</div>
       </div>
 
       <div class="settings-group">

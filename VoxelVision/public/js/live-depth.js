@@ -7,6 +7,11 @@
 
 import * as DepthProcessing from './depth-processing.js';
 import * as DepthModels from './depth-models.js';
+import {
+  conversionUsesAi,
+  conversionUsesVideoEvidence,
+  normalizeDepthConversionMode
+} from './depth-conversion-mode.js';
 import { DepthWorkerSession } from './depth-worker-session.js';
 
 export {
@@ -73,13 +78,15 @@ export class LiveDepthEngine {
     invert = false,
     onStatus = null,
     conditioning = null,
-    modelProfile = DepthModels.DEFAULT_DEPTH_MODEL
+    modelProfile = DepthModels.DEFAULT_DEPTH_MODEL,
+    conversionMode = 'fused'
   } = {}) {
     this.targetFps = targetFps;
     this.invert = invert;
     this.onStatus = typeof onStatus === 'function' ? onStatus : () => {};
     this.conditioning = conditioning || DepthProcessing.DEFAULT_DEPTH_CONDITIONING;
     this.requestedModelKey = DepthModels.getDepthModelProfile(modelProfile).key;
+    this.conversionMode = normalizeDepthConversionMode(conversionMode);
     this.activeModelKey = null;
     this.modelFallbackReason = null;
 
@@ -148,6 +155,44 @@ export class LiveDepthEngine {
     this.requestImmediate({ resetTemporal: true });
   }
 
+  setConversionMode(value) {
+    const next = normalizeDepthConversionMode(value);
+    if (next === this.conversionMode) return next;
+    this.conversionMode = next;
+    // An automatic AI failure is retryable when the user explicitly returns
+    // from Local Luminance to an AI path. A deliberately selected local path
+    // never disposes an already warm model.
+    if (conversionUsesAi(next) && this.backend === 'luma' && !this.pipeline) {
+      this.modelLoadEpoch += 1;
+      this.loadPromise = null;
+      this.backend = 'idle';
+      this.precision = null;
+      this.readyStatus = null;
+    }
+    this.requestImmediate({ resetTemporal: true });
+    return next;
+  }
+
+  getEffectiveBackend() {
+    return conversionUsesAi(this.conversionMode) ? this.backend : 'luma';
+  }
+
+  getEffectivePrecision() {
+    return this.getEffectiveBackend() === 'luma' ? 'Float32 Local' : this.precision;
+  }
+
+  getEffectiveModelKey() {
+    return this.getEffectiveBackend() === 'luma'
+      ? 'local-luminance'
+      : (this.getActiveModelProfile()?.key || this.requestedModelKey);
+  }
+
+  getEffectiveConversionMode() {
+    return this.getEffectiveBackend() === 'luma'
+      ? 'luma'
+      : this.conversionMode;
+  }
+
   setInputDetail(value, { resetTemporal = true } = {}) {
     const profile = this.getActiveModelProfile() || this.getRequestedModelProfile();
     const detail = clamp(Math.round(Number(value) || profile.maxInputEdge), profile.patchSize * 4, profile.maxInputEdge);
@@ -211,6 +256,14 @@ export class LiveDepthEngine {
   }
 
   announceReady() {
+    if (!conversionUsesAi(this.conversionMode)) {
+      const status = {
+        phase: 'local',
+        message: 'Local luminance depth ready - no AI model is required.'
+      };
+      this.onStatus(status);
+      return status;
+    }
     if (this.readyStatus) this.onStatus({ ...this.readyStatus });
     return this.readyStatus;
   }
@@ -256,6 +309,7 @@ export class LiveDepthEngine {
   }
 
   async ensureReady() {
+    if (!conversionUsesAi(this.conversionMode)) return 'luma';
     if (this.pipeline || this.backend === 'luma') return this.backend;
     if (this.loadPromise) return this.loadPromise;
 
@@ -529,6 +583,8 @@ export class LiveDepthEngine {
         const completedAt = performance.now();
         this.lastResultMeta = {
           ...submittedMeta,
+          conversionMode: this.getEffectiveConversionMode(),
+          backend: this.getEffectiveBackend(),
           completedAt,
           durationMs: completedAt - submittedAt
         };
@@ -571,6 +627,8 @@ export class LiveDepthEngine {
       { knee: 0.65, ceiling: 0.88 }
     );
     const guidance = DepthProcessing.buildLumaGuide(guidancePixels, cols * rows);
+    const usesVideoEvidence = conversionUsesVideoEvidence(this.conversionMode);
+    const conditioningGuide = usesVideoEvidence ? guidance : null;
     const sceneChange = DepthProcessing.detectLiveSceneCut(
       independent,
       this.previousIndependentDepth,
@@ -600,9 +658,9 @@ export class LiveDepthEngine {
       this.rangeHigh,
       { knee: 0.65, ceiling: 0.88 }
     );
-    const conditioned = DepthProcessing.conditionDepthFrame(normalized, cols, rows, guidance, {
+    const conditioned = DepthProcessing.conditionDepthFrame(normalized, cols, rows, conditioningGuide, {
       ...this.conditioning,
-      colorGuidance: guidancePixels
+      colorGuidance: usesVideoEvidence ? guidancePixels : null
     });
     const statistics = !isSceneCut
       ? DepthProcessing.stabilizeDepthStatistics(
@@ -653,7 +711,8 @@ export class LiveDepthEngine {
           outputDirection: activeProfile.outputDirection,
           toneMap: activeProfile.toneMap,
           fallback: Boolean(this.modelFallbackReason)
-        }
+        },
+        conversion: this.getEffectiveConversionMode()
       }
     };
     return finalFrame;
@@ -685,7 +744,7 @@ export class LiveDepthEngine {
     const backend = await this.ensureReady();
     if (inferenceEpoch !== this.inferenceEpoch) return null;
 
-    if (backend === 'luma' || !this.pipeline) {
+    if (!conversionUsesAi(this.conversionMode) || backend === 'luma' || !this.pipeline) {
       return this.#luminanceDepth(cols, rows, guidancePixels);
     }
 
@@ -864,7 +923,8 @@ export class LiveDepthEngine {
         ...conditioned.metrics,
         sceneChange,
         temporal: { statistics: statistics.metrics, motion },
-        range: { low: this.rangeLow, high: this.rangeHigh }
+        range: { low: this.rangeLow, high: this.rangeHigh },
+        conversion: 'luma'
       }
     };
     return finalFrame;

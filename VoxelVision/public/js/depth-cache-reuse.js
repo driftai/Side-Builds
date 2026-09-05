@@ -6,11 +6,13 @@ import {
   resampleFloatBilinear,
   stabilizeDepthStatistics
 } from './depth-processing.js';
+import { descriptorConversionMode } from './depth-conversion-mode.js';
 
 const PROFILE_KEYS = ['pipeline', 'source', 'sourceWidth', 'sourceHeight', 'model', 'backend', 'precision', 'invert'];
 
 export function descriptorsShareDepthTimeline(target = {}, donor = {}) {
   return PROFILE_KEYS.every(key => target[key] === donor[key])
+    && descriptorConversionMode(target) === descriptorConversionMode(donor)
     && Math.abs(Number(target.durationMs || 0) - Number(donor.durationMs || 0)) <= 1000;
 }
 

@@ -4,7 +4,9 @@
  * caching cuts RAM/disk traffic in half without returning to 8-bit terraces.
  */
 
-export const DEPTH_CACHE_SCHEMA_VERSION = 1;
+import { descriptorConversionMode, normalizeDepthConversionMode } from './depth-conversion-mode.js';
+
+export const DEPTH_CACHE_SCHEMA_VERSION = 2;
 export const DEPTH_CACHE_PIPELINE_VERSION = 'voxelvision-depth-v7';
 export const UINT16_DEPTH_MAX = 65535;
 
@@ -54,7 +56,8 @@ export function cacheIdForDescriptor(descriptor) {
   const canonical = stableStringify(descriptor);
   const first = fnv1a32(canonical, 0x811c9dc5).toString(16).padStart(8, '0');
   const second = fnv1a32(canonical, 0x9e3779b9).toString(16).padStart(8, '0');
-  return `vv${DEPTH_CACHE_SCHEMA_VERSION}-${first}${second}`;
+  const schema = Math.max(1, Math.round(Number(descriptor?.schema) || DEPTH_CACHE_SCHEMA_VERSION));
+  return `vv${schema}-${first}${second}`;
 }
 
 export function createDepthCacheDescriptor({
@@ -68,7 +71,8 @@ export function createDepthCacheDescriptor({
   modelKey,
   backend,
   precision,
-  invert
+  invert,
+  conversionMode
 }) {
   return Object.freeze({
     schema: DEPTH_CACHE_SCHEMA_VERSION,
@@ -83,8 +87,24 @@ export function createDepthCacheDescriptor({
     model: String(modelKey || 'unknown'),
     backend: String(backend || 'unknown'),
     precision: String(precision || 'default'),
-    invert: Boolean(invert)
+    invert: Boolean(invert),
+    conversion: normalizeDepthConversionMode(conversionMode)
   });
+}
+
+/**
+ * Validate a requested exact replay without requiring its backend to be live.
+ * v1 descriptors remain resumable and default to their historical fused path.
+ */
+export function resumableDescriptorForConfig(session, config = {}) {
+  const descriptor = session?.descriptor;
+  if (!session?.id || !descriptor || descriptor.pipeline !== DEPTH_CACHE_PIPELINE_VERSION) return null;
+  const expected = createDepthCacheDescriptor(config);
+  const exactKeys = ['source', 'sourceWidth', 'sourceHeight', 'cols', 'rows', 'fps', 'model', 'invert'];
+  if (!exactKeys.every(key => descriptor[key] === expected[key])) return null;
+  if (descriptorConversionMode(descriptor, session.generationEnvironment) !== expected.conversion) return null;
+  if (Math.abs(Number(descriptor.durationMs || 0) - Number(expected.durationMs || 0)) > 1000) return null;
+  return { cacheId: session.id, descriptor };
 }
 
 export function frameIndexAtTime(time, fps, frameCount = Infinity) {

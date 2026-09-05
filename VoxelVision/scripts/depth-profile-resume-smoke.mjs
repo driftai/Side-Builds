@@ -52,5 +52,9 @@ assert.equal(portrait.activeDetail, 512, 'profile detail is the max edge for por
 assert.equal(portrait.activeFps, 4);
 assert.equal(portrait.requestedFps, 8);
 assert.equal(portrait.mode, 'motion-priority');
+assert.equal(portrait.conversionMode, 'fused', 'legacy profiles must restore their historical fused mode');
+assert.equal(restoredProfileState({
+  descriptor: descriptor(512, 288, 4, { conversion: 'luma', backend: 'luma' })
+}).conversionMode, 'luma');
 
 console.log('Depth profile resume smoke passed.');

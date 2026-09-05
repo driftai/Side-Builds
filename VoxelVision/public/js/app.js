@@ -261,9 +261,19 @@ class VoxelVisionApp {
 
   handleLiveDepthStatus(state) {
     if (!state) return;
-    if (state.phase === 'ready') {
-      const backend = this.liveDepth.backend === 'webgpu' ? 'WebGPU' : 'WASM';
-      const precision = this.liveDepth.precision ? ` ${this.liveDepth.precision}` : '';
+    if (state.phase === 'local') {
+      this.setDepthBadge('Live - Local Luminance', 'fallback');
+      const modelCapability = document.getElementById('depthModelCapability');
+      if (modelCapability) {
+        modelCapability.textContent = 'Local luminance depth is selected; no AI model download or GPU inference is required.';
+        modelCapability.dataset.state = 'working';
+      }
+      this.showStatus(state.message, { hideAfter: 2400 });
+    } else if (state.phase === 'ready') {
+      const effectiveBackend = this.liveDepth.getEffectiveBackend?.() || this.liveDepth.backend;
+      const backend = effectiveBackend === 'webgpu' ? 'WebGPU' : 'WASM';
+      const effectivePrecision = this.liveDepth.getEffectivePrecision?.() || this.liveDepth.precision;
+      const precision = effectivePrecision ? ` ${effectivePrecision}` : '';
       const activeModel = this.liveDepth.getActiveModelProfile?.();
       const modelLabel = activeModel?.badge || 'AI Depth';
       const fallback = Boolean(this.liveDepth.modelFallbackReason);
@@ -277,6 +287,19 @@ class VoxelVisionApp {
       }
       this.showStatus(state.message, { hideAfter: 2400 });
     } else if (state.phase === 'fallback') {
+      const cache = this.depthPlayback?.controller?.snapshot?.();
+      const cachedReplayAvailable = this.depthPlayback?.mode === 'hybrid' && Number(cache?.cachedFrames) > 0;
+      if (cachedReplayAvailable) {
+        this.setDepthBadge('Cached Depth - AI Paused', 'fallback');
+        const cachedCapability = document.getElementById('depthModelCapability');
+        if (cachedCapability) {
+          cachedCapability.textContent = 'Stored depth remains playable. AI analysis paused without changing the cache; Local Luminance is available as a separate path.';
+          cachedCapability.dataset.state = 'working';
+        }
+        this.showStatus('Cached depth playback is preserved. AI analysis could not resume; choose Local Luminance to create a separate local conversion.', { hideAfter: 5000 });
+        this.updateHeightScale();
+        return;
+      }
       this.setDepthBadge('Live · Luma Fallback', 'fallback');
       const modelCapability = document.getElementById('depthModelCapability');
       if (modelCapability) {
@@ -517,19 +540,28 @@ class VoxelVisionApp {
     });
     if (generation !== this.sourceGeneration) return;
     if (!restoredProfile) this.setGridResolution(this.currentGridCols);
-    this.showStatus(`Preparing ${this.liveDepth.getRequestedModelProfile().name} for this video…`);
-    await this.liveDepth.ensureReady();
-
-    if (generation !== this.sourceGeneration) return;
-    // A warm model returns immediately from ensureReady(). Re-announce the
-    // backend for each source so later YouTube imports cannot remain Loading.
-    this.liveDepth.announceReady();
+    const cachedReplayAvailable = this.depthPlayback.mode === 'hybrid'
+      && Number(restoredProfile?.playableFrames) > 0;
+    if (!cachedReplayAvailable) {
+      const localPath = this.depthPlayback.conversionMode === 'luma';
+      this.showStatus(localPath
+        ? 'Preparing local luminance depth for this video…'
+        : `Preparing ${this.liveDepth.getRequestedModelProfile().name} for this video…`);
+      await this.liveDepth.ensureReady();
+      if (generation !== this.sourceGeneration) return;
+      // A warm model returns immediately from ensureReady(). Re-announce the
+      // backend for each source so later imports cannot remain Loading.
+      this.liveDepth.announceReady();
+    } else {
+      this.setDepthBadge('Cached Depth · Ready', 'cached');
+    }
     await this.depthPlayback.setSource({
       src,
       identity,
       title,
       blob: sourceBlob,
-      mediaInfo
+      mediaInfo,
+      resumeSession: restoredProfile
     });
     this.showStatus(
       this.depthPlayback.mode === 'hybrid'
@@ -696,7 +728,15 @@ class VoxelVisionApp {
         this.showStatus(`Depth playback mode failed: ${error.message}`, { error: true, hideAfter: 4000 });
       });
     });
-    depthFusionMode?.addEventListener('change', e => this.depthPlayback.setFusionMode(e.target.value));
+    depthFusionMode?.addEventListener('change', e => {
+      this.showStatus('Switching depth conversion path…');
+      this.depthPlayback.setConversionMode(e.target.value).then(() => {
+        this.liveDepth.requestImmediate({ resetTemporal: true });
+        this.showStatus('Depth conversion path ready.', { hideAfter: 2200 });
+      }).catch(error => {
+        this.showStatus(`Depth conversion path failed: ${error.message}`, { error: true, hideAfter: 5000 });
+      });
+    });
     liveDepthRate.addEventListener('change', e => {
       this.liveDepth.setTargetFps(parseInt(e.target.value, 10));
       this.depthPlayback.scheduleRestart();
@@ -977,6 +1017,10 @@ class VoxelVisionApp {
                 }
                 this.liveDepthBlendStartedAt = completedAt;
                 this.lastDepthCompletedAt = completedAt;
+                this.depthPlayback.scoreLiveFrame(frame, {
+                  mediaTime: Number(resultMeta?.mediaTime) || this.video.currentTime,
+                  sceneCut
+                });
                 this.updateDepthDiagnostic();
               }
             }).catch(err => console.warn('Live depth frame failed:', err));

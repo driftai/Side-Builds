@@ -271,7 +271,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/status') {
     json(res, 200, {
       name: 'VoxelVision',
-      version: '1.9.4',
+      version: '1.9.5',
       status: 'ready',
       port: PORT,
       hardware: SYSTEM_HARDWARE,
@@ -334,7 +334,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const youtube = getYoutubeStatus();
   console.log('============================================================');
-  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.4');
+  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.5');
   console.log(`   Running at: http://${HOST}:${PORT}`);
   console.log(`   Serving: ${PUBLIC_DIR}`);
   console.log(`   Machine: ${SYSTEM_HARDWARE.cpuModel || 'CPU'} · ${SYSTEM_HARDWARE.logicalCores || '?'} threads · ${SYSTEM_HARDWARE.totalMemoryGb || '?'} GB RAM`);
@@ -343,7 +343,9 @@ server.listen(PORT, HOST, () => {
   console.log(`   FFmpeg merge: ${youtube.ffmpegProvider || 'not installed (combined streams only)'}`);
   console.log(`   YouTube quality: ${youtube.defaultQuality}p default + 720/1440/2160/source-max options`);
   console.log('   Live depth: DA3 FP16 hybrid WebGPU + Q8/WASM + automatic DA2 compatibility fallback');
+  console.log('   Conversion paths: AI model only + local luminance + AI/decoded-video fusion');
   console.log('   Hybrid playback: reload-safe best-profile resume + cross-profile reuse + persistent 16-bit depth');
+  console.log('   Cache-first replay: stored depth opens before optional AI analysis recovery');
   console.log('   Render fusion: chained temporal alignment + mask-guided foreground detail + continuous translation');
   console.log('   Cache library: grouped videos + replay/recalibration/scoring + per-video/all-cache removal');
   console.log('   Model safety: isolated worker backends + real warm-up validation + patch/aspect/direction profiles');
@@ -351,7 +353,7 @@ server.listen(PORT, HOST, () => {
   console.log('   Depth fidelity: Float32 geometry + adaptive multi-axis bias correction + confidence-gated color guidance');
   console.log('   Border protection: localized aspect-relative edge analysis tapers only unsupported extreme bands');
   console.log('   Quality tuning: manual lock default + detail-priority and motion-priority adaptive modes');
-  console.log('   Diagnostics: synchronized cached playback + raw/normalized/stabilized/final live depth views');
+  console.log('   Diagnostics: synchronized depth views + presented depth/color stability scoring');
   console.log('   Luma guidance: 256 detail / 4 FPS recommended, not hard-capped; float bilateral smoothing remains active');
   console.log('   Frame sync: decoded media timestamps + chained depth endpoints + continuous handoffs');
   console.log('   Stability: stale-job cancellation + seek resets + three-strike AI fallback protection');

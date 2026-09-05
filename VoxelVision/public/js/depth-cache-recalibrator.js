@@ -112,7 +112,13 @@ export class DepthCacheRecalibrator {
       completedAt: Date.now(),
       method: 'scene-aware median/span stabilization'
     };
-    await this.store.touchVariant(session.id, { calibration: result, qualityAccumulator: scores.snapshot() });
+    await this.store.touchVariant(session.id, {
+      calibration: result,
+      qualityAccumulator: scores.snapshot(),
+      // Presented-depth evidence belongs to the old calibration and must be
+      // sampled again while the recalibrated diagnostic is actually viewed.
+      renderQualityAccumulator: null
+    });
     this.onProgress({ phase: 'complete', current: plans.length, total: plans.length });
     return result;
   }

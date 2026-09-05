@@ -38,7 +38,8 @@ const session = {
     model: 'enhanced',
     backend: 'webgpu',
     precision: 'FP16 Hybrid',
-    invert: false
+    invert: false,
+    conversion: 'fused'
   },
   qualityAccumulator: {
     score: 71,
@@ -64,6 +65,7 @@ assert.equal(report.payload.generation.url, 'https://www.youtube.com/watch?v=tes
 assert.equal(report.payload.generation.modelInput, '518x294');
 assert.equal(report.payload.generation.voxelGrid, '512x288');
 assert.equal(report.payload.generation.cache, '180/240 (75%)');
+assert.equal(report.payload.generation.conversion, 'fused');
 assert.equal(report.payload.toolScore.overall, 71);
 assert.equal(report.payload.toolScore.samples, 180);
 assert.equal(report.payload.userFeedback.score, 7);
@@ -81,6 +83,18 @@ const reused = createConversionFeedbackReport({
 });
 assert.equal(reused.payload.generation.cache, '240/240 (100%; 60 native + 180 shared)');
 assert.equal(reused.payload.toolScore.samples, 180, 'score samples must count analyzed maps, not interpolated playback frames');
-assert.equal(reused.payload.toolScore.sampleBasis, 'native + shared cache');
+assert.equal(reused.payload.toolScore.sampleBasis, 'native + shared analyzed maps');
+
+const rendered = createConversionFeedbackReport({
+  ...session,
+  renderQualityAccumulator: {
+    score: 84,
+    count: 24,
+    components: { temporalStability: 91, edgeAlignment: 82 }
+  }
+});
+assert.equal(rendered.payload.toolScore.overall, 84, 'the final presented diagnostic must take scoring precedence');
+assert.equal(rendered.payload.toolScore.samples, 24);
+assert.equal(rendered.payload.toolScore.sampleBasis, 'final rendered depth + decoded video');
 
 console.log('Depth feedback report smoke passed: source identity, generation settings, scores, review and compact size.');

@@ -1,9 +1,9 @@
 {
   "name": "voxelvision",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "private": true,
   "type": "module",
-  "description": "Interactive voxel video engine with DA3/DA2 depth, video-evidence fusion, quality scoring and replayable recalibratable caching",
+  "description": "Interactive voxel video engine with selectable AI, luminance and fused depth paths plus replayable scored caching",
   "scripts": {
     "start": "node server.js",
     "start:lan": "set HOST=0.0.0.0&& node server.js",

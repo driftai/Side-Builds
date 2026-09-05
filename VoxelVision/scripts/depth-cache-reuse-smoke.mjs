@@ -11,12 +11,14 @@ import { groupDepthCacheSessions } from '../public/js/depth-cache-library.js';
 const base = {
   pipeline: 'voxelvision-depth-v7', source: 'video:test', durationMs: 2000,
   sourceWidth: 1920, sourceHeight: 1080, model: 'enhanced', backend: 'webgpu',
-  precision: 'FP16 Hybrid', invert: false
+  precision: 'FP16 Hybrid', invert: false, conversion: 'fused'
 };
 const donorDescriptor = { ...base, cols: 512, rows: 288, fps: 4 };
 const target = { ...base, cols: 384, rows: 216, fps: 8 };
 assert.equal(descriptorsShareDepthTimeline(target, donorDescriptor), true);
 assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, model: 'balanced' }), false);
+assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, conversion: 'model' }), false);
+assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, conversion: 'luma', backend: 'luma' }), false);
 
 const donor = { id: 'donor', sourceIdentity: base.source, descriptor: donorDescriptor, qualityAccumulator: { score: 78, count: 9 } };
 const indices = new Map([['donor', [0, 1, 2, 3, 4, 5, 6, 7]]]);
