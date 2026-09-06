@@ -2,10 +2,21 @@
   "max_lines": 450,
   "excluded_paths": [
     ".venv",
-    "drivers",
     "__pycache__",
-    "tests"
+    "node_modules",
+    "vendor",
+    "x64",
+    "package",
+    "test-results",
+    "output",
+    "scratch",
+    "tmp"
   ],
-  "extensions": [".py", ".js", ".mjs", ".cjs"],
+  "extensions": [
+    ".py", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
+    ".css", ".html",
+    ".c", ".h", ".cc", ".cpp", ".cxx", ".hpp", ".cs",
+    ".ps1", ".psm1", ".bat", ".cmd", ".sh"
+  ],
   "legacy_exceptions": {}
 }

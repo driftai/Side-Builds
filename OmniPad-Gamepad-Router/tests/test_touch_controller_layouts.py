@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 
 HTML_PATH = ROOT / "static" / "play.html"
 JS_PATH = ROOT / "static" / "js" / "touch_controller.js"
-CSS_PATH = ROOT / "static" / "css" / "touch_controller.css"
+CSS_PATH = ROOT / "static" / "css" / "touch_controller_layouts.css"
 
 HTML = HTML_PATH.read_text(encoding="utf-8")
 JS = JS_PATH.read_text(encoding="utf-8")
@@ -44,7 +44,7 @@ def test_layout_selector_exposes_all_presets():
 def test_layout_classes_are_styled():
     print("\n--- 2. Testing Layout Preset CSS Classes ---")
     for name, class_name in EXPECTED_LAYOUTS.items():
-        assert f".{class_name}" in CSS, f"CSS class '.{class_name}' missing from touch_controller.css"
+        assert f".{class_name}" in CSS, f"CSS class '.{class_name}' missing from touch_controller_layouts.css"
         assert f'shellClass: "{class_name}"' in JS or f"shellClass: '{class_name}'" in JS, f"shellClass '{class_name}' missing in JS"
     print("  [PASS] All preset CSS layout classes defined and styled")
 

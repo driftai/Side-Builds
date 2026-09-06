@@ -10,7 +10,7 @@ OmniPad is maintained as a modular input-routing application. Individual source 
 
 A file approaching 400 lines is a refactoring signal, not a target. Do not compress code or remove readability merely to evade the limit.
 
-The rule applies to Python application modules, browser JavaScript modules, CSS modules where practical, and launcher/test-harness source. Generated artifacts, lockfiles, third-party/vendor code, reports, and documentation are excluded.
+The rule applies to Python application and test modules, browser JavaScript/TypeScript, CSS/HTML, native C/C++/C# driver source, PowerShell, shell, and batch launchers. Generated artifacts, packaged binaries, build output, lockfiles, third-party/vendor code, reports, and documentation are excluded explicitly in `MODULARIZATION-EXCEPTIONS.json`.
 
 Existing oversized legacy modules are explicitly tracked in `MODULARIZATION-MAP.md`. The architecture checker rejects every new or unapproved overage.
 
@@ -81,13 +81,15 @@ Run:
 
 `python tools/check_architecture.py`
 
-The checker scans the working tree and fails non-zero when a covered source file exceeds 450 lines without an explicit temporary entry in `MODULARIZATION-EXCEPTIONS.json`.
+The checker scans the working tree and fails non-zero when a covered source file exceeds 450 lines without an explicit temporary entry in `MODULARIZATION-EXCEPTIONS.json`. It also rejects stale exceptions and exception entries missing an owner, reason, or removal target.
+
+Successful runs emit one stable summary line. Full machine-readable results are written to the ignored `test-results/architecture.json` artifact.
 
 Exceptions are migration debt, not permanent architecture. Each exception requires an owner/scope note and removal target in `MODULARIZATION-MAP.md`.
 
 ## Smoke/test policy
 
-Architecture validation is a normal test gate. Keep it cheap and low-noise. Targeted regressions should sit close to the responsibility they protect.
+Architecture validation is the first full-smoke stage. `tools/run_smoke_tests.bat` emits one passing summary line by default and stores complete ignored diagnostics in `test-results/smoke.json`; use `--verbose` only when detailed passing output is needed.
 
 ## Final verification handoff
 

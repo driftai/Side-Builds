@@ -46,6 +46,9 @@ typedef struct _OMNIPAD_DEVICE_CONTEXT {
 
 WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(OMNIPAD_DEVICE_CONTEXT, OmniPadGetDeviceContext);
 
+const HID_DESCRIPTOR *OmniPadGetHidDescriptor(void);
+const HID_REPORT_DESCRIPTOR *OmniPadGetReportDescriptor(_Out_ size_t *Length);
+
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD OmniPadEvtDeviceAdd;
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL OmniPadEvtIoDeviceControl;

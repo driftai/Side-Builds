@@ -1,0 +1,159 @@
+/* Touchscreen layout preset overrides */
+.touch-layout-classic {
+  gap: 12px;
+}
+
+.touch-layout-twin-stick {
+  gap: 10px;
+}
+
+.touch-layout-twin-stick .touch-controller-primary-row {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(140px, .7fr) minmax(125px, 1fr);
+  grid-template-rows: auto auto;
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.touch-layout-twin-stick .touch-dpad-cluster {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  padding-top: 8px;
+}
+
+.touch-layout-twin-stick .touch-center-stack {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.touch-layout-twin-stick .touch-stick-pair {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  padding: 8px 4%;
+}
+
+.touch-layout-twin-stick .touch-stick-pair .touch-stick {
+  width: clamp(120px, 23vw, 158px);
+}
+
+.touch-layout-twin-stick .touch-action-row {
+  display: grid;
+  grid-template-columns: minmax(125px, 1fr) minmax(140px, .7fr) minmax(125px, 1fr);
+}
+
+.touch-layout-twin-stick .touch-action-row .touch-action-cluster {
+  grid-column: 3;
+  justify-self: center;
+}
+
+.touch-layout-twin-stick .touch-shoulders {
+  order: -1;
+}
+
+.touch-layout-twin-stick .touch-center-pad {
+  min-height: 64px;
+}
+
+.touch-layout-playstation {
+  gap: 10px;
+}
+
+.touch-layout-playstation .touch-controller-primary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-areas:
+    "dpad center actions"
+    "leftstick center rightstick";
+  align-items: center;
+  gap: 12px;
+}
+
+.touch-layout-playstation .touch-dpad-cluster { grid-area: dpad; }
+.touch-layout-playstation .touch-center-stack { grid-area: center; }
+.touch-layout-playstation .touch-stick-pair { display: contents; }
+.touch-layout-playstation .touch-stick-pair .touch-stick:first-child { grid-area: leftstick; justify-self: center; }
+.touch-layout-playstation .touch-stick-pair .touch-stick:last-child { grid-area: rightstick; justify-self: center; }
+
+.touch-layout-playstation .touch-action-row {
+  position: relative;
+  display: contents;
+}
+
+.touch-layout-playstation .touch-action-row > .touch-action-cluster {
+  grid-area: actions;
+  justify-self: center;
+  align-self: center;
+  display: grid;
+}
+
+.touch-layout-playstation .touch-action-row > .touch-controller-hint,
+.touch-layout-playstation .touch-action-row > div:first-child {
+  display: none;
+}
+
+.touch-layout-playstation .touch-center-pad { min-height: 78px; }
+.touch-layout-playstation .touch-shoulders { margin-top: -2px; }
+
+.touch-layout-compact {
+  gap: 8px;
+  padding: 10px;
+}
+
+.touch-layout-compact .touch-controller-primary-row {
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.touch-layout-compact .touch-stick-pair {
+  gap: 8px;
+}
+
+.touch-layout-compact .touch-stick {
+  width: min(31vw, 112px);
+}
+
+.touch-layout-compact .touch-center-pad {
+  min-height: 68px;
+  max-width: 150px;
+}
+
+.touch-layout-compact .touch-dpad-controller {
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 40px);
+}
+
+.touch-layout-compact .touch-dpad-controller .touch-controller-btn {
+  width: 40px;
+  height: 40px;
+}
+
+.touch-layout-compact .touch-action-cluster { gap: 6px; }
+.touch-layout-compact .touch-action-btn { min-height: 48px; }
+.touch-layout-compact .touch-shoulder-btn,
+.touch-layout-compact .touch-trigger { min-height: 42px; }
+
+@media (max-width: 700px) {
+  .touch-layout-picker { width: 100%; }
+  .touch-layout-picker select { flex: 1; min-width: 0; }
+
+  .touch-layout-twin-stick .touch-controller-primary-row,
+  .touch-layout-twin-stick .touch-action-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .touch-layout-twin-stick .touch-center-stack { grid-column: 1 / -1; grid-row: 1; }
+  .touch-layout-twin-stick .touch-dpad-cluster { grid-column: 1; grid-row: 2; }
+  .touch-layout-twin-stick .touch-stick-pair { grid-row: 3; }
+  .touch-layout-twin-stick .touch-action-row .touch-action-cluster { grid-column: 2; }
+}
+
+@media (max-width: 500px) {
+  .touch-layout-toolbar > div:first-child { width: 100%; }
+  .touch-layout-twin-stick .touch-stick-pair { padding-inline: 1%; }
+  .touch-layout-twin-stick .touch-stick-pair .touch-stick { width: min(37vw, 116px); }
+  .touch-layout-playstation .touch-stick { width: min(34vw, 110px); }
+}

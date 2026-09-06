@@ -204,9 +204,9 @@ OmniPad includes a dedicated regression ring covering routing, networking, targe
 
 Current verification baseline:
 
-- **22 / 22 test suites passing**
+- **24 / 24 test suites passing**
 - **0 security-test failures** in the dedicated security suites
-- **49 covered source files** within the strict **450-line modularization limit**
+- **119 covered first-party source files** within the strict **450-line modularization limit**
 - Full historical secret scan reported **0 secret/token/private-key matches** in the audited history
 
 Important suites include:
@@ -288,7 +288,7 @@ The main components are:
 - `drivers/virtual-keyboard-umdf/` — normal-mode UMDF 2 virtual keyboard port source and build scripts.
 - `tests/` — regression and security test ring.
 
-The project enforces a strict source-file size ceiling to keep individual modules reviewable and maintainable. See [`MODULARIZATION.md`](MODULARIZATION.md) and [`MODULARIZATION-MAP.md`](MODULARIZATION-MAP.md).
+The project enforces a strict source-file size ceiling across Python, browser, stylesheet, native-driver, launcher, and test-harness source. Generated packages, build output, and third-party/vendor code are excluded explicitly. See [`MODULARIZATION.md`](MODULARIZATION.md) and [`MODULARIZATION-MAP.md`](MODULARIZATION-MAP.md).
 
 ---
 

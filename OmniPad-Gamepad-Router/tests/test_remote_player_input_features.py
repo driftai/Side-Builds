@@ -39,6 +39,8 @@ def main() -> None:
     assert "keyboard_type_adapter.js" in play
     assert "low_latency_input.js" in play
     assert "input_extensions.css" in play
+    assert "virtual_keyboard.css?v=" in play
+    assert "touch_controller_layouts.css?v=" in play
     assert 'placeholder="Code from the current join link"' in play
     assert 'value="SF6-ROOM"' not in play
     assert 'params.get("code")' in player

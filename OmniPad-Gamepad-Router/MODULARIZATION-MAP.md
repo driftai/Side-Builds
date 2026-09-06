@@ -51,6 +51,24 @@ OmniPad should converge on focused modules with explicit ownership:
   - Cloudflare Quick Tunnel management extracted to `static/js/dashboard_tunnel.js` (**115 lines**).
   - Slot cards, visualizer synchronization, and controls extracted to `static/js/dashboard_slots.js` (**271 lines**).
 
+### 5. Player Stylesheets (COMPLETED - Phase 3)
+- **`static/css/play.css`**: Player shell, connection, touch-overlay, and routing controls (**289 lines**).
+- Keyboard chassis, keycaps, bindings, badges, and responsive rules extracted to `static/css/virtual_keyboard.css` (**276 lines**).
+- **`static/css/touch_controller.css`**: Shared touchscreen controller structure and controls (**365 lines**).
+- Preset-specific grids and responsive overrides extracted to `static/css/touch_controller_layouts.css` (**159 lines**).
+
+### 6. UMDF Virtual Keyboard Driver (COMPLETED - Phase 3)
+- **`OmniPadVirtualKeyboardUmdf.c`**: UMDF device creation and driver lifecycle (**79 lines**).
+- HID request handling, feature reports, pending reads, and watchdog extracted to `OmniPadVirtualKeyboardHid.c` (**381 lines**).
+- HID keyboard/vendor report descriptors extracted to `OmniPadVirtualKeyboardDescriptors.c` (**73 lines**).
+
+### 7. Runtime Control and Smoke Infrastructure (COMPLETED - Phase 3)
+- **`tools/manage_router.ps1`**: Control actions and dispatch facade (**293 lines**).
+- Runtime state, process validation, local API access, and visible viewer startup extracted to `tools/router_runtime_helpers.ps1` (**119 lines**).
+- Live WebSocket/target journeys extracted from `tests/smoke_test.py` to `tests/smoke_runtime_flows.py`.
+- `tools/run_smoke_tests.py` captures complete diagnostics while keeping default success output to one stable line.
+- The architecture gate now covers all first-party Python/JS/TS/CSS/HTML/native-driver/launcher/test source and validates exception debt.
+
 ## Rules for extraction
 
 - Preserve public imports until a migration boundary is complete.
@@ -61,4 +79,4 @@ OmniPad should converge on focused modules with explicit ownership:
 
 ## Success condition
 
-The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and every covered source file in the repository (both Python and JavaScript) is at or below the 450-line maximum ceiling. All 22 test suites and the architecture checker are 100% green.
+The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and all 119 covered first-party source files are at or below the 450-line maximum ceiling. All 24 test suites and the architecture checker are green.

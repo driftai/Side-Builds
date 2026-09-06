@@ -46,6 +46,8 @@
     </DriverSign>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="OmniPadVirtualKeyboardDescriptors.c" />
+    <ClCompile Include="OmniPadVirtualKeyboardHid.c" />
     <ClCompile Include="OmniPadVirtualKeyboardUmdf.c" />
     <ClInclude Include="OmniPadVirtualKeyboardUmdf.h" />
   </ItemGroup>

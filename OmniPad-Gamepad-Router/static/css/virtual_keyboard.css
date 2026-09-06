@@ -1,0 +1,276 @@
+/* Interactive virtual keyboard and key-binding guide */
+.virtual-keyboard-card {
+  width: 100%;
+  padding: 18px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.vk-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vk-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vk-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.active-keys-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 38px;
+  flex-wrap: wrap;
+}
+
+.active-keys-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.active-key-pill {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  background: var(--accent-cyan);
+  color: #000;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+  animation: keyPop 0.15s ease-out;
+}
+
+@keyframes keyPop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.vk-chassis {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(10, 13, 20, 0.85);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  touch-action: none;
+  overflow-x: auto;
+}
+
+.vk-row {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  align-items: stretch;
+  min-width: fit-content;
+}
+
+.vk-key {
+  position: relative;
+  min-width: 44px;
+  height: 44px;
+  padding: 4px 6px;
+  background: linear-gradient(180deg, #1f2736 0%, #151b27 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  transition: transform 0.05s ease, background 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.vk-key:hover {
+  background: linear-gradient(180deg, #283347 0%, #1c2435 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.vk-key:active,
+.vk-key.pressed {
+  background: linear-gradient(180deg, #00e5ff 0%, #00b4d8 100%) !important;
+  color: #050811 !important;
+  border-color: #00e5ff !important;
+  border-bottom: 1px solid #00b4d8 !important;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.7), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(2px);
+}
+
+.vk-key-sub {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.vk-key.pressed .vk-key-sub {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.vk-w-1 { min-width: 44px; }
+.vk-w-1-25 { min-width: 55px; }
+.vk-w-1-5 { min-width: 66px; }
+.vk-w-1-75 { min-width: 77px; }
+.vk-w-2 { min-width: 88px; }
+.vk-w-2-25 { min-width: 99px; }
+.vk-w-2-5 { min-width: 110px; }
+.vk-w-space { flex: 6; min-width: 240px; max-width: 320px; }
+.vk-spacer { width: 12px; }
+
+.vk-highlight-move {
+  border-color: rgba(0, 229, 255, 0.4) !important;
+  background: linear-gradient(180deg, #1a2f42 0%, #122130 100%) !important;
+  color: #38bdf8 !important;
+}
+
+.vk-highlight-action {
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  background: linear-gradient(180deg, #2d1f42 0%, #1e1330 100%) !important;
+  color: #c084fc !important;
+}
+
+.vk-highlight-modifier {
+  border-color: rgba(250, 204, 21, 0.35) !important;
+  background: linear-gradient(180deg, #2c2919 0%, #1c1a0e 100%) !important;
+  color: #fde047 !important;
+}
+
+.keyboard-guide-card {
+  width: 100%;
+  padding: 18px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.key-bindings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.key-bind-item {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.key-action-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.key-badge {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: var(--accent-cyan);
+}
+
+.vk-badge {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  max-width: calc(100% - 6px);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0.15px;
+  color: #dffbff;
+  background: rgba(0, 229, 255, 0.13);
+  border: 1px solid rgba(0, 229, 255, 0.38);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.12);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vk-highlight-action .vk-badge {
+  color: #f2e7ff;
+  background: rgba(168, 85, 247, 0.16);
+  border-color: rgba(192, 132, 252, 0.48);
+}
+
+.vk-key.pressed .vk-badge {
+  color: #050811;
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 768px) {
+  .vk-key {
+    min-width: 24px;
+    height: 36px;
+    font-size: 0.65rem;
+    padding: 1px;
+  }
+
+  .vk-w-1 { min-width: 24px; }
+  .vk-w-1-25 { min-width: 30px; }
+  .vk-w-1-5 { min-width: 36px; }
+  .vk-w-1-75 { min-width: 42px; }
+  .vk-w-2 { min-width: 48px; }
+  .vk-w-2-25 { min-width: 54px; }
+  .vk-w-2-5 { min-width: 60px; }
+  .vk-w-space { min-width: 110px; }
+  .vk-spacer { width: 4px; }
+  .vk-chassis { padding: 6px; gap: 4px; }
+  .vk-row { gap: 2px; }
+  .vk-badge {
+    font-size: 0.55rem;
+    padding: 0 2px;
+    top: 1px;
+    right: 1px;
+  }
+}

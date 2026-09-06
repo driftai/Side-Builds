@@ -26,11 +26,13 @@ def test_touch_controller_assets_and_dom():
     js_path = ROOT / "static" / "js" / "touch_controller.js"
     play_js_path = ROOT / "static" / "js" / "play.js"
     css_path = ROOT / "static" / "css" / "touch_controller.css"
+    layout_css_path = ROOT / "static" / "css" / "touch_controller_layouts.css"
 
     assert html_path.exists(), "play.html missing"
     assert js_path.exists(), "touch_controller.js missing"
     assert play_js_path.exists(), "play.js missing"
     assert css_path.exists(), "touch_controller.css missing"
+    assert layout_css_path.exists(), "touch_controller_layouts.css missing"
 
     html = html_path.read_text(encoding="utf-8")
     js = js_path.read_text(encoding="utf-8")
@@ -38,6 +40,7 @@ def test_touch_controller_assets_and_dom():
 
     # Verify cache-busting link
     assert "touch_controller.css?v=" in html, "touch_controller.css not referenced with cache-busting"
+    assert "touch_controller_layouts.css?v=" in html, "touch layout CSS not referenced with cache-busting"
     assert "touch_controller.js?v=" in html, "touch_controller.js not referenced with cache-busting"
 
     # Verify all essential touch controller DOM element IDs

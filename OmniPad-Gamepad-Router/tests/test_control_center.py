@@ -16,6 +16,8 @@ sys.path.insert(0, str(ROOT))
 def test_control_surface_contract():
     control = (ROOT / "control.bat").read_text(encoding="utf-8")
     manager = (ROOT / "tools" / "manage_router.ps1").read_text(encoding="utf-8")
+    helpers = (ROOT / "tools" / "router_runtime_helpers.ps1").read_text(encoding="utf-8")
+    manager_contract = manager + "\n" + helpers
     viewer = (ROOT / "tools" / "watch_router_runtime.ps1").read_text(encoding="utf-8")
     cleanup = (ROOT / "tools" / "cleanup_stragglers.bat").read_text(encoding="utf-8")
     lan = (ROOT / "tools" / "start_router.bat").read_text(encoding="utf-8")
@@ -23,17 +25,18 @@ def test_control_surface_contract():
     repair = (ROOT / "install_or_repair.bat").read_text(encoding="utf-8")
 
     for action in ("StartTunnel", "StopTunnel", "Panic", "OpenDashboard", "ShowRuntime", "Cleanup"):
-        assert action in manager
+        assert action in manager_contract
     assert ".runtime" in manager and "omnipad-control.json" in manager
-    assert "Test-ManagedProcess" in manager
-    assert "Test-ServerCommandLine" in manager
-    assert "StringComparison]::OrdinalIgnoreCase" in manager
-    assert "/api/control/shutdown" in manager
-    assert "Get-DescendantProcessIds" in manager
-    assert "Start-RuntimeViewer" in manager
-    assert "-WindowStyle Normal" in manager
+    assert "router_runtime_helpers.ps1" in manager
+    assert "Test-ManagedProcess" in manager_contract
+    assert "Test-ServerCommandLine" in manager_contract
+    assert "StringComparison]::OrdinalIgnoreCase" in manager_contract
+    assert "/api/control/shutdown" in manager_contract
+    assert "Get-DescendantProcessIds" in manager_contract
+    assert "Start-RuntimeViewer" in manager_contract
+    assert "-WindowStyle Normal" in manager_contract
     assert "Cloudflare tunnel is already stopped; no managed router is running." in manager
-    assert "Write-Error" not in manager
+    assert "Write-Error" not in manager_contract
     assert "[V] Open/reopen live router runtime console" in control
     assert "Managed launcher PID" in viewer
     assert "Uvicorn writes ordinary INFO lifecycle messages to stderr" in viewer

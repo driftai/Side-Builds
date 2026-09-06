@@ -85,7 +85,10 @@ def test_backend_lifecycle():
 
 def test_driver_source_contract():
     folder = ROOT / "drivers" / "virtual-keyboard-umdf"
-    source = (folder / "OmniPadVirtualKeyboardUmdf.c").read_text(encoding="utf-8")
+    lifecycle_source = (folder / "OmniPadVirtualKeyboardUmdf.c").read_text(encoding="utf-8")
+    hid_source = (folder / "OmniPadVirtualKeyboardHid.c").read_text(encoding="utf-8")
+    descriptor_source = (folder / "OmniPadVirtualKeyboardDescriptors.c").read_text(encoding="utf-8")
+    source = "\n".join((lifecycle_source, hid_source, descriptor_source))
     header = (folder / "OmniPadVirtualKeyboardUmdf.h").read_text(encoding="utf-8")
     inf = (folder / "OmniPadVirtualKeyboardUmdf.inx").read_text(encoding="utf-8")
     project = (folder / "OmniPadVirtualKeyboardUmdf.vcxproj").read_text(encoding="utf-8")
@@ -111,6 +114,11 @@ def test_driver_source_contract():
     assert "UmdfService=\"OmniPadVirtualKeyboardUmdf\"" in inf
     assert "WindowsUserModeDriver10.0" in project
     assert "<DriverType>UMDF</DriverType>" in project
+    assert 'ClCompile Include="OmniPadVirtualKeyboardDescriptors.c"' in project
+    assert 'ClCompile Include="OmniPadVirtualKeyboardHid.c"' in project
+    assert "OmniPadGetHidDescriptor" in lifecycle_source
+    assert "OmniPadEvtIoDeviceControl" in hid_source
+    assert "g_ReportDescriptor" in descriptor_source
     assert "Get-AuthenticodeSignature" in installer
     assert "signature.Status -ne 'Valid'" in installer
     assert "bcdedit" not in installer.lower()
