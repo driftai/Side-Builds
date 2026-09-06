@@ -37,6 +37,7 @@ SUITES = (
     ("surface_combinations_e2e", "tests/test_surface_combinations_e2e.py"),
     ("touch_controller", "tests/test_touch_controller.py"),
     ("touch_controller_layouts", "tests/test_touch_controller_layouts.py"),
+    ("hybrid_controls", "tests/test_hybrid_controls.py"),
     ("remote_player_input", "tests/test_remote_player_input_features.py"),
     ("player_websocket_join", "tests/test_player_websocket_join.py"),
     ("server_live", "tests/test_server_live.py"),

@@ -14,14 +14,16 @@ OmniPad should converge on focused modules with explicit ownership:
 - **tunnel** — Cloudflare process lifecycle and public URL state.
 - **touch UI** — layout presets, pointer isolation, state reset.
 - **keyboard UI** — layout rendering, labels, interaction wiring.
+- **hybrid UI** — composition presets, component visibility, and cross-surface releases.
 
 ## Current migration queue
 
 ### 1. server.py (COMPLETED - Phase 1)
-**Status:** Thin composition root (**280 lines**).
+**Status:** Thin composition root (**302 lines**).
 - REST API routes extracted to `router/api_routes.py` (**353 lines**).
 - Background keyboard helper lifecycle extracted to `router/background_helper.py` (**183 lines**).
 - Routine access-log filtering extracted to `router/access_logging.py` (**40 lines**).
+- Benign Windows transport-disconnect filtering extracted to `router/event_loop.py` (**38 lines**).
 
 ### 2. router/controller.py (COMPLETED - Phase 1)
 **Status:** Controller factory & registry (**151 lines**).
@@ -40,22 +42,26 @@ OmniPad should converge on focused modules with explicit ownership:
 - Multi-client packet fusion, SOCD application, and input normalization extracted to `router/input_pipeline.py` (**99 lines**).
 
 ### 4. Browser UI Modules (COMPLETED - Phase 2)
-- **`static/js/play.js` (COMPLETED)**: Reduced from **1140 lines to 399 lines**.
+- **`static/js/play.js` (COMPLETED)**: Reduced from **1140 lines to 375 lines**.
   - Keyboard layout definitions and controller badges extracted to `static/js/keyboard_layouts.js` (**268 lines**).
   - Gamepad profile configurations and keybinding grid extracted to `static/js/gamepad_profiles.js` (**126 lines**).
   - Virtual keyboard state engine and pointer tracking extracted to `static/js/virtual_keyboard.js` (**205 lines**).
-  - Target scoping and demand-driven background companion synchronization extracted to `static/js/target_routing.js` (**248 lines**).
+  - Target scoping, best-effort selected-game focus, and demand-driven background companion synchronization extracted to `static/js/target_routing.js` (**301 lines**).
   - Input capture aggregation extracted to `static/js/input_capture.js` (**59 lines**).
+  - Device/tab switching and cross-surface release ownership extracted to `static/js/device_modes.js` (**61 lines**).
+  - Hybrid presets and component visibility extracted to `static/js/hybrid_controls.js` (**108 lines**).
+  - Touch-to-keyboard fallback translation extracted to `static/js/touch_keyboard_bridge.js` (**42 lines**).
 - **`static/js/dashboard.js` (COMPLETED)**: Reduced from **486 lines to 182 lines**.
   - Target enumeration and safety gating extracted to `static/js/dashboard_targets.js` (**119 lines**).
   - Cloudflare Quick Tunnel management extracted to `static/js/dashboard_tunnel.js` (**115 lines**).
   - Slot cards, visualizer synchronization, and controls extracted to `static/js/dashboard_slots.js` (**271 lines**).
 
 ### 5. Player Stylesheets (COMPLETED - Phase 3)
-- **`static/css/play.css`**: Player shell, connection, touch-overlay, and routing controls (**289 lines**).
+- **`static/css/play.css`**: Player shell, connection, touch-overlay, and routing controls (**303 lines**).
 - Keyboard chassis, keycaps, bindings, badges, and responsive rules extracted to `static/css/virtual_keyboard.css` (**276 lines**).
-- **`static/css/touch_controller.css`**: Shared touchscreen controller structure and controls (**365 lines**).
-- Preset-specific grids and responsive overrides extracted to `static/css/touch_controller_layouts.css` (**159 lines**).
+- **`static/css/touch_controller.css`**: Shared touchscreen controller structure and controls (**377 lines**).
+- Preset-specific grids and responsive overrides extracted to `static/css/touch_controller_layouts.css` (**228 lines**).
+- Hybrid composition and phone breakpoints extracted to `static/css/hybrid_controls.css` (**91 lines**).
 
 ### 6. UMDF Virtual Keyboard Driver (COMPLETED - Phase 3)
 - **`OmniPadVirtualKeyboardUmdf.c`**: UMDF device creation and driver lifecycle (**79 lines**).
@@ -79,4 +85,4 @@ OmniPad should converge on focused modules with explicit ownership:
 
 ## Success condition
 
-The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and all 119 covered first-party source files are at or below the 450-line maximum ceiling. All 24 test suites and the architecture checker are green.
+The migration is complete: **ZERO legacy exceptions remain in `MODULARIZATION-EXCEPTIONS.json`**, and all 125 covered first-party source files are at or below the 450-line maximum ceiling. The 26-stage smoke gate includes architecture and 25 focused test suites.

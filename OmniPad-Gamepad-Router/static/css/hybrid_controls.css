@@ -1,0 +1,91 @@
+/* Combined keyboard/touch surface and component visibility controls. */
+
+.hybrid-controls-card {
+  width: 100%;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid rgba(0, 229, 255, .2);
+  border-radius: var(--radius-md);
+  background: rgba(0, 229, 255, .045);
+}
+
+.hybrid-controls-header,
+.hybrid-toggle-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hybrid-controls-header label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.hybrid-controls-header select {
+  min-width: min(260px, 100%);
+  padding: 7px 10px;
+}
+
+.hybrid-preset-description {
+  font-size: .72rem;
+  color: var(--text-muted);
+}
+
+.hybrid-toggle {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.hybrid-toggle input { accent-color: var(--accent-cyan); }
+.hybrid-part-hidden { display: none !important; }
+
+.controller-arena.hybrid-active {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.controller-arena.hybrid-active > .device-tabs-wrap,
+.controller-arena.hybrid-active > #section-hybrid {
+  grid-column: 1 / -1;
+}
+
+.controller-arena.hybrid-active > #section-keyboard,
+.controller-arena.hybrid-active > #section-touch {
+  min-width: 0;
+}
+
+.controller-arena.hybrid-active .virtual-keyboard-card,
+.controller-arena.hybrid-active .touch-controller-shell {
+  padding: 10px;
+}
+
+@media (max-width: 900px) {
+  .controller-arena.hybrid-active { grid-template-columns: minmax(0, 1fr); }
+  .controller-arena.hybrid-active > #section-keyboard,
+  .controller-arena.hybrid-active > #section-touch { grid-column: 1; }
+}
+
+@media (max-width: 560px) {
+  .hybrid-controls-header { align-items: stretch; }
+  .hybrid-controls-header label { width: 100%; flex-direction: column; align-items: stretch; }
+  .hybrid-controls-header select { width: 100%; }
+  .hybrid-toggle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hybrid-toggle { min-height: 44px; }
+}

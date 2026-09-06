@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from router.access_logging import RoutineAccessFilter
+from router.event_loop import install_disconnect_filter
 from router import targeting
 
 
@@ -101,12 +102,33 @@ def test_browser_polling_is_demand_driven():
     assert "dashboard.js?v=1.4.0" in index
 
 
+def test_event_loop_filter_is_exactly_scoped():
+    loop = Mock()
+    fallback = Mock()
+    loop.get_exception_handler.return_value = fallback
+    handler_logger = Mock()
+    assert install_disconnect_filter(loop, handler_logger) is fallback
+    handler = loop.set_exception_handler.call_args.args[0]
+
+    reset = ConnectionResetError()
+    reset.winerror = 10054
+    handler(loop, {"exception": reset})
+    handler_logger.debug.assert_called_once()
+    fallback.assert_not_called()
+
+    failure = RuntimeError("real failure")
+    context = {"exception": failure, "message": "must remain visible"}
+    handler(loop, context)
+    fallback.assert_called_once_with(loop, context)
+
+
 def main():
     tests = (
         test_access_log_filter,
         test_target_checks_are_direct_and_cached,
         test_idle_target_status_avoids_win32_foreground_lookup,
         test_browser_polling_is_demand_driven,
+        test_event_loop_filter_is_exactly_scoped,
     )
     for test in tests:
         test()

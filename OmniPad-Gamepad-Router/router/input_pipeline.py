@@ -22,9 +22,14 @@ def build_normalized_input_state(
         raw_key_codes = [
             str(key_code) for key_code in (latest_packet.get("key_codes") or [])
         ][:64]
+        keyboard_fallback_codes = [
+            str(key_code)
+            for key_code in (latest_packet.get("keyboard_fallback_codes") or [])
+        ][:32]
     else:
         raw_buttons: Dict[str, bool] = {}
         raw_key_codes_set: set[str] = set()
+        keyboard_fallback_codes_set: set[str] = set()
         raw_axes = {
             "lx": 0.0,
             "ly": 0.0,
@@ -40,6 +45,8 @@ def build_normalized_input_state(
                     raw_buttons[button] = True
             for key_code in client_packet.get("key_codes") or []:
                 raw_key_codes_set.add(str(key_code))
+            for key_code in client_packet.get("keyboard_fallback_codes") or []:
+                keyboard_fallback_codes_set.add(str(key_code))
 
             client_axes = client_packet.get("axes") or {}
             for axis in ("lx", "ly", "rx", "ry"):
@@ -52,12 +59,13 @@ def build_normalized_input_state(
                     raw_axes[axis] = client_value
 
         raw_key_codes = list(raw_key_codes_set)[:64]
+        keyboard_fallback_codes = list(keyboard_fallback_codes_set)[:32]
 
     # Browser Keyboard mode is already resolved into backend-neutral buttons
     # and LS/RS axes. Mapping its raw key identities here a second time makes
     # camera keys perform unrelated movement/actions. Raw key_codes are still
     # retained for the physical and UMDF keyboard backends.
-    if input_surface not in {"background_native", "keyboard"}:
+    if input_surface not in {"background_native", "keyboard", "hybrid"}:
         mapped_buttons = map_key_codes_to_gamepad(raw_key_codes, mapping_profile)
         for action, pressed in mapped_buttons.items():
             if pressed:
@@ -74,7 +82,7 @@ def build_normalized_input_state(
 
     # Keyboard ramping and low-sensitivity mouse input are already deliberate
     # values, so the controller deadzone must not attenuate them again.
-    if input_surface in {"keyboard", "background_native"}:
+    if input_surface in {"keyboard", "hybrid", "background_native"}:
         effective_deadzone = 0.0
     elif input_surface == "touch":
         effective_deadzone = 0.02
@@ -94,6 +102,7 @@ def build_normalized_input_state(
             "rt": rt,
         },
         "key_codes": raw_key_codes,
+        "keyboard_fallback_codes": keyboard_fallback_codes,
         "input_surface": input_surface,
         "mapping_profile": mapping_profile,
     }

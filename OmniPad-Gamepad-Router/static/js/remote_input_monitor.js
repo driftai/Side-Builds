@@ -6,106 +6,6 @@
   let observerConnected = false;
   let lastKeySet = new Set();
 
-  // Keep the full PC keyboard as the physical surface, but make the controller
-  // relationship immediately understandable from the keycaps themselves.
-  // These labels use common controller terminology plus gameplay meaning where
-  // it is established by the current Xbox/PlayStation mappings.
-  const XBOX_LABELS = {
-    KeyW: "LS ↑ · MOVE",
-    KeyA: "LS ← · MOVE",
-    KeyS: "LS ↓ · MOVE",
-    KeyD: "LS → · MOVE",
-    CapsLock: "L3 · SPRINT / LS CLICK",
-    KeyF: "L3 · LEFT STICK CLICK",
-    KeyG: "R3 · RIGHT STICK CLICK",
-    ArrowUp: "RS ↑ · CAMERA",
-    ArrowDown: "RS ↓ · CAMERA",
-    ArrowLeft: "RS ← · CAMERA",
-    ArrowRight: "RS → · CAMERA",
-    Digit1: "D-PAD ↑",
-    Digit2: "D-PAD ↓",
-    Digit3: "D-PAD ←",
-    Digit4: "D-PAD →",
-    Space: "A / ✕ · JUMP",
-    KeyE: "X / □ · DASH",
-    KeyQ: "Y / △ · INTERACT",
-    KeyR: "B / ○ · CANCEL",
-    KeyZ: "LB / L1 · ABILITY",
-    KeyC: "RB / R1 · ROPE GRAPPLE",
-    ShiftLeft: "LT / L2 · TRIGGER",
-    ShiftRight: "LT / L2 · TRIGGER",
-    ControlLeft: "RT / R2 · TRIGGER",
-    ControlRight: "RT / R2 · TRIGGER",
-    Enter: "START / OPTIONS",
-    Escape: "BACK / SHARE",
-    F1: "GUIDE / PS",
-    Backspace: "BACK / SHARE",
-  };
-
-  const PS_LABELS = {
-    KeyW: "L-STICK ↑ · MOVE",
-    KeyA: "L-STICK ← · MOVE",
-    KeyS: "L-STICK ↓ · MOVE",
-    KeyD: "L-STICK → · MOVE",
-    CapsLock: "L3 · SPRINT / L-STICK CLICK",
-    KeyF: "L3 · LEFT STICK CLICK",
-    KeyG: "R3 · RIGHT STICK CLICK",
-    ArrowUp: "R-STICK ↑ · CAMERA",
-    ArrowDown: "R-STICK ↓ · CAMERA",
-    ArrowLeft: "R-STICK ← · CAMERA",
-    ArrowRight: "R-STICK → · CAMERA",
-    Digit1: "D-PAD ↑",
-    Digit2: "D-PAD ↓",
-    Digit3: "D-PAD ←",
-    Digit4: "D-PAD →",
-    Space: "✕ / A · JUMP",
-    KeyE: "□ / X · DASH",
-    KeyQ: "△ / Y · INTERACT",
-    KeyR: "○ / B · CANCEL",
-    KeyZ: "L1 / LB · ABILITY",
-    KeyC: "R1 / RB · ROPE GRAPPLE",
-    ShiftLeft: "L2 / LT · TRIGGER",
-    ShiftRight: "L2 / LT · TRIGGER",
-    ControlLeft: "R2 / RT · TRIGGER",
-    ControlRight: "R2 / RT · TRIGGER",
-    Enter: "OPTIONS / START",
-    Escape: "SHARE / BACK",
-    F1: "PS / GUIDE",
-    Backspace: "SHARE / BACK",
-  };
-
-  const semanticHints = {
-    KeyW: "Left stick up / move forward",
-    KeyA: "Left stick left / move left",
-    KeyS: "Left stick down / move backward",
-    KeyD: "Left stick right / move right",
-    CapsLock: "Press left stick (L3) — commonly used for sprint",
-    KeyF: "Press left stick (L3)",
-    KeyG: "Press right stick (R3) — commonly used for camera/player focus",
-    ArrowUp: "Right stick up / camera",
-    ArrowDown: "Right stick down / camera",
-    ArrowLeft: "Right stick left / camera",
-    ArrowRight: "Right stick right / camera",
-    Digit1: "D-pad up",
-    Digit2: "D-pad down",
-    Digit3: "D-pad left",
-    Digit4: "D-pad right",
-    Space: "Primary face button / jump",
-    KeyE: "Face button / dash",
-    KeyQ: "Face button / interact",
-    KeyR: "Face button / cancel",
-    KeyZ: "Left bumper",
-    KeyC: "Right bumper / rope grapple",
-    ShiftLeft: "Left trigger / chapter ability",
-    ShiftRight: "Left trigger / chapter ability",
-    ControlLeft: "Right trigger / chapter ability",
-    ControlRight: "Right trigger / chapter ability",
-    Enter: "Start / Options",
-    Escape: "Back / Share",
-    F1: "Guide / PS button",
-    Backspace: "Back / Share",
-  };
-
   const style = document.createElement("style");
   style.textContent = `
     .vk-key.remote-pressed {
@@ -136,38 +36,20 @@
   `;
   document.head.appendChild(style);
 
-  function activeLabels() {
-    const select = document.getElementById("vk-layout-select");
-    const layout = select ? select.value : "xbox_controller";
-    if (layout === "playstation_controller" || layout === "playstation_overlay") {
-      return PS_LABELS;
-    }
-    if (layout === "xbox_controller" || layout === "xbox_overlay") {
-      return XBOX_LABELS;
-    }
-    return {};
-  }
-
   function updateKeyboardControllerLabels() {
-    const labels = activeLabels();
+    const layout = document.getElementById("vk-layout-select")?.value || "xbox_controller";
+    const labels = window.getActiveControllerBadges?.(layout, window.currentKeyboardType || "standard") || {};
     document.querySelectorAll(".vk-key[data-code]").forEach((keyEl) => {
       const code = keyEl.dataset.code;
-      const label = labels[code];
-      let badge = keyEl.querySelector(".vk-controller-label");
+      const label = labels[code]?.badge;
+      keyEl.querySelectorAll(".vk-controller-label").forEach(badge => badge.remove());
       if (!label) {
-        if (badge) badge.remove();
         keyEl.removeAttribute("data-controller-action");
         keyEl.removeAttribute("title");
         return;
       }
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.className = "vk-controller-label";
-        keyEl.appendChild(badge);
-      }
-      badge.textContent = label;
       keyEl.dataset.controllerAction = label;
-      keyEl.title = semanticHints[code] || label;
+      keyEl.title = label;
     });
 
     const keyboardCard = document.querySelector("#section-keyboard .virtual-keyboard-card");

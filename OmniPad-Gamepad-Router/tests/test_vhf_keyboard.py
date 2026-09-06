@@ -121,8 +121,11 @@ def test_backend_lifecycle():
     backend.device = device
     backend.last_report = bytes(8)
 
-    backend.apply({"key_codes": ["ShiftLeft", "KeyW"]})
-    assert device.reports == [bytes([0x02, 0x00, 0x1A, 0, 0, 0, 0, 0])]
+    backend.apply({
+        "key_codes": ["ShiftLeft", "KeyW"],
+        "keyboard_fallback_codes": ["KeyJ", "KeyW"],
+    })
+    assert device.reports == [bytes([0x02, 0x00, 0x1A, 0x0D, 0, 0, 0, 0])]
     assert backend.last_report == device.reports[-1]
 
     backend.release_all()

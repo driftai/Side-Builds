@@ -19,7 +19,7 @@ The installed UMDF keyboard remains enumerated but idle when the router is stopp
 ## 🚀 What OmniPad does
 
 - Remote 2-player local co-op / versus over **LAN or the Internet**.
-- Browser-based **keyboard, touchscreen, and gamepad** control.
+- Browser-based **keyboard, touchscreen, hybrid keyboard + touch, and gamepad** control.
 - Native **Xbox 360 and DualShock 4** virtual controllers through ViGEmBus.
 - Optional **separate virtual keyboard HID** using a normal-mode UMDF 2 virtual port, with KMDF/VHF preserved for future Microsoft signing.
 - Running-game discovery and target attachment using Windows HWND/PID APIs, without DLL injection or game-memory patching.
@@ -48,6 +48,7 @@ Supported physical keyboard schemes currently include:
 - **Arrowless / 60%**
 - **ESDF + IJKL**
 - **WASD + HJKL Camera**
+- **Arrow Keys + NumPad 2P**
 
 Keyboard movement uses progressive analog ramping for WASD-style movement rather than only instant digital snaps. Keydown/keyup transitions are flushed immediately in addition to the regular transport loop to reduce perceived input latency.
 
@@ -55,32 +56,33 @@ Keyboard movement uses progressive analog ramping for WASD-style movement rather
 
 Mobile browsers can use a full virtual gamepad directly in the `/play` page.
 
-The controller exposes:
+The controller exposes the selected platform's labels without mixing Xbox and PlayStation names on one button:
 
 - **LS / L3** — movement and left-stick click
 - **RS / R3** — camera and right-stick click
-- **A / ✕**
-- **B / ○**
-- **X / □**
-- **Y / △**
-- **LB / L1**
-- **RB / R1**
-- **LT / L2**
-- **RT / R2**
+- Xbox **A/B/X/Y, LB/RB, LT/RT**, or PlayStation **✕/○/□/△, L1/R1, L2/R2**
 - **D-Pad**
 - **START / OPTIONS**
 - **BACK / SHARE**
 - **GUIDE / PS**
 - **TOUCHPAD**
 
-Four touchscreen layouts are available and can be changed live:
+Six touchscreen layouts are available and can be changed live:
 
 1. **Classic Landscape**
 2. **Twin-Stick Landscape**
 3. **PlayStation Landscape**
 4. **Compact Thumbs**
+5. **Phone Reach**
+6. **Camera + Actions**
 
 Layouts persist locally in the browser, and switching layouts resets active pointers/sticks so a layout change cannot leave stuck input behind.
+
+### Hybrid keyboard + touch
+
+The Hybrid tab renders keyboard and touchscreen controls together. Mixed presets cover keyboard + touch camera, keyboard + mouse camera, keyboard + action buttons, phone split controls, and the full surface. Each keyboard, camera, stick, D-pad, action, shoulder, and center group can be shown or hidden independently.
+
+Touch buttons and stick directions also provide an isolated keyboard fallback for the normal-mode UMDF output. That fallback is consumed only by keyboard backends, so it cannot be remapped into duplicate Xbox/DS4 actions. Switching tabs, layouts, presets, or hidden groups releases both surfaces before the new state becomes active.
 
 ### Mouse camera
 
@@ -91,6 +93,7 @@ The camera pad includes:
 - bounded movement area
 - dynamic reticle/stick visualization
 - adjustable sensitivity
+- persistent horizontal and vertical inversion toggles
 - safe release back to center
 - detached/pop-out camera control support
 - direct low-latency dispatch rather than slow multi-frame decay
@@ -110,17 +113,9 @@ This makes mouse camera movement usable for games whose Player 2 camera is repre
 | Virtual Keyboard HID (VHF) | KMDF + VHF | Future Microsoft-signed separate HID path | 📦 Preserved / on hold |
 | Noop | Diagnostic | Input-pipeline testing without hardware | ✅ Working |
 
-### Controller naming parity
+### Controller label presets
 
-The web UI uses dual Xbox / PlayStation terminology so users can understand either controller family:
-
-- **LT / L2**, **RT / R2**
-- **LB / L1**, **RB / R1**
-- **A / ✕**, **B / ○**, **X / □**, **Y / △**
-- **START / OPTIONS**, **BACK / SHARE**, **GUIDE / PS**
-- **LS / L3**, **RS / R3**
-
-The keyboard overlay also shows these controller labels directly on mapped keys, making it obvious what a keyboard key becomes on the virtual controller.
+Xbox and PlayStation keyboard-label presets are presentation/control mappings, not output-backend selectors. Xbox shows only Xbox names; PlayStation shows only PlayStation names. Either preset remains usable while the host selects Xbox 360, DualShock 4, or a keyboard output. The physical keyboard type separately owns keyboard shape and physical-key semantics.
 
 ---
 
@@ -135,6 +130,8 @@ The keyboard overlay also shows these controller labels directly on mapped keys,
 For virtual gamepad output, the target only needs to be **running**; the game does not have to remain the foreground application. This allows the host to screen-share, use Discord, OBS, or another window without the remote controller stopping.
 
 Keyboard injection remains stricter and requires the selected target to be the **foreground window**.
+
+The player page exposes **Focus Game**, which asks the host to restore/focus only the target already selected on the host dashboard. This works over the player WebSocket, including Cloudflare, but remains a best-effort Windows request because the operating system may reject foreground changes.
 
 OmniPad does not inject DLLs, patch game memory, or modify the target game's executable.
 
@@ -152,7 +149,7 @@ Start `start_with_tunnel.bat`, then share the generated:
 
 `https://<temporary-tunnel>.trycloudflare.com/play?code=<ROOM>`
 
-The remote player only needs a modern browser. Their Bluetooth/USB controller can be exposed through the browser Gamepad API, or they can use the built-in keyboard/touch surfaces.
+The remote player only needs a modern browser. Their Bluetooth/USB controller can be exposed through the browser Gamepad API, or they can use the built-in keyboard, touch, or Hybrid surfaces. They do not run the host background-capture helper.
 
 > [!WARNING]
 > Cloudflare Quick Tunnels create temporary public URLs without account authentication. Treat the tunnel URL and room code as bearer credentials, share them only with intended players, and stop the tunnel when finished.
@@ -204,9 +201,9 @@ OmniPad includes a dedicated regression ring covering routing, networking, targe
 
 Current verification baseline:
 
-- **24 / 24 test suites passing**
+- **26 automated stages passing** (architecture plus 25 focused suites)
 - **0 security-test failures** in the dedicated security suites
-- **119 covered first-party source files** within the strict **450-line modularization limit**
+- **125 covered first-party source files** within the strict **450-line modularization limit**
 - Full historical secret scan reported **0 secret/token/private-key matches** in the audited history
 
 Important suites include:
@@ -218,6 +215,7 @@ Important suites include:
 - `tests/test_player_websocket_join.py`
 - `tests/test_touch_controller.py`
 - `tests/test_touch_controller_layouts.py`
+- `tests/test_hybrid_controls.py`
 - `tests/test_surface_output_routing.py`
 - `tests/test_input_pipeline.py`
 - `tests/test_surface_combinations_e2e.py`

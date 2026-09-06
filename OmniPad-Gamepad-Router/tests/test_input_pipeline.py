@@ -124,6 +124,23 @@ def test_multi_client_fusion():
     assert state["axes"]["rt"] == 0.7
 
 
+def test_touch_keyboard_fallback_stays_separate_from_controller_mapping():
+    packet = {
+        "input_surface": "hybrid",
+        "mapping_profile": "universal",
+        "buttons": {"A": True},
+        "axes": {"rx": -0.6},
+        "key_codes": ["Space"],
+        "keyboard_fallback_codes": ["KeyJ", "ArrowLeft"],
+    }
+    state = normalize({"hybrid": packet}, packet)
+
+    assert state["buttons"] == {"A": True}
+    assert state["key_codes"] == ["Space"]
+    assert state["keyboard_fallback_codes"] == ["KeyJ", "ArrowLeft"]
+    assert state["axes"]["rx"] == -0.6
+
+
 def test_surface_deadzone_and_socd_contracts():
     touch = {
         "input_surface": "touch",
@@ -162,6 +179,7 @@ def main():
         test_non_keyboard_surface_can_use_host_profile_mapping,
         test_background_native_does_not_remap_keys,
         test_multi_client_fusion,
+        test_touch_keyboard_fallback_stays_separate_from_controller_mapping,
         test_surface_deadzone_and_socd_contracts,
     )
     for test in tests:

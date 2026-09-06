@@ -1,6 +1,6 @@
 """
 Comprehensive Touchscreen Layout Presets Test Suite.
-Verifies all 4 mobile presets (Classic, Twin-Stick, PlayStation, Compact),
+Verifies all mobile presets, including compact reach and camera/action variants,
 default layout, localStorage persistence, CSS structural rules,
 and dynamic preset switching without session interruption.
 """
@@ -30,6 +30,8 @@ EXPECTED_LAYOUTS = {
     "twin_stick_landscape": "touch-layout-twin-stick",
     "playstation_landscape": "touch-layout-playstation",
     "compact_thumbs": "touch-layout-compact",
+    "phone_reach": "touch-layout-phone-reach",
+    "camera_actions": "touch-layout-camera-actions",
 }
 
 
@@ -59,7 +61,7 @@ def test_classic_is_single_default():
 
     # Verify localStorage key
     assert '"omnipad.touchLayout"' in JS
-    assert 'localStorage.setItem("omnipad.touchLayout", name)' in JS
+    assert 'localStorage.setItem("omnipad.touchLayout", resolvedName)' in JS
     assert 'localStorage.getItem("omnipad.touchLayout")' in JS
     print("  [PASS] Classic Landscape is the verified default preset with localStorage persistence")
 
@@ -69,6 +71,8 @@ def test_twin_stick_and_playstation_structural_rules():
     assert ".touch-layout-twin-stick" in CSS
     assert ".touch-layout-playstation" in CSS
     assert ".touch-layout-compact" in CSS
+    assert ".touch-layout-phone-reach" in CSS
+    assert ".touch-layout-camera-actions" in CSS
     assert "resetAll();" in JS, "applyLayout must invoke resetAll() to safely release active touches"
     print("  [PASS] Specific structural grid and safety reset rules verified")
 

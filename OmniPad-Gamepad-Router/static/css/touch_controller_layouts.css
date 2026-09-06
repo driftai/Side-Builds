@@ -65,26 +65,22 @@
 .touch-layout-playstation .touch-controller-primary-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-template-areas:
-    "dpad center actions"
-    "leftstick center rightstick";
+  grid-template-areas: "dpad center sticks";
   align-items: center;
   gap: 12px;
 }
 
 .touch-layout-playstation .touch-dpad-cluster { grid-area: dpad; }
 .touch-layout-playstation .touch-center-stack { grid-area: center; }
-.touch-layout-playstation .touch-stick-pair { display: contents; }
-.touch-layout-playstation .touch-stick-pair .touch-stick:first-child { grid-area: leftstick; justify-self: center; }
-.touch-layout-playstation .touch-stick-pair .touch-stick:last-child { grid-area: rightstick; justify-self: center; }
+.touch-layout-playstation .touch-stick-pair { grid-area: sticks; }
 
 .touch-layout-playstation .touch-action-row {
-  position: relative;
-  display: contents;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .touch-layout-playstation .touch-action-row > .touch-action-cluster {
-  grid-area: actions;
+  grid-column: 3;
   justify-self: center;
   align-self: center;
   display: grid;
@@ -136,6 +132,54 @@
 .touch-layout-compact .touch-shoulder-btn,
 .touch-layout-compact .touch-trigger { min-height: 42px; }
 
+.touch-layout-phone-reach {
+  gap: 7px;
+  padding: 8px;
+}
+
+.touch-layout-phone-reach .touch-controller-primary-row {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.touch-layout-phone-reach .touch-center-stack {
+  grid-column: 1 / -1;
+  order: 3;
+}
+
+.touch-layout-phone-reach .touch-center-pad { display: none; }
+.touch-layout-phone-reach .touch-stick-pair { gap: 7px; }
+.touch-layout-phone-reach .touch-stick { width: min(29vw, 104px); }
+.touch-layout-phone-reach .touch-dpad-controller {
+  grid-template-columns: repeat(3, 38px);
+  grid-template-rows: repeat(3, 38px);
+}
+.touch-layout-phone-reach .touch-dpad-controller .touch-controller-btn { width: 38px; height: 38px; }
+.touch-layout-phone-reach .touch-action-btn { min-height: 44px; }
+.touch-layout-phone-reach .touch-menu-btn { min-width: 66px; min-height: 38px; }
+
+.touch-layout-camera-actions .touch-dpad-cluster,
+.touch-layout-camera-actions .touch-center-stack,
+.touch-layout-camera-actions #touch-left-stick { display: none; }
+
+.touch-layout-camera-actions .touch-controller-primary-row,
+.touch-layout-camera-actions .touch-action-row {
+  grid-template-columns: 1fr;
+}
+
+.touch-layout-camera-actions .touch-stick-pair {
+  width: 100%;
+  justify-content: center;
+}
+
+.touch-layout-camera-actions #touch-right-stick { width: clamp(130px, 42vw, 190px); }
+.touch-layout-camera-actions .touch-action-row > div:first-child,
+.touch-layout-camera-actions .touch-controller-hint { display: none; }
+.touch-layout-camera-actions .touch-action-cluster {
+  justify-self: center;
+  width: min(100%, 230px);
+}
+
 @media (max-width: 700px) {
   .touch-layout-picker { width: 100%; }
   .touch-layout-picker select { flex: 1; min-width: 0; }
@@ -149,6 +193,16 @@
   .touch-layout-twin-stick .touch-dpad-cluster { grid-column: 1; grid-row: 2; }
   .touch-layout-twin-stick .touch-stick-pair { grid-row: 3; }
   .touch-layout-twin-stick .touch-action-row .touch-action-cluster { grid-column: 2; }
+
+  .touch-layout-playstation .touch-controller-primary-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "dpad sticks"
+      "center center";
+  }
+
+  .touch-layout-playstation .touch-action-row { grid-template-columns: 1fr; }
+  .touch-layout-playstation .touch-action-row > .touch-action-cluster { grid-column: 1; }
 }
 
 @media (max-width: 500px) {
@@ -156,4 +210,19 @@
   .touch-layout-twin-stick .touch-stick-pair { padding-inline: 1%; }
   .touch-layout-twin-stick .touch-stick-pair .touch-stick { width: min(37vw, 116px); }
   .touch-layout-playstation .touch-stick { width: min(34vw, 110px); }
+  .touch-layout-playstation .touch-controller-primary-row {
+    display: flex;
+    flex-direction: column;
+  }
+  .touch-layout-playstation .touch-stick-pair { width: 100%; justify-content: space-between; }
+  .touch-layout-phone-reach .touch-controller-primary-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .touch-layout-phone-reach .touch-stick-pair { display: contents; }
+  .touch-layout-phone-reach .touch-center-stack { grid-column: 1 / -1; }
+  .touch-layout-phone-reach .touch-stick { width: min(28vw, 98px); }
+  .touch-layout-camera-actions .touch-controller-primary-row { display: grid; }
+  .touch-layout-camera-actions .touch-stick-pair { display: flex; }
+  .touch-layout-camera-actions #touch-right-stick { width: min(42vw, 145px); }
 }

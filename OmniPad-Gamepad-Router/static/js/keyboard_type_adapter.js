@@ -11,6 +11,7 @@
   const TYPES = {
     standard: {
       label: "Standard PC (WASD + Arrows)",
+      shape: "standard_full",
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
       buttons: {
@@ -22,6 +23,7 @@
     },
     compact65: {
       label: "65% Compact (WASD + Arrows / Fn Layer)",
+      shape: "compact_60",
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
       buttons: {
@@ -33,6 +35,7 @@
     },
     arrowless: {
       label: "Arrowless / 60% (WASD + IJKL)",
+      shape: "compact_arrowless",
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "KeyI", down: "KeyK", left: "KeyJ", right: "KeyL" },
       buttons: {
@@ -46,6 +49,7 @@
     },
     esdf: {
       label: "ESDF + IJKL",
+      shape: "standard_full",
       move: { up: "KeyE", down: "KeyD", left: "KeyS", right: "KeyF" },
       camera: { up: "KeyI", down: "KeyK", left: "KeyJ", right: "KeyL" },
       buttons: {
@@ -58,6 +62,7 @@
     },
     vim_camera: {
       label: "WASD + HJKL Camera",
+      shape: "standard_full",
       move: { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD" },
       camera: { up: "KeyK", down: "KeyJ", left: "KeyH", right: "KeyL" },
       buttons: {
@@ -67,10 +72,20 @@
         ShiftRight: "LT", Escape: "BACK", Enter: "START", F1: "GUIDE",
         CapsLock: "L3", KeyF: "L3", KeyN: "R3", KeyM: "R3", ...commonDpad
       }
+    },
+    arrow_numpad: {
+      label: "Arrow Keys + NumPad 2P",
+      shape: "arrow_numpad",
+      move: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
+      camera: {},
+      buttons: {
+        Numpad1: "X", Numpad2: "Y", Numpad3: "RB", Numpad4: "A", Numpad5: "B", Numpad6: "RT",
+        Numpad0: "LB", NumpadDecimal: "LT", NumpadEnter: "START", NumpadAdd: "BACK"
+      }
     }
   };
 
-  // These two clickable layouts advertise fixed controls. Other layouts use
+  // Clickable label presets advertise fixed controls. Other layouts use
   // the selected physical keyboard type while remaining backend-independent.
   const FIXED_LAYOUTS = {
     wasd_fighter: {
@@ -80,14 +95,6 @@
         KeyJ: "X", KeyK: "Y", KeyL: "RB", KeyU: "A", KeyI: "B", KeyO: "RT",
         Space: "LB", ShiftLeft: "LT", ShiftRight: "LT", ControlLeft: "RT", ControlRight: "RT",
         CapsLock: "L3", Enter: "START", Backspace: "BACK", Escape: "BACK"
-      }
-    },
-    arrow_numpad: {
-      move: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" },
-      camera: {},
-      buttons: {
-        Numpad1: "X", Numpad2: "Y", Numpad3: "RB", Numpad4: "A", Numpad5: "B", Numpad6: "RT",
-        Numpad0: "LB", NumpadDecimal: "LT", NumpadEnter: "START", NumpadAdd: "BACK"
       }
     }
   };
@@ -100,12 +107,12 @@
 
   function buttonLabels(playstation) {
     const pairs = playstation ? {
-      A: "✕ / A", B: "○ / B", X: "□ / X", Y: "△ / Y",
-      LB: "L1 / LB", RB: "R1 / RB", LT: "L2 / LT", RT: "R2 / RT",
+      A: "✕", B: "○", X: "□", Y: "△",
+      LB: "L1", RB: "R1", LT: "L2", RT: "R2",
       BACK: "SHARE", START: "OPTIONS", GUIDE: "PS"
     } : {
-      A: "A / ✕", B: "B / ○", X: "X / □", Y: "Y / △",
-      LB: "LB / L1", RB: "RB / R1", LT: "LT / L2", RT: "RT / R2",
+      A: "A", B: "B", X: "X", Y: "Y",
+      LB: "LB", RB: "RB", LT: "LT", RT: "RT",
       BACK: "BACK", START: "START", GUIDE: "GUIDE"
     };
     const labels = {};
@@ -184,12 +191,10 @@
   }
 
   function approach(current, target) {
-    if (target !== 0) {
-      const next = current + (target - current) * 0.35;
-      return Math.abs(target - next) < 0.03 ? target : next;
-    }
-    const next = current * 0.65;
-    return Math.abs(next) < 0.02 ? 0 : next;
+    if (target === 0) return 0;
+    if (current === 0 || Math.sign(current) !== Math.sign(target)) return target * 0.55;
+    const next = current + (target - current) * 0.58;
+    return Math.abs(target - next) < 0.025 ? target : next;
   }
 
   const originalCaptureState = window.captureState;
@@ -197,7 +202,7 @@
     const state = originalCaptureState ? originalCaptureState() : {
       buttons: {}, axes: { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 }
     };
-    if ((window.currentMode || "keyboard") !== "keyboard") return state;
+    if (!["keyboard", "hybrid"].includes(window.currentMode || "keyboard")) return state;
 
     const type = TYPES[window.currentKeyboardType] || TYPES.standard;
     const { pointer, physical } = sourceKeySets();
@@ -216,10 +221,21 @@
     smoothLy = approach(smoothLy, targetLy);
     smoothRx = approach(smoothRx, targetRx);
     smoothRy = approach(smoothRy, targetRy);
-    state.axes.lx = Number(smoothLx.toFixed(4));
-    state.axes.ly = Number(smoothLy.toFixed(4));
-    state.axes.rx = Number(smoothRx.toFixed(4));
-    state.axes.ry = Number(smoothRy.toFixed(4));
+    const keyboardAxes = {
+      lx: Number(smoothLx.toFixed(4)), ly: Number(smoothLy.toFixed(4)),
+      rx: Number(smoothRx.toFixed(4)), ry: Number(smoothRy.toFixed(4)),
+    };
+    const hybridMode = (window.currentMode || "keyboard") === "hybrid";
+    const touchOwnsLeft = hybridMode && Boolean(window.isStickActiveLocally?.(true));
+    const touchOwnsRight = hybridMode && Boolean(window.isStickActiveLocally?.(false));
+    if (!touchOwnsLeft) {
+      state.axes.lx = keyboardAxes.lx;
+      state.axes.ly = keyboardAxes.ly;
+    }
+    if (!touchOwnsRight) {
+      state.axes.rx = keyboardAxes.rx;
+      state.axes.ry = keyboardAxes.ry;
+    }
 
     Object.assign(state.buttons, physicalResolved.buttons, pointerResolved.buttons);
     if (state.buttons.LT) state.axes.lt = 1;
@@ -243,5 +259,5 @@
   window.getActiveControllerBadges = getActiveControllerBadges;
   window.setKeyboardType = setKeyboardType;
   window.resetKeyboardAnalogState = resetKeyboardAnalogState;
-  window.OmniPadKeyboardSemantics = { TYPES, FIXED_LAYOUTS, resolve };
+  window.OmniPadKeyboardSemantics = { TYPES, FIXED_LAYOUTS, resolve, approach };
 })();

@@ -53,18 +53,20 @@
 
   function describeInput(message) {
     const keyCodes = sortedKeys(message.key_codes);
+    const fallbackCodes = sortedKeys(message.keyboard_fallback_codes);
     const buttons = normalizedButtons(message.buttons);
     const axes = normalizedAxes(message.axes);
-    const digitalSignature = JSON.stringify([keyCodes, buttons]);
+    const digitalSignature = JSON.stringify([keyCodes, fallbackCodes, buttons]);
     const signature = JSON.stringify([
       String(message.input_surface || "unknown"),
       String(message.mapping_profile || "universal"),
       message.background_routing !== false,
       keyCodes,
+      fallbackCodes,
       buttons,
       axes,
     ]);
-    const active = keyCodes.length > 0 ||
+    const active = keyCodes.length > 0 || fallbackCodes.length > 0 ||
       Object.keys(buttons).length > 0 ||
       Object.values(axes).some(value => Math.abs(value) > 0.01);
     return { signature, digitalSignature, axes, active };
@@ -159,7 +161,7 @@
 
   function flushDigitalTransition() {
     scheduled = false;
-    if ((window.currentMode || "keyboard") === "keyboard" &&
+    if (["keyboard", "hybrid"].includes(window.currentMode || "keyboard") &&
         typeof window.transmitCurrentInputState === "function") {
       window.transmitCurrentInputState();
     }
@@ -175,7 +177,7 @@
   // next movement/camera key is not swallowed by a focused dropdown.
   document.addEventListener("change", event => {
     const target = event.target;
-    if (target?.matches?.("#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode")) {
+    if (target?.matches?.("#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode, #hybrid-preset-select, #touch-layout-select")) {
       target.blur();
     }
   });

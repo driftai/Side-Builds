@@ -144,7 +144,8 @@ class SlotManager:
             slot.last_state = {
                 "buttons": {},
                 "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
-                "key_codes": []
+                "key_codes": [],
+                "keyboard_fallback_codes": [],
             }
             if slot.controller:
                 try:
@@ -268,6 +269,7 @@ class SlotManager:
                     "buttons": {},
                     "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
                     "key_codes": [],
+                    "keyboard_fallback_codes": [],
                     "input_surface": input_surface,
                     "mapping_profile": mapping_profile,
                 }

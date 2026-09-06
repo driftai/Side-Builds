@@ -4,6 +4,7 @@ Main server composition root connecting remote friends via WebSockets to virtual
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -20,11 +21,13 @@ from config import config
 from router import SlotManager, TunnelManager, ProfileManager, get_local_ips, VIGEM_AVAILABLE
 from router.api_routes import setup_routes
 from router.access_logging import install_access_log_filter
+from router.event_loop import install_disconnect_filter
 from router.background_helper import (
     background_helper_running,
     shutdown_background_helper as _shutdown_background_helper,
 )
 from router.security import is_local_client_host
+from router.targeting import target_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,15 +82,20 @@ async def _broadcast_player_input_state(slot_id: int, state: Dict[str, Any]) -> 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing OmniPad Gamepad Router v%s...", config.version)
+    event_loop = asyncio.get_running_loop()
+    previous_exception_handler = install_disconnect_filter(event_loop, logger)
     await slot_manager.start()
     if config.enable_tunnel:
         logger.info("Auto-starting Cloudflare Quick Tunnel...")
         tunnel_manager.start(config.port)
-    yield
-    logger.info("Shutting down OmniPad Gamepad Router...")
-    _shutdown_background_helper()
-    tunnel_manager.stop()
-    await slot_manager.stop()
+    try:
+        yield
+    finally:
+        event_loop.set_exception_handler(previous_exception_handler)
+        logger.info("Shutting down OmniPad Gamepad Router...")
+        _shutdown_background_helper()
+        tunnel_manager.stop()
+        await slot_manager.stop()
 
 
 app = FastAPI(title=config.title, version=config.version, lifespan=lifespan)
@@ -136,6 +144,7 @@ async def player_websocket_endpoint(websocket: WebSocket):
     observer_slot: Optional[int] = None
     friend_name = "Player"
     client_is_local = is_local_client_host(websocket.client.host if websocket.client else None)
+    last_focus_request_at = 0.0
     try:
         while True:
             try:
@@ -215,11 +224,24 @@ async def player_websocket_endpoint(websocket: WebSocket):
                 if slot is not None and slot.websocket is websocket:
                     await slot_manager.process_input_packet(attached_slot, msg, client_id=websocket)
                     await _broadcast_player_input_state(attached_slot, slot.last_state)
+            elif mtype == "focus_target":
+                slot = slot_manager.slots.get(attached_slot) if attached_slot is not None else None
+                if slot is None or slot.websocket is not websocket:
+                    await websocket.send_json({"type": "focus_result", "ok": False, "reason": "not_controller"})
+                    continue
+                now = time.monotonic()
+                if now - last_focus_request_at < 0.75:
+                    await websocket.send_json({"type": "focus_result", "ok": False, "reason": "rate_limited"})
+                    continue
+                last_focus_request_at = now
+                focused, reason = target_manager.focus_selected()
+                await websocket.send_json({"type": "focus_result", "ok": focused, "reason": reason})
             elif mtype == "ping":
                 client_t = msg.get("t", 0)
                 now_ms = time.time() * 1000
-                if attached_slot is not None and client_t:
-                    await slot_manager.update_latency(attached_slot, max(1.0, now_ms - client_t))
+                reported_rtt = msg.get("rtt_ms")
+                if attached_slot is not None and isinstance(reported_rtt, (int, float)):
+                    await slot_manager.update_latency(attached_slot, max(1.0, min(60000.0, float(reported_rtt))))
                 await websocket.send_json({"type": "pong", "t": client_t, "server_t": now_ms})
             elif mtype == "leave":
                 if attached_slot is not None:

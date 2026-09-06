@@ -116,19 +116,24 @@ function releaseAllKeys() {
 function renderVirtualKeyboard(layoutName) {
   const chassis = document.getElementById("vk-chassis");
   if (!chassis) return;
+  const aliases = {
+    xbox_overlay: "xbox_controller",
+    playstation_overlay: "playstation_controller",
+    standard_full: "xbox_controller",
+    compact_60: "xbox_controller",
+    arrow_numpad: "xbox_controller",
+  };
+  layoutName = aliases[layoutName] || layoutName || "xbox_controller";
   window.currentKeyboardLayout = layoutName;
   chassis.innerHTML = "";
 
-  const isControllerPreset = layoutName === "xbox_controller" ||
-                             layoutName === "playstation_controller" ||
-                             layoutName === "xbox_overlay" ||
-                             layoutName === "playstation_overlay";
   const layouts = window.KEYBOARD_LAYOUTS || {};
-  const badges = window.CONTROLLER_BADGES || {};
-  const layout = isControllerPreset ? layouts.standard_full : (layouts[layoutName] || layouts.standard_full || []);
-  const badgeMap = (typeof window.getActiveControllerBadges === "function" && isControllerPreset)
+  const keyboardType = window.keyboardTypes?.[window.currentKeyboardType] || window.keyboardTypes?.standard;
+  const shapeName = keyboardType?.shape || "standard_full";
+  const layout = layouts[shapeName] || layouts.standard_full || [];
+  const badgeMap = typeof window.getActiveControllerBadges === "function"
     ? window.getActiveControllerBadges(layoutName, window.currentKeyboardType || "standard")
-    : (badges[layoutName] || (layoutName.includes("playstation") ? badges.playstation_controller : (layoutName.includes("xbox") ? badges.xbox_controller : {})));
+    : {};
 
   layout.forEach(rowDef => {
     const rowEl = document.createElement("div");

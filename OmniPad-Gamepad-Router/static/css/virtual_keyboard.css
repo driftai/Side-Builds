@@ -250,20 +250,20 @@
 
 @media (max-width: 768px) {
   .vk-key {
-    min-width: 24px;
-    height: 36px;
-    font-size: 0.65rem;
-    padding: 1px;
+    min-width: 36px;
+    height: 40px;
+    font-size: 0.68rem;
+    padding: 2px;
   }
 
-  .vk-w-1 { min-width: 24px; }
-  .vk-w-1-25 { min-width: 30px; }
-  .vk-w-1-5 { min-width: 36px; }
-  .vk-w-1-75 { min-width: 42px; }
-  .vk-w-2 { min-width: 48px; }
-  .vk-w-2-25 { min-width: 54px; }
-  .vk-w-2-5 { min-width: 60px; }
-  .vk-w-space { min-width: 110px; }
+  .vk-w-1 { min-width: 36px; }
+  .vk-w-1-25 { min-width: 45px; }
+  .vk-w-1-5 { min-width: 54px; }
+  .vk-w-1-75 { min-width: 63px; }
+  .vk-w-2 { min-width: 72px; }
+  .vk-w-2-25 { min-width: 81px; }
+  .vk-w-2-5 { min-width: 90px; }
+  .vk-w-space { min-width: 144px; }
   .vk-spacer { width: 4px; }
   .vk-chassis { padding: 6px; gap: 4px; }
   .vk-row { gap: 2px; }

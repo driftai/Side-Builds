@@ -78,6 +78,23 @@
   cursor: pointer;
 }
 
+.mouse-direction-toggle {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, .12));
+  background: rgba(255, 255, 255, .04);
+  color: var(--text-secondary);
+  font-size: .7rem;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.mouse-direction-toggle input { accent-color: var(--accent-cyan, #00e5ff); }
+
 .mouse-camera-pad {
   position: relative;
   width: min(100%, 620px);
@@ -272,6 +289,12 @@
   .mouse-sensitivity-container input[type="range"] {
     flex: 1;
     min-width: 120px;
+  }
+
+  .mouse-direction-toggle {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 40px;
+    justify-content: center;
   }
 
   .mouse-camera-pad {

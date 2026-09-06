@@ -24,7 +24,9 @@ class VirtualKeyboardPortBackend(BaseController):
         self.last_report = bytes(8)
 
     def apply(self, state: Dict[str, Any]) -> None:
-        report = build_keyboard_report(state.get("key_codes") or [])
+        key_codes = list(state.get("key_codes") or [])
+        key_codes.extend(state.get("keyboard_fallback_codes") or [])
+        report = build_keyboard_report(dict.fromkeys(key_codes))
         self.device.submit_report(report)
         self.last_report = report
 

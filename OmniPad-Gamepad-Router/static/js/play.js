@@ -4,7 +4,7 @@
 
 let playerWs = null, activeSlot = 1, friendName = "Player 2", roomCode = "", isConnected = false;
 let packetSeq = 0, localVisualizer = null, inputLoopHandle = null, pingInterval = null;
-let backgroundHeartbeatTimer = null;
+let latestRttMs = null;
 let manualDisconnect = false, reconnectTimer = null, currentMode = "keyboard";
 window.currentMode = currentMode;
 window.isConnected = isConnected;
@@ -108,45 +108,9 @@ function setupEventListeners() {
   });
 }
 
-function switchDeviceMode(mode) {
-  if (typeof releaseAllKeys === "function") releaseAllKeys();
-  if (typeof window.resetTouchAll === "function") {
-    window.resetTouchAll();
-  } else if (window.touchState) {
-    Object.keys(window.touchState.buttons).forEach(k => window.touchState.buttons[k] = false);
-    Object.keys(window.touchState.axes).forEach(k => window.touchState.axes[k] = 0);
-  }
-
+function setCurrentInputMode(mode) {
   currentMode = mode;
   window.currentMode = mode;
-  const secKb = document.getElementById("section-keyboard");
-  const secGp = document.getElementById("section-gamepad");
-  const secTc = document.getElementById("section-touch");
-  const padNameBadge = document.getElementById("detected-pad-name");
-
-  if (secKb) secKb.style.display = "none";
-  if (secGp) secGp.style.display = "none";
-  if (secTc) secTc.style.display = "none";
-
-  document.querySelectorAll(".mode-tab").forEach(tab => {
-    tab.classList.toggle("active", tab.dataset.mode === mode);
-  });
-
-  if (mode === "keyboard") {
-    if (secKb) secKb.style.display = "flex";
-    if (padNameBadge) padNameBadge.textContent = "Keyboard Active";
-  } else if (mode === "gamepad") {
-    if (secGp) secGp.style.display = "flex";
-    if (padNameBadge) padNameBadge.textContent = "Gamepad Mode";
-  } else if (mode === "touch") {
-    if (secTc) secTc.style.display = "flex";
-    if (padNameBadge) padNameBadge.textContent = "Touchscreen Mode";
-    if (typeof window.applyTouchLayout === "function") {
-      let saved = "classic_landscape";
-      try { saved = localStorage.getItem("omnipad.touchLayout") || saved; } catch (_) {}
-      window.applyTouchLayout(saved);
-    }
-  }
 }
 
 function connect() {
@@ -191,6 +155,8 @@ function connect() {
         }
       } else if (msg.type === "pong") {
         handlePong(msg);
+      } else if (msg.type === "focus_result") {
+        window.handleTargetFocusResult?.(msg);
       }
     } catch (e) {
       console.error("Failed to parse server message:", e);
@@ -200,6 +166,7 @@ function connect() {
   playerWs.onclose = () => {
     isConnected = false;
     window.isConnected = false;
+    window.updateRoutingUI?.();
     if (!manualDisconnect) {
       const statusBadge = document.getElementById("status-badge");
       if (statusBadge) {
@@ -232,6 +199,7 @@ function handleJoined(msg) {
   window.isConnected = true;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   window.isObserverMode = !!msg.observer;
+  window.updateRoutingUI?.();
   const joinCard = document.getElementById("join-card");
   if (joinCard) joinCard.style.display = "none";
   const arena = document.getElementById("controller-arena");
@@ -272,13 +240,6 @@ function handleJoined(msg) {
   pingInterval = setInterval(sendPing, 1000);
   sendPing();
 
-  if (backgroundHeartbeatTimer) clearInterval(backgroundHeartbeatTimer);
-  backgroundHeartbeatTimer = setInterval(() => {
-    if (isConnected && playerWs && playerWs.readyState === WebSocket.OPEN) {
-      sendPing();
-    }
-  }, 2000);
-
   startInputLoop();
 }
 
@@ -286,8 +247,8 @@ function disconnect() {
   manualDisconnect = true;
   isConnected = false;
   window.isConnected = false;
+  window.updateRoutingUI?.();
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  if (backgroundHeartbeatTimer) { clearInterval(backgroundHeartbeatTimer); backgroundHeartbeatTimer = null; }
   if (typeof stopBackgroundInputMirrorTimer === "function") stopBackgroundInputMirrorTimer();
   if (typeof releaseKeySource === "function") releaseKeySource(window.BACKGROUND_NATIVE_SOURCE || "background_native");
   if (inputLoopHandle) cancelAnimationFrame(inputLoopHandle);
@@ -314,17 +275,22 @@ function disconnect() {
 
 function sendPing() {
   if (playerWs && playerWs.readyState === WebSocket.OPEN) {
-    playerWs.send(JSON.stringify({ type: "ping", t: performance.now() }));
+    playerWs.send(JSON.stringify({ type: "ping", t: performance.now(), rtt_ms: latestRttMs }));
   }
 }
 
 function handlePong(msg) {
   const rtt = Math.max(1, Math.round(performance.now() - msg.t));
+  latestRttMs = rtt;
   const pingEl = document.getElementById("ping-val");
   if (pingEl) {
     pingEl.textContent = `${rtt} ms`;
     pingEl.className = rtt < 30 ? "ping-green" : (rtt < 80 ? "ping-yellow" : "ping-red");
   }
+}
+
+function captureKeyboardFallbackCodes() {
+  return window.captureTouchKeyboardFallbackCodes?.() || [];
 }
 
 function startInputLoop() {
@@ -361,6 +327,7 @@ function startInputLoop() {
         buttons: state.buttons,
         axes: state.axes,
         key_codes: Array.from(activeKeysSet),
+        keyboard_fallback_codes: captureKeyboardFallbackCodes(),
         client_time: performance.now()
       }));
     }
@@ -389,11 +356,20 @@ function transmitCurrentInputState() {
       buttons: state.buttons,
       axes: state.axes,
       key_codes: Array.from(activeKeysSet),
+      keyboard_fallback_codes: captureKeyboardFallbackCodes(),
       client_time: performance.now()
     }));
   }
 }
 
+function sendPlayerControlMessage(message) {
+  if (!isConnected || window.isObserverMode || !playerWs || playerWs.readyState !== WebSocket.OPEN) return false;
+  playerWs.send(JSON.stringify(message));
+  return true;
+}
+
 window.connect = connect;
 window.disconnect = disconnect;
 window.transmitCurrentInputState = transmitCurrentInputState;
+window.sendPlayerControlMessage = sendPlayerControlMessage;
+window.setCurrentInputMode = setCurrentInputMode;

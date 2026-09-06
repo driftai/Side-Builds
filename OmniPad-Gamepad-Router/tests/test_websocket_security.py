@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from server import app, slot_manager
+from server import app, slot_manager, target_manager
 
 TEST_PORT = 8793
 
@@ -203,6 +203,41 @@ async def test_room_code_and_malformed_input_resilience():
         print("  [PASS] Server gracefully handled malformed JSON, arrays, non-dict payloads, and unknown message types.")
 
 
+async def test_focus_request_authorization():
+    test_section("5. Selected-Target Focus Authorization")
+    uri = f"ws://127.0.0.1:{TEST_PORT}/ws/player"
+
+    async with websockets.connect(uri) as observer:
+        await observer.send(json.dumps({
+            "type": "join", "slot_id": 2, "name": "Focus Observer",
+            "code": slot_manager.room_code, "source": "observer",
+        }))
+        assert json.loads(await observer.recv()).get("observer") is True
+        await observer.send(json.dumps({"type": "focus_target"}))
+        rejected = json.loads(await observer.recv())
+        assert rejected == {"type": "focus_result", "ok": False, "reason": "not_controller"}
+
+    original_focus = target_manager.focus_selected
+    target_manager.focus_selected = lambda: (True, "focused")
+    try:
+        async with websockets.connect(uri) as owner:
+            await owner.send(json.dumps({
+                "type": "join", "slot_id": 2, "name": "Focus Owner",
+                "code": slot_manager.room_code, "source": "browser",
+            }))
+            joined = json.loads(await owner.recv())
+            assert joined.get("type") == "joined" and joined.get("observer") is not True
+            await owner.send(json.dumps({"type": "focus_target"}))
+            accepted = json.loads(await owner.recv())
+            assert accepted == {"type": "focus_result", "ok": True, "reason": "focused"}
+            await owner.send(json.dumps({"type": "focus_target"}))
+            limited = json.loads(await owner.recv())
+            assert limited == {"type": "focus_result", "ok": False, "reason": "rate_limited"}
+    finally:
+        target_manager.focus_selected = original_focus
+    print("  [PASS] Only the active slot owner can request bounded host focus.")
+
+
 async def main():
     config = uvicorn.Config(app=app, host="127.0.0.1", port=TEST_PORT, log_level="warning")
     server = uvicorn.Server(config)
@@ -218,6 +253,7 @@ async def main():
         await test_observer_read_only_containment()
         await test_authoritative_ownership_and_demotion()
         await test_room_code_and_malformed_input_resilience()
+        await test_focus_request_authorization()
         print("\n" + "=" * 70)
         print("  >>> ALL WEBSOCKET SECURITY TESTS PASSED! <<<")
         print("=" * 70 + "\n")

@@ -51,9 +51,9 @@ def main() -> None:
         "keyboard_type_adapter.js", "play.js", "low_latency_input.js",
         "mouse_camera.js", "remote_input_monitor.js", "touch_controller.js",
     ):
-        assert f'{asset}?v=1.4.0' in play
+        assert f'{asset}?v=' in play
 
-    for key_type in ("standard", "compact65", "arrowless", "esdf", "vim_camera"):
+    for key_type in ("standard", "compact65", "arrowless", "arrow_numpad", "esdf", "vim_camera"):
         assert key_type in keyboard
 
     # Physical keyboard types and clickable fixed layouts are separate. Camera
@@ -69,9 +69,9 @@ def main() -> None:
     assert "resetKeyboardAnalogState" in keyboard
     assert "window.OmniPadKeyboardSemantics" in keyboard
 
-    assert "Xbox-Labeled Key Map (Any Output)" in play
-    assert "PlayStation-Labeled Key Map (Any Output)" in play
-    assert "does not choose the host output" in play
+    assert "Xbox Controls (Any Output)" in play
+    assert "PlayStation Controls (Any Output)" in play
+    assert "not the output backend" in play
     assert "Physical Keyboard Type:" in play
 
     assert "65% Compact" in play

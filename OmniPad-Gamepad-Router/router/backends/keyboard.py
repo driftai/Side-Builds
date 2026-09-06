@@ -217,7 +217,8 @@ class TargetLockedKeyboardBackend(BaseController):
             self._release_local()
             return
 
-        key_codes = state.get("key_codes") or []
+        key_codes = list(state.get("key_codes") or [])
+        key_codes.extend(state.get("keyboard_fallback_codes") or [])
         target_keys = set()
         if key_codes:
             target_keys = {_dom_code_to_vk(code) for code in key_codes}
@@ -255,7 +256,8 @@ class KeyboardInjectionBackend(BaseController):
         _send_keyboard_key(vk, down)
 
     def apply(self, state: Dict[str, Any]) -> None:
-        key_codes = state.get("key_codes") or []
+        key_codes = list(state.get("key_codes") or [])
+        key_codes.extend(state.get("keyboard_fallback_codes") or [])
         if key_codes:
             target_keys = {_dom_code_to_vk(code) for code in key_codes}
             target_keys.discard(None)

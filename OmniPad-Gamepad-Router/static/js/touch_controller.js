@@ -2,7 +2,9 @@
 (function () {
   "use strict";
   const STICK_DEADZONE = 0.04;
+  const MIN_TAP_HOLD_MS = 34;
   const POINTERS = new Map();
+  const RESETTERS = new Set();
   let installed = false;
 
   // play.js declares the canonical global lexical `touchState` and exports `window.touchState`.
@@ -25,26 +27,53 @@
     compact_thumbs: {
       shellClass: "touch-layout-compact",
       description: "Compact thumb-friendly layout — controls pulled inward for smaller phones and shorter thumb travel."
+    },
+    phone_reach: {
+      shellClass: "touch-layout-phone-reach",
+      description: "Phone reach layout — smaller controls stay near the lower thumb zones with less travel."
+    },
+    camera_actions: {
+      shellClass: "touch-layout-camera-actions",
+      description: "Camera + actions layout — a large right stick and compact action cluster for keyboard/touch play."
     }
   };
+
+  function updatePlatformLabels(name) {
+    const playstation = name === "playstation_landscape";
+    const labels = playstation ? {
+      "touch-a": "✕", "touch-b": "○", "touch-x": "□", "touch-y": "△",
+      "touch-lb": "L1", "touch-rb": "R1", "touch-lt": "L2", "touch-rt": "R2",
+      "touch-back-2": "SHARE", "touch-start-2": "OPTIONS", "touch-guide": "PS",
+    } : {
+      "touch-a": "A", "touch-b": "B", "touch-x": "X", "touch-y": "Y",
+      "touch-lb": "LB", "touch-rb": "RB", "touch-lt": "LT", "touch-rt": "RT",
+      "touch-back-2": "BACK", "touch-start-2": "START", "touch-guide": "GUIDE",
+    };
+    for (const [id, label] of Object.entries(labels)) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = label;
+    }
+  }
 
   function applyLayout(name) {
     const shell = document.getElementById("touch-controller-shell");
     const picker = document.getElementById("touch-layout-select");
     const description = document.getElementById("touch-layout-description");
-    const preset = TOUCH_LAYOUTS[name] || TOUCH_LAYOUTS.classic_landscape;
+    const resolvedName = TOUCH_LAYOUTS[name] ? name : "classic_landscape";
+    const preset = TOUCH_LAYOUTS[resolvedName];
     if (!shell) return;
     resetAll();
     Object.values(TOUCH_LAYOUTS).forEach(layout => shell.classList.remove(layout.shellClass));
     shell.classList.add(preset.shellClass);
-    if (picker && picker.value !== name) picker.value = name;
+    if (picker && picker.value !== resolvedName) picker.value = resolvedName;
     if (description) description.textContent = preset.description;
+    updatePlatformLabels(resolvedName);
 
     document.querySelectorAll(".touch-pill-btn").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.preset === name);
+      btn.classList.toggle("active", btn.dataset.preset === resolvedName);
     });
 
-    try { localStorage.setItem("omnipad.touchLayout", name); } catch (_) {}
+    try { localStorage.setItem("omnipad.touchLayout", resolvedName); } catch (_) {}
   }
 
   function installLayoutPicker() {
@@ -141,6 +170,15 @@
     let pressTime = 0;
     let releaseTimer = null;
 
+    const forceRelease = () => {
+      if (releaseTimer) clearTimeout(releaseTimer);
+      releaseTimer = null;
+      isDown = false;
+      state().buttons[button] = false;
+      el.classList.remove("active");
+    };
+    RESETTERS.add(forceRelease);
+
     const press = e => {
       e.preventDefault();
       if (isDown) return;
@@ -167,7 +205,7 @@
       e.preventDefault();
       if (!isDown) return;
       const elapsed = performance.now() - pressTime;
-      const minHoldMs = 60; // Guarantee at least ~3-4 frames at 60fps so game engines never miss a tap
+      const minHoldMs = MIN_TAP_HOLD_MS;
       if (elapsed < minHoldMs) {
         releaseTimer = setTimeout(() => doRelease(e.pointerId), minHoldMs - elapsed);
       } else {
@@ -187,6 +225,18 @@
     let pressTime = 0;
     let releaseTimer = null;
     let activePointerId = null;
+
+    const forceRelease = () => {
+      if (releaseTimer) clearTimeout(releaseTimer);
+      releaseTimer = null;
+      isDown = false;
+      activePointerId = null;
+      state().axes[axis] = 0;
+      state().buttons[btnName] = false;
+      el.classList.remove("active");
+      el.style.setProperty("--trigger-fill", "0%");
+    };
+    RESETTERS.add(forceRelease);
 
     const press = e => {
       e.preventDefault();
@@ -220,7 +270,7 @@
       e.preventDefault();
       if (!isDown) return;
       const elapsed = performance.now() - pressTime;
-      const minHoldMs = 60; // Guarantee at least ~3-4 frames at 60fps so game engines never miss a tap
+      const minHoldMs = MIN_TAP_HOLD_MS;
       if (elapsed < minHoldMs) {
         releaseTimer = setTimeout(() => doRelease(e.pointerId), minHoldMs - elapsed);
       } else {
@@ -237,7 +287,9 @@
   }
 
   function resetAll() {
-    const s = state(); Object.keys(s.buttons).forEach(k => s.buttons[k] = false); Object.keys(s.axes).forEach(k => s.axes[k] = 0); POINTERS.clear();
+    const s = state();
+    RESETTERS.forEach(reset => reset());
+    Object.keys(s.buttons).forEach(k => s.buttons[k] = false); Object.keys(s.axes).forEach(k => s.axes[k] = 0); POINTERS.clear();
     document.querySelectorAll("#touch-controller-shell .active, #touch-controller-shell .click-active").forEach(el => el.classList.remove("active", "click-active"));
     document.querySelectorAll("#touch-controller-shell .touch-stick-knob").forEach(el => el.style.transform = "translate(-50%, -50%)");
     document.querySelectorAll("#touch-controller-shell .touch-trigger").forEach(el => el.style.setProperty("--trigger-fill", "0%"));

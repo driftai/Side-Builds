@@ -238,6 +238,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.target-scope-hint {
+  max-width: 230px;
+  font-size: .72rem;
+  color: var(--text-muted);
 }
 
 .target-scope-actions select {
@@ -278,6 +286,10 @@
 }
 
 @media (max-width: 768px) {
+  .controller-arena { padding: 12px; }
+  .mode-tabs { max-width: none; overflow-x: auto; }
+  .mode-tab { min-width: 110px; min-height: 44px; padding-inline: 10px; white-space: nowrap; }
+
   .target-scope-bar,
   .background-input-status {
     width: 100%;
@@ -286,4 +298,6 @@
   }
 
   .target-scope-actions select { max-width: 110px; }
+  .target-scope-actions { width: 100%; justify-content: center; }
+  .target-scope-hint { text-align: center; }
 }

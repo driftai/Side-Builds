@@ -270,7 +270,7 @@
 
 .touch-action-cluster {
   display: grid;
-  grid-template-columns: repeat(3, minmax(54px, 1fr));
+  grid-template-columns: repeat(2, minmax(54px, 1fr));
   gap: 10px;
 }
 
@@ -350,16 +350,28 @@
 }
 
 @media (max-width: 560px) {
-  .touch-controller-shell { padding: 10px; }
+  .touch-controller-shell { padding: 8px; gap: 9px; }
   .touch-controller-main {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .touch-stick {
-    width: min(34vw, 128px);
+  .touch-controller-primary-row {
+    display: flex;
+    flex-direction: column;
   }
-  .touch-action-cluster { gap: 7px; }
-  .touch-action-btn { min-height: 52px; }
+  .touch-stick-pair {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .touch-action-row { grid-template-columns: 1fr; }
+  .touch-action-row > .touch-action-cluster { justify-self: center; width: min(100%, 220px); }
+  .touch-action-row > div:first-child { display: none; }
+  .touch-stick { width: min(31vw, 112px); }
+  .touch-action-cluster { gap: 6px; grid-template-columns: repeat(2, minmax(44px, 1fr)); }
+  .touch-action-btn { min-height: 46px; }
   .touch-dpad-controller { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 42px); }
   .touch-dpad-controller .touch-controller-btn { width: 42px; height: 42px; }
+  .touch-shoulder-btn,
+  .touch-trigger { min-height: 44px; }
+  .touch-center-pad { min-height: 62px; }
 }

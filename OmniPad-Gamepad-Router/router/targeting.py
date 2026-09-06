@@ -261,6 +261,40 @@ class TargetManager:
         self._running_cache_at = now
         return self._running_cache
 
+    def focus_selected(self) -> tuple[bool, str]:
+        """Best-effort foreground request for the exact host-selected window.
+
+        Windows intentionally may deny SetForegroundWindow. OmniPad never uses
+        thread attachment, synthetic Alt input, or an arbitrary remote HWND to
+        bypass that policy.
+        """
+        if not self.selected:
+            return False, "no_target"
+        if not IS_WINDOWS:
+            return False, "unsupported"
+        if not self._check_target_running():
+            self._invalidate_caches()
+            return False, "target_closed"
+
+        hwnd = int(self.selected.hwnd)
+        try:
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            requested = bool(win32gui.SetForegroundWindow(hwnd))
+            self._invalidate_caches()
+            focused = self.is_target_foreground()
+            if requested or focused:
+                return True, "focused"
+            try:
+                win32gui.FlashWindow(hwnd, True)
+            except Exception:
+                pass
+            return False, "windows_blocked"
+        except Exception as exc:
+            logger.debug("Selected target focus request failed: %s", exc)
+            self._invalidate_caches()
+            return False, "windows_blocked"
+
     def get_status(self) -> Dict[str, Any]:
         now = time.monotonic()
         if self._status_cache is not None and now - self._status_cache_at < 0.5:

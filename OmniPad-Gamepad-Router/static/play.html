@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>OmniPad — Remote Player 2</title>
   <link rel="stylesheet" href="/static/css/common.css?v=1.4.0">
-  <link rel="stylesheet" href="/static/css/play.css?v=1.4.1">
-  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.4.1">
-  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.4.1">
-  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.4.1">
-  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.4.0">
+  <link rel="stylesheet" href="/static/css/play.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/hybrid_controls.css?v=1.5.0">
 </head>
 <body>
 
@@ -29,7 +30,7 @@
       <div class="input-group"><label for="join-name">Your Gamer Tag</label><input type="text" id="join-name" placeholder="e.g. Alex" value="Player 2" maxlength="24"></div>
       <div class="input-group"><label for="join-room-code">Room Pairing Code</label><input type="text" id="join-room-code" placeholder="Code from the current join link" maxlength="32" autocomplete="off"></div>
       <div class="input-group"><label for="join-slot">Player Slot</label><select id="join-slot"><option value="1" selected>Slot 1 (Player 2)</option><option value="2">Slot 2 (Player 3)</option><option value="3">Slot 3 (Player 4)</option></select></div>
-      <div class="input-group"><label for="join-mode">Control Surface</label><select id="join-mode"><option value="auto" selected>⚡ Auto-Detect (Touchscreen on Mobile)</option><option value="touch">📱 Touchscreen (Virtual Gamepad)</option><option value="keyboard">⌨️ Keyboard</option><option value="gamepad">🎮 Gamepad</option></select></div>
+      <div class="input-group"><label for="join-mode">Control Surface</label><select id="join-mode"><option value="auto" selected>⚡ Auto-Detect (Touchscreen on Mobile)</option><option value="touch">📱 Touchscreen (Virtual Gamepad)</option><option value="keyboard">⌨️ Keyboard</option><option value="hybrid">Keyboard + Touch</option><option value="gamepad">🎮 Gamepad</option></select></div>
       <button class="btn btn-primary" id="join-btn" style="margin-top:10px;">Connect to Host</button>
     </section>
 
@@ -39,6 +40,7 @@
           <button class="mode-tab active" data-mode="keyboard" id="tab-keyboard">⌨️ Keyboard</button>
           <button class="mode-tab" data-mode="gamepad" id="tab-gamepad">🎮 Gamepad</button>
           <button class="mode-tab" data-mode="touch" id="tab-touch">📱 Touchscreen</button>
+          <button class="mode-tab" data-mode="hybrid" id="tab-hybrid">Keyboard + Touch</button>
         </div>
 
         <div class="target-scope-bar" id="target-scope-bar">
@@ -46,36 +48,66 @@
             <span>🎯 Target App:</span>
             <span class="target-name-badge" id="current-target-name">None (Site-Only)</span>
           </div>
-          <div class="target-scope-hint" style="font-size: 0.72rem; color: var(--text-muted);">
-            Configured on Host Dashboard
+          <div class="target-scope-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="focus-target-btn">Focus Game</button>
+            <span class="target-scope-hint" id="focus-target-status">Configured on Host Dashboard</span>
           </div>
         </div>
 
         <div class="background-input-controls-bar" id="background-input-controls">
-          <button class="btn btn-secondary btn-sm" id="background-input-btn" title="Toggle routing inputs to the host Windows application">🪟 Background Input: Off (Site Only)</button>
-          <span id="background-input-status" class="background-input-status">Inputs stay in browser — not routed to game</span>
+          <button class="btn btn-secondary btn-sm" id="background-input-btn" title="Capture this host PC's physical keyboard while its browser is unfocused">Host Keyboard Capture: Off</button>
+          <span id="background-input-status" class="background-input-status">Local-only host keyboard helper; remote players do not need it</span>
         </div>
       </div>
 
+      <section class="arena-section" id="section-hybrid" style="display:none;">
+        <div class="hybrid-controls-card">
+          <div class="hybrid-controls-header">
+            <label for="hybrid-preset-select">Mixed preset:
+              <select id="hybrid-preset-select">
+                <option value="keyboard_touch_camera" selected>Keyboard + Touch Camera</option>
+                <option value="keyboard_mouse_camera">Keyboard + Mouse Camera</option>
+                <option value="keyboard_actions">Keyboard + Action Buttons</option>
+                <option value="phone_split">Phone Split Controls</option>
+                <option value="full_hybrid">Everything</option>
+                <option value="custom" disabled>Custom visibility</option>
+              </select>
+            </label>
+            <span class="hybrid-preset-description" id="hybrid-preset-description"></span>
+          </div>
+          <div class="hybrid-toggle-grid" aria-label="Hybrid control visibility">
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="keyboard"> Keyboard keys</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="mouse"> Mouse camera</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="left-stick"> Touch LS</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="right-stick"> Touch RS</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="dpad"> D-pad</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="actions"> Action buttons</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="shoulders"> Shoulders</label>
+            <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="center"> Menu / center</label>
+          </div>
+        </div>
+      </section>
+
       <section class="arena-section" id="section-keyboard">
         <div class="virtual-keyboard-card">
-          <div class="vk-toolbar"><div class="vk-toolbar-left"><label style="font-size:.8rem;font-weight:700;color:var(--text-secondary);">Layout Preset:</label><select id="vk-layout-select" style="max-width:280px;padding:6px 10px;"><option value="xbox_controller" selected>Xbox-Labeled Key Map (Any Output)</option><option value="standard_full">Standard Full PC Keyboard</option><option value="xbox_overlay">Xbox-Labeled Full Overlay (Any Output)</option><option value="playstation_overlay">PlayStation-Labeled Full Overlay (Any Output)</option><option value="playstation_controller">PlayStation-Labeled Key Map (Any Output)</option><option value="wasd_fighter">WASD Fighter & Action</option><option value="arrow_numpad">Arrow Keys / NumPad 2P</option><option value="compact_60">Compact (60% Mobile)</option></select></div><div class="vk-toolbar-right"><button class="btn btn-secondary btn-sm" id="vk-release-all-btn">⚡ Release Held Keys</button></div></div>
-          <p class="layout-preset-hint"><strong>Layout Preset</strong> changes the on-screen keys and labels only. It does not choose the host output—the same preset can drive Xbox 360, DualShock 4, or the virtual keyboard port.</p>
+          <div class="vk-toolbar" data-hybrid-part="keyboard"><div class="vk-toolbar-left"><label style="font-size:.8rem;font-weight:700;color:var(--text-secondary);">Control Labels:</label><select id="vk-layout-select" style="max-width:280px;padding:6px 10px;"><option value="xbox_controller" selected>Xbox Controls (Any Output)</option><option value="playstation_controller">PlayStation Controls (Any Output)</option><option value="wasd_fighter">Fighting Game Actions</option></select></div><div class="vk-toolbar-right"><button class="btn btn-secondary btn-sm" id="vk-release-all-btn">⚡ Release Held Keys</button></div></div>
+          <p class="layout-preset-hint"><strong>Control Labels</strong> changes mappings and badges, not the output backend. <strong>Physical Keyboard Type</strong> owns the visible keyboard shape and physical-key semantics.</p>
           <div class="keyboard-type-control">
             <label for="keyboard-type-select">Physical Keyboard Type:</label>
             <select id="keyboard-type-select" aria-label="Physical keyboard input type">
               <option value="standard">Standard PC (WASD + Arrows)</option>
               <option value="compact65">65% Compact (WASD + Arrows / Fn Layer)</option>
               <option value="arrowless">Arrowless / 60% (WASD + IJKL)</option>
+              <option value="arrow_numpad">Arrow Keys + NumPad 2P</option>
               <option value="esdf">ESDF + IJKL</option>
               <option value="vim_camera">WASD + HJKL Camera</option>
             </select>
             <div class="keyboard-type-hint" id="keyboard-type-hint">Standard PC (WASD + Arrows)</div>
           </div>
-          <div class="active-keys-bar" id="vk-active-keys-bar"><span class="active-keys-label">Held Keys:</span><span id="vk-active-keys-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:.75rem;color:var(--text-muted);">None (Press any key or click below)</span></span></div>
-          <div class="vk-chassis" id="vk-chassis"></div>
-          <p style="font-size:.75rem;color:var(--text-muted);text-align:center;margin:0;">💡 <strong>Physical & Virtual Sync:</strong> Type on your physical keyboard OR click/tap keys above.</p>
-          <div class="mouse-camera-card" id="mouse-camera-card">
+          <div class="active-keys-bar" id="vk-active-keys-bar" data-hybrid-part="keyboard"><span class="active-keys-label">Held Keys:</span><span id="vk-active-keys-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:.75rem;color:var(--text-muted);">None (Press any key or click below)</span></span></div>
+          <div class="vk-chassis" id="vk-chassis" data-hybrid-part="keyboard"></div>
+          <p data-hybrid-part="keyboard" style="font-size:.75rem;color:var(--text-muted);text-align:center;margin:0;">💡 <strong>Physical & Virtual Sync:</strong> Type on your physical keyboard OR click/tap keys above.</p>
+          <div class="mouse-camera-card" id="mouse-camera-card" data-hybrid-part="mouse">
             <div class="mouse-camera-header">
               <div class="mouse-camera-title">
                 <strong>🖱️ Mouse Camera / Right Stick</strong>
@@ -87,6 +119,8 @@
                   <input type="range" id="mouse-sens-slider" min="1" max="200" value="20" style="width:100px;height:4px;">
                   <span id="mouse-sens-val" style="font-size:.72rem;color:var(--accent-cyan);min-width:36px;font-weight:700;">20%</span>
                 </div>
+                <label class="mouse-direction-toggle"><input type="checkbox" id="mouse-invert-y"> Invert vertical</label>
+                <label class="mouse-direction-toggle"><input type="checkbox" id="mouse-invert-x"> Invert horizontal</label>
                 <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-fullscreen-btn" title="Toggle Fullscreen Camera View">⛶ Fullscreen</button>
                 <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-popout-btn" title="Open Camera Pad in Detached Window">🗗 Pop-Out Window</button>
               </div>
@@ -112,6 +146,8 @@
               <button type="button" class="btn btn-xs touch-pill-btn" data-preset="twin_stick_landscape">Twin-Stick</button>
               <button type="button" class="btn btn-xs touch-pill-btn" data-preset="playstation_landscape">PlayStation</button>
               <button type="button" class="btn btn-xs touch-pill-btn" data-preset="compact_thumbs">Compact</button>
+              <button type="button" class="btn btn-xs touch-pill-btn" data-preset="phone_reach">Phone Reach</button>
+              <button type="button" class="btn btn-xs touch-pill-btn" data-preset="camera_actions">Camera + Actions</button>
             </div>
           </div>
           <div style="display:inline-flex;align-items:center;gap:6px;">
@@ -123,34 +159,39 @@
               <option value="twin_stick_landscape">Twin-Stick Landscape</option>
               <option value="playstation_landscape">PlayStation Landscape</option>
               <option value="compact_thumbs">Compact Thumb-Friendly</option>
+              <option value="phone_reach">Phone Reach</option>
+              <option value="camera_actions">Camera + Actions</option>
             </select>
           </label>
         </div>
         <div class="touch-controller-shell touch-layout-classic" id="touch-controller-shell">
           <div class="touch-controller-subhint" id="touch-layout-description">Balanced layout — sticks, center controls, and action buttons stay close to a traditional full controller.</div>
           <div class="touch-controller-main touch-controller-primary-row">
-            <div class="touch-stick-cluster touch-dpad-cluster"><div class="touch-dpad-controller" aria-label="D-pad"><div></div><button class="touch-controller-btn" id="touch-dpad-up">▲</button><div></div><button class="touch-controller-btn" id="touch-dpad-left">◀</button><div></div><button class="touch-controller-btn" id="touch-dpad-right">▶</button><div></div><button class="touch-controller-btn" id="touch-dpad-down">▼</button><div></div></div></div>
-            <div class="touch-center-stack"><div class="touch-menu-row"><button class="btn btn-secondary btn-sm touch-menu-btn" id="touch-back-2">BACK</button><button class="btn btn-secondary btn-sm touch-menu-btn" id="touch-start-2">START</button></div><div class="touch-center-pad" id="touch-touchpad">TOUCHPAD / CENTER</div><div class="touch-controller-footer"><span class="touch-output-chip" id="touch-l3-button">L3</span><span class="touch-output-chip" id="touch-r3-button">R3</span><span class="touch-output-chip" id="touch-guide">GUIDE</span></div></div>
-            <div class="touch-stick-cluster touch-stick-pair"><div class="touch-stick" id="touch-left-stick" aria-label="Left analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-left-stick-knob">LS</div><div class="touch-stick-label">LEFT STICK</div></div><div class="touch-stick" id="touch-right-stick" aria-label="Right analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-right-stick-knob">RS</div><div class="touch-stick-label">RIGHT STICK</div></div></div>
+            <div class="touch-stick-cluster touch-dpad-cluster" data-hybrid-part="dpad"><div class="touch-dpad-controller" aria-label="D-pad"><div></div><button class="touch-controller-btn" id="touch-dpad-up">▲</button><div></div><button class="touch-controller-btn" id="touch-dpad-left">◀</button><div></div><button class="touch-controller-btn" id="touch-dpad-right">▶</button><div></div><button class="touch-controller-btn" id="touch-dpad-down">▼</button><div></div></div></div>
+            <div class="touch-center-stack" data-hybrid-part="center"><div class="touch-menu-row"><button class="btn btn-secondary btn-sm touch-menu-btn" id="touch-back-2">BACK</button><button class="btn btn-secondary btn-sm touch-menu-btn" id="touch-start-2">START</button></div><div class="touch-center-pad" id="touch-touchpad">TOUCHPAD / CENTER</div><div class="touch-controller-footer"><span class="touch-output-chip" id="touch-l3-button">L3</span><span class="touch-output-chip" id="touch-r3-button">R3</span><span class="touch-output-chip" id="touch-guide">GUIDE</span></div></div>
+            <div class="touch-stick-cluster touch-stick-pair"><div class="touch-stick" id="touch-left-stick" data-hybrid-part="left-stick" aria-label="Left analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-left-stick-knob">LS</div><div class="touch-stick-label">LEFT STICK</div></div><div class="touch-stick" id="touch-right-stick" data-hybrid-part="right-stick" aria-label="Right analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-right-stick-knob">RS</div><div class="touch-stick-label">RIGHT STICK</div></div></div>
           </div>
-          <div class="touch-shoulders"><div class="touch-shoulder-row touch-left-shoulders"><button class="touch-shoulder-btn" id="touch-lb">LB / L1</button><div class="touch-trigger" id="touch-lt">LT / L2</div></div><div class="touch-shoulder-row touch-right-shoulders"><div class="touch-trigger" id="touch-rt">RT / R2</div><button class="touch-shoulder-btn" id="touch-rb">RB / R1</button></div></div>
-          <div class="touch-controller-main touch-action-row"><div></div><div class="touch-controller-hint">Controller buttons</div><div class="touch-action-cluster"><button class="touch-action-btn" id="touch-y">Y / △</button><button class="touch-action-btn" id="touch-x">X / □</button><button class="touch-action-btn" id="touch-b">B / ○</button><button class="touch-action-btn" id="touch-a">A / ✕</button></div></div>
+          <div class="touch-shoulders" data-hybrid-part="shoulders"><div class="touch-shoulder-row touch-left-shoulders"><button class="touch-shoulder-btn" id="touch-lb">LB</button><div class="touch-trigger" id="touch-lt">LT</div></div><div class="touch-shoulder-row touch-right-shoulders"><div class="touch-trigger" id="touch-rt">RT</div><button class="touch-shoulder-btn" id="touch-rb">RB</button></div></div>
+          <div class="touch-controller-main touch-action-row"><div></div><div class="touch-controller-hint">Controller buttons</div><div class="touch-action-cluster" data-hybrid-part="actions"><button class="touch-action-btn" id="touch-y">Y</button><button class="touch-action-btn" id="touch-x">X</button><button class="touch-action-btn" id="touch-b">B</button><button class="touch-action-btn" id="touch-a">A</button></div></div>
         </div>
       </section>
     </main>
   </div>
 
   <script src="/static/js/gamepad_viz.js?v=1.4.0"></script>
-  <script src="/static/js/keyboard_layouts.js?v=1.4.0"></script>
+  <script src="/static/js/keyboard_layouts.js?v=1.5.0"></script>
   <script src="/static/js/gamepad_profiles.js?v=1.4.0"></script>
-  <script src="/static/js/virtual_keyboard.js?v=1.4.0"></script>
-  <script src="/static/js/target_routing.js?v=1.4.0"></script>
-  <script src="/static/js/input_capture.js?v=1.4.0"></script>
-  <script src="/static/js/keyboard_type_adapter.js?v=1.4.0"></script>
-  <script src="/static/js/play.js?v=1.4.0"></script>
-  <script src="/static/js/low_latency_input.js?v=1.4.0"></script>
-  <script src="/static/js/mouse_camera.js?v=1.4.0"></script>
-  <script src="/static/js/remote_input_monitor.js?v=1.4.0"></script>
-  <script src="/static/js/touch_controller.js?v=1.4.0"></script>
+  <script src="/static/js/virtual_keyboard.js?v=1.5.0"></script>
+  <script src="/static/js/target_routing.js?v=1.5.0"></script>
+  <script src="/static/js/input_capture.js?v=1.5.0"></script>
+  <script src="/static/js/touch_keyboard_bridge.js?v=1.5.0"></script>
+  <script src="/static/js/keyboard_type_adapter.js?v=1.5.0"></script>
+  <script src="/static/js/device_modes.js?v=1.5.0"></script>
+  <script src="/static/js/play.js?v=1.5.0"></script>
+  <script src="/static/js/low_latency_input.js?v=1.5.0"></script>
+  <script src="/static/js/mouse_camera.js?v=1.5.0"></script>
+  <script src="/static/js/remote_input_monitor.js?v=1.5.0"></script>
+  <script src="/static/js/touch_controller.js?v=1.5.0"></script>
+  <script src="/static/js/hybrid_controls.js?v=1.5.0"></script>
 </body>
 </html>

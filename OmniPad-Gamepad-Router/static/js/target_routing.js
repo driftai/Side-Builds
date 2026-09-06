@@ -26,11 +26,16 @@ async function refreshTargetStatus() {
     const res = await fetch("/api/target/status", { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
-    selectedTargetInfo = data.selected;
+    selectedTargetInfo = data.selected
+      ? (typeof data.selected === "object" ? data.selected : { title: "Host-selected game" })
+      : null;
+    window.selectedTargetInfo = selectedTargetInfo;
     if (data.selected) {
-      const title = data.selected.title || data.selected.process_name || data.selected.label;
+      const title = selectedTargetInfo.title || selectedTargetInfo.process_name || selectedTargetInfo.label || "Host-selected game";
       nameEl.textContent = title;
-      nameEl.title = `PID ${data.selected.pid} — ${data.selected.process_name}`;
+      nameEl.title = selectedTargetInfo.pid
+        ? `PID ${selectedTargetInfo.pid} — ${selectedTargetInfo.process_name || "selected application"}`
+        : "The host selected this game. Process details stay private.";
       if (!data.target_running) {
         nameEl.className = "target-name-badge badge-danger";
         nameEl.textContent += " (Closed)";
@@ -53,6 +58,7 @@ async function refreshTargetStatus() {
 async function refreshBackgroundCaptureStatus() {
   if (isCloudflareRemoteSession()) {
     backgroundCaptureEnabled = false;
+    window.backgroundCaptureEnabled = false;
     stopBackgroundInputMirrorTimer();
     updateRoutingUI();
     return;
@@ -65,6 +71,7 @@ async function refreshBackgroundCaptureStatus() {
       if (backgroundCaptureEnabled) {
         backgroundRoutingActive = true;
       }
+      window.backgroundCaptureEnabled = backgroundCaptureEnabled;
     }
   } catch (_) {}
   if (backgroundCaptureEnabled) startBackgroundInputMirrorTimer();
@@ -116,21 +123,23 @@ function updateRoutingUI() {
   const btn = document.getElementById("background-input-btn");
   const status = document.getElementById("background-input-status");
   const touchBtn = document.getElementById("touch-routing-btn");
+  const focusBtn = document.getElementById("focus-target-btn");
 
   if (isCloudflareRemoteSession()) {
     if (controls) controls.style.display = "none";
     if (touchBtn) touchBtn.style.display = "none";
-    return;
   }
+
+  if (focusBtn) focusBtn.disabled = !selectedTargetInfo || !window.isConnected || Boolean(window.isObserverMode);
 
   if (btn) {
     if (backgroundRoutingActive || backgroundCaptureEnabled) {
       btn.textContent = backgroundCaptureEnabled
         ? "🪟 Native Background Capture: Active (OS-Wide)"
-        : "🪟 Background Routing: On (Route to Target)";
+        : "Host Keyboard Capture: On";
       btn.classList.add("background-input-on", "routing-on");
     } else {
-      btn.textContent = "🪟 Background Routing: Off (Site Only)";
+      btn.textContent = "Host Keyboard Capture: Off";
       btn.classList.remove("background-input-on", "routing-on");
     }
   }
@@ -155,10 +164,39 @@ function updateRoutingUI() {
   }
 }
 
+function handleTargetFocusResult(message) {
+  const status = document.getElementById("focus-target-status");
+  const button = document.getElementById("focus-target-btn");
+  if (button) button.disabled = !selectedTargetInfo || !window.isConnected || Boolean(window.isObserverMode);
+  if (!status) return;
+  const messages = {
+    focused: "Game focused on the host.",
+    no_target: "Select a target on the host dashboard first.",
+    target_closed: "The selected game is closed.",
+    windows_blocked: "Windows blocked focus; click the game once on the host.",
+    rate_limited: "Focus request already sent.",
+    not_controller: "Only the active player can focus the game.",
+    unsupported: "Host focus is unavailable on this platform.",
+  };
+  status.textContent = messages[message.reason] || (message.ok ? "Game focused on the host." : "Game focus request failed.");
+  if (message.ok) refreshTargetStatus();
+}
+
+function requestTargetFocus() {
+  const status = document.getElementById("focus-target-status");
+  if (!selectedTargetInfo) {
+    if (status) status.textContent = "Select a target on the host dashboard first.";
+    return;
+  }
+  const sent = window.sendPlayerControlMessage?.({ type: "focus_target" });
+  if (status) status.textContent = sent ? "Requesting host focus…" : "Connect as the active player first.";
+}
+
 async function toggleBackgroundRouting() {
   if (isCloudflareRemoteSession()) return;
   const btn = document.getElementById("background-input-btn");
-  const isKb = (window.currentMode || "keyboard") === "keyboard";
+  const status = document.getElementById("background-input-status");
+  const isKb = ["keyboard", "hybrid"].includes(window.currentMode || "keyboard");
 
   if (isKb && typeof isConnected !== "undefined" && isConnected) {
     if (btn) btn.disabled = true;
@@ -177,17 +215,22 @@ async function toggleBackgroundRouting() {
         })
       });
       const data = await res.json();
+      if (!data.ok && targetState) throw new Error(data.detail || "Host keyboard capture failed");
       backgroundCaptureEnabled = !!(data.ok && data.running && data.ready);
-      backgroundRoutingActive = backgroundCaptureEnabled || !backgroundRoutingActive;
+      backgroundRoutingActive = targetState ? backgroundCaptureEnabled : false;
+      window.backgroundCaptureEnabled = backgroundCaptureEnabled;
+      window.backgroundRoutingActive = backgroundRoutingActive;
       if (backgroundCaptureEnabled) startBackgroundInputMirrorTimer();
       else stopBackgroundInputMirrorTimer();
     } catch (err) {
-      backgroundRoutingActive = !backgroundRoutingActive;
+      if (status) status.textContent = "Host keyboard capture unavailable; routing was not changed.";
+      return;
     } finally {
       if (btn) btn.disabled = false;
     }
   } else {
     backgroundRoutingActive = !backgroundRoutingActive;
+    window.backgroundRoutingActive = backgroundRoutingActive;
   }
 
   updateRoutingUI();
@@ -246,3 +289,13 @@ window.startBackgroundInputMirrorTimer = startBackgroundInputMirrorTimer;
 window.stopBackgroundInputMirrorTimer = stopBackgroundInputMirrorTimer;
 window.startRoutingStatusMonitor = startRoutingStatusMonitor;
 window.isCloudflareRemoteSession = isCloudflareRemoteSession;
+window.requestTargetFocus = requestTargetFocus;
+window.handleTargetFocusResult = handleTargetFocusResult;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const button = document.getElementById("focus-target-btn");
+  if (button && button.dataset.bound !== "1") {
+    button.dataset.bound = "1";
+    button.addEventListener("click", requestTargetFocus);
+  }
+});

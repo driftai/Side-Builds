@@ -53,6 +53,67 @@ def test_target_gate(monkeypatch=None):
         target_manager.is_target_running = orig_is_running
 
 
+def test_selected_target_focus_request_is_best_effort():
+    import router.targeting as targeting
+
+    class Selected:
+        pid = 4242
+        hwnd = 8484
+        title = "Selected Game"
+        process_name = "game.exe"
+
+    class FakeGui:
+        foreground = 1111
+        restore_calls = []
+        flash_calls = []
+
+        @classmethod
+        def IsIconic(cls, _hwnd):
+            return True
+
+        @classmethod
+        def ShowWindow(cls, hwnd, command):
+            cls.restore_calls.append((hwnd, command))
+
+        @classmethod
+        def SetForegroundWindow(cls, hwnd):
+            cls.foreground = hwnd
+            return True
+
+        @classmethod
+        def GetForegroundWindow(cls):
+            return cls.foreground
+
+        @classmethod
+        def FlashWindow(cls, hwnd, invert):
+            cls.flash_calls.append((hwnd, invert))
+
+    class FakeProcess:
+        @staticmethod
+        def GetWindowThreadProcessId(hwnd):
+            return (1, 4242 if hwnd == 8484 else 1)
+
+    original = (targeting.IS_WINDOWS, targeting.win32gui, targeting.win32process)
+    try:
+        targeting.IS_WINDOWS = True
+        targeting.win32gui = FakeGui
+        targeting.win32process = FakeProcess
+        tm = TargetManager()
+        tm.selected = Selected()
+        tm._check_target_running = lambda: True
+        ok, reason = tm.focus_selected()
+        assert ok is True and reason == "focused"
+        assert FakeGui.restore_calls
+
+        FakeGui.foreground = 1111
+        FakeGui.SetForegroundWindow = classmethod(lambda cls, _hwnd: False)
+        ok, reason = tm.focus_selected()
+        assert ok is False and reason == "windows_blocked"
+        assert FakeGui.flash_calls
+    finally:
+        targeting.IS_WINDOWS, targeting.win32gui, targeting.win32process = original
+
+
 def test_unfocused_virtual_controller_routing():
     import asyncio
     from router.slot_manager import SlotManager
@@ -258,6 +319,8 @@ if __name__ == "__main__":
     print("  [PASS] Target window listing shape")
     test_target_gate()
     print("  [PASS] Target gate safety predicate")
+    test_selected_target_focus_request_is_best_effort()
+    print("  [PASS] Selected-target focus is best-effort and preserves Windows policy")
     test_unfocused_virtual_controller_routing()
     print("  [PASS] Unfocused virtual controller routing (Target running, not foreground)")
     test_target_locked_keyboard_stays_foreground_gated()

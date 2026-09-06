@@ -69,8 +69,11 @@ def test_backend_lifecycle():
     backend.device = device
     backend.last_report = bytes(8)
 
-    backend.apply({"key_codes": ["AltLeft", "KeyD"]})
-    assert device.reports == [bytes([0x04, 0, 0x07, 0, 0, 0, 0, 0])]
+    backend.apply({
+        "key_codes": ["AltLeft", "KeyD"],
+        "keyboard_fallback_codes": ["KeyJ", "KeyD"],
+    })
+    assert device.reports == [bytes([0x04, 0, 0x07, 0x0D, 0, 0, 0, 0])]
     assert backend.last_report == device.reports[-1]
 
     backend.release_all()
@@ -80,7 +83,7 @@ def test_backend_lifecycle():
     backend.close()
     assert device.closed
     assert backend.device is None
-    print("  [PASS] UMDF backend apply, all-keys-up, and close lifecycle")
+    print("  [PASS] UMDF backend merges touch fallback, deduplicates, releases, and closes")
 
 
 def test_driver_source_contract():

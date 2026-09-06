@@ -13,6 +13,7 @@ Public tunnel clients can:
 - load `/play` / `/join`;
 - read controller profiles;
 - connect to `/ws/player` and submit input for a valid room/slot.
+- as the authoritative slot owner, request best-effort focus of the exact target the host already selected.
 
 Public tunnel clients cannot use host management endpoints.
 
@@ -28,6 +29,8 @@ The host dashboard and management APIs are local/private-network only. The follo
 - native background keyboard helper lifecycle/status APIs.
 
 Remote `/api/status` is intentionally reduced to non-sensitive session/application information. Remote `/api/target/status` omits process IDs, executable paths, window titles, and other host-window identity details.
+
+The player `focus_target` message cannot choose a PID, HWND, path, or title. Observers and unattached sockets are rejected, requests are rate-limited, and the response exposes only a generic result reason. Windows can still deny the foreground request.
 
 ## No process injection
 
