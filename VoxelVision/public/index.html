@@ -162,6 +162,15 @@
       </div>
 
       <div class="settings-group">
+        <label class="settings-label" for="foregroundAssist"><span>Foreground Mask Assistance</span></label>
+        <select id="foregroundAssist">
+          <option value="off" selected>Off · fastest analysis</option>
+          <option value="anime">Anime foreground · experimental quality assist</option>
+        </select>
+        <div id="foregroundAssistStatus" class="capability-line">Optional ~176 MB model download. Uses sparse masks in AI + decoded video mode; adds analysis time.</div>
+      </div>
+
+      <div class="settings-group">
         <label class="settings-label"><span>Live AI Depth Rate</span></label>
         <select id="liveDepthRate">
           <option value="1">1 FPS (minimum / fallback)</option>

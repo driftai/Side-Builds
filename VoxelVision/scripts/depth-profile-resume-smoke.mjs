@@ -43,6 +43,17 @@ assert.ok(
   selectBestResumableProfile([sessions[3]], source, { pipeline: 'voxelvision-depth-v7' }),
   'an old interrupted profile must remain discoverable when its metadata checkpoint says zero frames'
 );
+const legacyYoutube = {
+  id: 'youtube-legacy',
+  descriptor: descriptor(512, 288, 4, {
+    source: 'youtube:https://youtu.be/AbCdEf12345?si=old-token|quality:1080'
+  })
+};
+assert.equal(selectBestResumableProfile(
+  [legacyYoutube],
+  'youtube:video:AbCdEf12345|quality:1080',
+  { pipeline: 'voxelvision-depth-v7' }
+)?.id, 'youtube-legacy', 'canonical video IDs must recover caches created from older share URLs');
 
 const portrait = restoredProfileState({
   descriptor: descriptor(288, 512, 4),

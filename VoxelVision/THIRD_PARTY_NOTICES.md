@@ -29,6 +29,15 @@ The browser runtime loads the version-pinned `@huggingface/transformers` 4.2.0
 module from jsDelivr. See the upstream package and model cards for their full
 license terms and notices.
 
+## Optional anime foreground model
+
+`BritishWerewolf/IS-Net-Anime` is an Apache-2.0 ONNX export of
+[SkyTNT's anime-segmentation](https://github.com/SkyTNT/anime-segmentation)
+model, with conversion credits to rembg. Weights are downloaded from
+[the model repository](https://huggingface.co/BritishWerewolf/IS-Net-Anime)
+only when the user enables this experimental quality option; they are not
+redistributed here. The silhouette supplies foreground membership, not depth.
+
 ## Optional local tools
 
 `yt-dlp` and FFmpeg are optional user-installed executables. They are ignored

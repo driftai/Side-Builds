@@ -10,12 +10,12 @@ const startedAt = Date.now();
 const maxFailureLines = 24;
 
 function projectScripts() {
-  const files = ['server.js', 'youtube-import.js'];
+  const files = ['server.js', 'youtube-import.js', 'media-range.js'];
   for (const name of fs.readdirSync(path.join(root, 'public', 'js'))) {
     if (name.endsWith('.js')) files.push(path.join('public', 'js', name));
   }
   for (const name of fs.readdirSync(path.join(root, 'scripts'))) {
-    if (name.endsWith('.mjs')) files.push(path.join('scripts', name));
+    if (name.endsWith('.mjs') || name.endsWith('.cjs')) files.push(path.join('scripts', name));
   }
   return files.sort();
 }
@@ -28,6 +28,8 @@ const checks = projectScripts().map(file => ({
 
 if (!syntaxOnly) {
   checks.push(
+    { id: 'smoke:foreground-mask-assist', command: process.execPath, args: ['scripts/foreground-mask-assist-smoke.mjs'] },
+    { id: 'smoke:media-range', command: process.execPath, args: ['scripts/media-range-smoke.mjs'] },
     { id: 'smoke:temporal-sampling', command: process.execPath, args: ['scripts/temporal-sampling-smoke.mjs'] },
     { id: 'smoke:youtube-quality', command: process.execPath, args: ['scripts/youtube-quality-smoke.mjs'] },
     { id: 'smoke:capabilities', command: process.execPath, args: ['scripts/capability-profile-smoke.mjs'] },

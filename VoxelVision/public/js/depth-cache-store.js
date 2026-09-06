@@ -1,6 +1,7 @@
 /** Browser-local persistent depth cache backed by IndexedDB. */
 
 import { dequantizeDepth16, quantizeDepth16 } from './depth-cache-codec.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
 const DATABASE_NAME = 'voxelvision-depth-cache';
 const DATABASE_VERSION = 2;
@@ -208,10 +209,24 @@ export class DepthCacheStore {
 
   async deleteSourceCache(identity) {
     if (!this.available || !identity) return { sessions: 0, frames: 0 };
+    const canonical = canonicalMediaIdentity(identity);
     const sessions = (await this.listSessions()).filter(session => (
-      session.sourceIdentity || session.descriptor?.source
-    ) === String(identity));
-    return this.#deleteSessions(sessions.map(session => session.id), [String(identity)]);
+      canonicalMediaIdentity(session.sourceIdentity || session.descriptor?.source) === canonical
+    ));
+    const sourceIds = new Set([String(identity), canonical]);
+    for (const session of sessions) {
+      if (session.sourceIdentity) sourceIds.add(String(session.sourceIdentity));
+      if (session.descriptor?.source) sourceIds.add(String(session.descriptor.source));
+    }
+    return this.#deleteSessions(sessions.map(session => session.id), [...sourceIds]);
+  }
+  async deleteProfile(cacheId) {
+    if (!this.available || !cacheId) return { sessions: 0, frames: 0 };
+    const session = await this.getSession(cacheId);
+    if (!session) return { sessions: 0, frames: 0 };
+    const identity = canonicalMediaIdentity(session.sourceIdentity || session.descriptor?.source);
+    // Keep the stored source: remaining profiles and future analysis reuse it.
+    return this.#deleteSessions([cacheId], [], identity);
   }
 
   async clearAll() {
@@ -243,7 +258,7 @@ export class DepthCacheStore {
     };
   }
 
-  async #deleteSessions(cacheIds, sourceIds = []) {
+  async #deleteSessions(cacheIds, sourceIds = [], invalidateIdentity = null) {
     if (!cacheIds.length && !sourceIds.length) return { sessions: 0, frames: 0 };
     const db = await this.#database();
     const transaction = db.transaction([SESSION_STORE, FRAME_STORE, SOURCE_STORE], 'readwrite');
@@ -251,6 +266,22 @@ export class DepthCacheStore {
     const sessionStore = transaction.objectStore(SESSION_STORE);
     const frameStore = transaction.objectStore(FRAME_STORE);
     const frameIndex = frameStore.index('cacheId');
+    if (invalidateIdentity) {
+      const cursorRequest = sessionStore.openCursor();
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) return;
+        const session = cursor.value;
+        if (!cacheIds.includes(session.id)
+          && canonicalMediaIdentity(session.sourceIdentity || session.descriptor?.source) === invalidateIdentity) {
+          // These counters are derived from donor maps, not additional storage.
+          // The next replay recomputes exact reuse from surviving frame indices.
+          cursor.update({ ...session, reusableFrames: 0, donorProfiles: 0, sharedQualityAccumulator: null,
+            analysisState: Number(session.frameCount) >= Number(session.totalFrames) ? 'complete' : 'paused' });
+        }
+        cursor.continue();
+      };
+    }
     let frames = 0;
     const frameDeletes = cacheIds.map(cacheId => new Promise((resolve, reject) => {
       const request = frameIndex.openCursor(IDBKeyRange.only(cacheId));

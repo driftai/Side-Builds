@@ -4,6 +4,8 @@
  * adjacent to confirmed foreground and never assigns depth from color alone.
  */
 
+import { recoverMaskedDepthGaps } from './semantic-depth-recovery.js';
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -117,10 +119,12 @@ export function recoverForegroundDetail(frame, width, height, rgba, settings = {
   const options = {
     minDepthGap: settings.minDepthGap ?? 0.14,
     maxLift: settings.maxLift ?? 0.44,
+    semanticMask: settings.semanticMask?.length === cells ? settings.semanticMask : null,
     maxRegionCells: Math.max(12, Math.floor(cells * (settings.maxRegionRatio ?? 0.14))),
     localColorDistanceSq: (settings.localColorDistance ?? 54) ** 2,
     seedColorDistanceSq: (settings.seedColorDistance ?? 92) ** 2
   };
+  if (options.semanticMask) return recoverMaskedDepthGaps(frame, width, height, options.semanticMask);
   const median = sampledQuantile(frame, 0.5);
   const high = sampledQuantile(frame, 0.98);
   const foregroundFloor = Math.max(median + 0.08, median + (high - median) * 0.55);
@@ -154,6 +158,8 @@ export function recoverForegroundDetail(frame, width, height, rgba, settings = {
     const contactY = uniqueContacts.reduce((sum, cell) => sum + Math.floor(cell / width), 0) / uniqueContacts.length;
     if (regionY > contactY + height * 0.055) continue;
     const contactDepths = uniqueContacts.map(cell => frame[cell]).sort((a, b) => a - b);
+    const contactSpread = contactDepths[Math.floor(contactDepths.length * 0.8)] - contactDepths[Math.floor(contactDepths.length * 0.2)];
+    if (contactSpread > 0.18) continue;
     const targetDepth = contactDepths[Math.floor(contactDepths.length / 2)] - 0.018;
     for (const cell of region) {
       const desired = frame[cell] + (targetDepth - frame[cell]) * 0.86;

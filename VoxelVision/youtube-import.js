@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { canonicalYoutubeUrl, youtubeVideoId } from './public/js/youtube-source.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,14 +35,7 @@ export function normalizeYoutubeQuality(value) {
 }
 
 export function isSupportedYoutubeUrl(value) {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
-    const host = url.hostname.toLowerCase().replace(/^www\./, '');
-    return host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com' || host === 'youtu.be';
-  } catch {
-    return false;
-  }
+  return Boolean(youtubeVideoId(value));
 }
 
 function commandWorks(command, args = []) {
@@ -316,6 +310,7 @@ export async function runYoutubeImport(sourceUrl, qualityId = DEFAULT_YOUTUBE_QU
   }
 
   const requestedQuality = normalizeYoutubeQuality(qualityId);
+  const canonicalSourceUrl = canonicalYoutubeUrl(sourceUrl);
   const profile = YOUTUBE_QUALITY_PROFILES[requestedQuality];
   const ffmpeg = findFfmpeg();
   const jobId = crypto.randomBytes(10).toString('hex');
@@ -324,7 +319,7 @@ export async function runYoutubeImport(sourceUrl, qualityId = DEFAULT_YOUTUBE_QU
   let lastError = null;
   for (const strategy of strategies) {
     try {
-      const imported = await runYtDlpAttempt(ytDlp, sourceUrl, jobId, strategy);
+      const imported = await runYtDlpAttempt(ytDlp, canonicalSourceUrl, jobId, strategy);
       return {
         ...imported,
         requestedQuality,

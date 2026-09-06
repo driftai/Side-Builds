@@ -189,7 +189,15 @@ for (const [width, height] of [[64, 36], [36, 64], [48, 48], [96, 24]]) {
   assert.equal(conditioned.frame.length, cells, 'Conditioning must retain every aspect-specific cell');
   assert.ok(conditioned.frame instanceof Float32Array, 'Conditioning must retain float precision');
   assert.ok(conditioned.frame.every(Number.isFinite), 'Conditioning must never emit invalid geometry');
+  assert.ok(conditioned.frame.every((value, index) => Math.abs(value - frame[index]) <= 0.120001),
+    'stacked non-semantic corrections must obey one total geometry displacement budget');
 }
+
+let falsePeak = new Float32Array(64).fill(0.95);
+const credibleSurface = new Float32Array(64).fill(0.35);
+const unchangedLogo = new Uint8Array(64).fill(120);
+for (let i = 0; i < 12; i++) falsePeak = stabilizeDepthMotionAware(credibleSurface, falsePeak, 8, 8, unchangedLogo, unchangedLogo).frame;
+assert.ok(falsePeak[20] < 0.43, 'unchanged image evidence must not lock an initially wrong near-maximum height');
 
 const guidedEdge = new Float32Array(20 * 10);
 const edgeGuide = new Uint8Array(20 * 10);

@@ -13,6 +13,7 @@ import {
   normalizeDepthConversionMode
 } from './depth-conversion-mode.js';
 import { DepthWorkerSession } from './depth-worker-session.js';
+import { ForegroundMaskAssist } from './foreground-mask-assist.js';
 
 export {
   blendDepthFrames,
@@ -85,6 +86,10 @@ export class LiveDepthEngine {
     this.invert = invert;
     this.onStatus = typeof onStatus === 'function' ? onStatus : () => {};
     this.conditioning = conditioning || DepthProcessing.DEFAULT_DEPTH_CONDITIONING;
+    this.foregroundAssist = new ForegroundMaskAssist(message => {
+      const status = document.getElementById?.('foregroundAssistStatus');
+      if (status) status.textContent = message;
+    });
     this.requestedModelKey = DepthModels.getDepthModelProfile(modelProfile).key;
     this.conversionMode = normalizeDepthConversionMode(conversionMode);
     this.activeModelKey = null;
@@ -219,6 +224,7 @@ export class LiveDepthEngine {
   }
 
   resetTemporalState() {
+    this.foregroundAssist?.reset();
     this.rangeLow = null;
     this.rangeHigh = null;
     this.previousIndependentDepth = null;
@@ -308,14 +314,29 @@ export class LiveDepthEngine {
     return load ? this.ensureReady() : this.backend;
   }
 
-  async ensureReady() {
+  async ensureReady({ retry = false } = {}) {
     if (!conversionUsesAi(this.conversionMode)) return 'luma';
+    if (retry && this.backend === 'luma' && !this.pipeline) {
+      this.modelLoadEpoch += 1;
+      this.backend = 'idle';
+      this.precision = null;
+      this.inferenceMode = null;
+      this.activeModelKey = null;
+      this.modelFallbackReason = null;
+      this.readyStatus = null;
+      this.loadPromise = null;
+    }
     if (this.pipeline || this.backend === 'luma') return this.backend;
     if (this.loadPromise) return this.loadPromise;
 
     const loadEpoch = ++this.modelLoadEpoch;
-    this.loadPromise = this.#loadModel(loadEpoch);
-    return this.loadPromise;
+    const loading = this.#loadModel(loadEpoch);
+    this.loadPromise = loading;
+    try {
+      return await loading;
+    } finally {
+      if (this.loadPromise === loading) this.loadPromise = null;
+    }
   }
 
   async #loadModel(loadEpoch) {
@@ -598,7 +619,7 @@ export class LiveDepthEngine {
     return job;
   }
 
-  #processRawDepth(tensor, cols, rows, guidancePixels = null) {
+  #processRawDepth(tensor, cols, rows, guidancePixels = null, semanticMask = null) {
     const shape = DepthModels.tensorSpatialShape(tensor);
     if (!shape || !tensor?.data) return null;
 
@@ -660,7 +681,8 @@ export class LiveDepthEngine {
     );
     const conditioned = DepthProcessing.conditionDepthFrame(normalized, cols, rows, conditioningGuide, {
       ...this.conditioning,
-      colorGuidance: usesVideoEvidence ? guidancePixels : null
+      colorGuidance: usesVideoEvidence ? guidancePixels : null,
+      foregroundDetail: { ...this.conditioning.foregroundDetail, semanticMask }
     });
     const statistics = !isSceneCut
       ? DepthProcessing.stabilizeDepthStatistics(
@@ -680,7 +702,8 @@ export class LiveDepthEngine {
         cols,
         rows,
         guidance,
-        this.previousGuidance
+        this.previousGuidance,
+        { trustedForeground: conditioned.metrics.foregroundDetail?.pixels ? semanticMask : null }
       );
       refined = temporal.frame;
       motion = temporal.motion;
@@ -751,6 +774,9 @@ export class LiveDepthEngine {
     try {
       const activeProfile = this.getActiveModelProfile();
       if (!activeProfile) throw new Error('No active depth model profile.');
+      const maskJob = conversionUsesVideoEvidence(this.conversionMode)
+        ? this.foregroundAssist.forFrame(guidancePixels, cols, rows, Number(video.currentTime) || 0, video).catch(() => null)
+        : Promise.resolve(null);
       const result = await this.#withTimeout(
         this.#runCandidate(
           { RawImage: this.RawImage, Tensor: this.TransformersTensor },
@@ -765,11 +791,14 @@ export class LiveDepthEngine {
       if (inferenceEpoch !== this.inferenceEpoch) return null;
       const output = Array.isArray(result) ? result[0] : result;
 
+      const semanticMask = await maskJob;
+      if (inferenceEpoch !== this.inferenceEpoch) return null;
       const rawProcessed = this.#processRawDepth(
         output?.predicted_depth || output?.logits,
         cols,
         rows,
-        guidancePixels
+        guidancePixels,
+        semanticMask
       );
       if (rawProcessed) {
         this.consecutiveInferenceFailures = 0;

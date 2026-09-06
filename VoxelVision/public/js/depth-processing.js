@@ -378,7 +378,8 @@ export function stabilizeDepthMotionAware(
   width,
   height,
   currentGuide = null,
-  previousGuide = null
+  previousGuide = null,
+  options = {}
 ) {
   if (!previous || previous.length !== current.length) {
     return { frame: current, motion: { x: 0, y: 0, confidence: 0, score: Infinity } };
@@ -420,7 +421,14 @@ export function stabilizeDepthMotionAware(
         }
       }
       if (stationary && hasDimensions && !byteFrame) {
-        out[i] = previous[i] + (now - previous[i]) * 0.035;
+        // Stable appearance is evidence for correspondence, not proof that an
+        // earlier height was correct. Let persistent new model evidence converge.
+        const difference = Math.abs(now - previous[i]);
+        const confirmedForeground = options.trustedForeground?.[i] >= 96;
+        const weight = now > previous[i]
+          ? (confirmedForeground ? 0.22 : 0.035)
+          : difference < 0.12 ? 0.08 : difference < 0.3 ? 0.22 : 0.55;
+        out[i] = previous[i] + (now - previous[i]) * weight;
         continue;
       }
       const visualMotion = Math.abs(currentGuide[i] - previousGuide[previousIndex]);
@@ -806,17 +814,35 @@ export function conditionDepthFrame(frame, width, height, guidance = null, optio
     guidance,
     options.guidance || DEFAULT_DEPTH_CONDITIONING.guidance
   );
+  // Independently bounded corrections can still add up to a fabricated ridge.
+  // Budget the combined non-semantic displacement against the model signal.
+  const evidenceBounded = new Float32Array(refined.length);
+  const correctionBudget = options.correctionBudget ?? 0.12;
+  let budgetedPixels = 0;
+  for (let i = 0; i < refined.length; i++) {
+    const delta = refined[i] - frame[i];
+    evidenceBounded[i] = frame[i] + clamp(delta, -correctionBudget, correctionBudget);
+    if (Math.abs(delta) > correctionBudget) budgetedPixels++;
+  }
   const foreground = recoverForegroundDetail(
-    refined,
+    evidenceBounded,
     width,
     height,
     options.colorGuidance,
     options.foregroundDetail
   );
+  // Color-only region growth is still a heuristic, so it shares the same
+  // displacement budget. Only independent mask + depth-anchor evidence can
+  // justify the larger correction needed for a missed foreground component.
+  let final = foreground.frame;
+  if (!options.foregroundDetail?.semanticMask) {
+    final = Float32Array.from(final, (value, i) => frame[i] + clamp(value - frame[i], -correctionBudget, correctionBudget));
+  }
   return {
-    frame: foreground.frame,
+    frame: final,
     corrected: compressed.frame,
     metrics: {
+      correctionBudget: { maximum: correctionBudget, limitedPixels: budgetedPixels },
       broadBias: broad.metrics,
       borders: borders.metrics,
       relief: {

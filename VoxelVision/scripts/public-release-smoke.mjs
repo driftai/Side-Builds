@@ -42,6 +42,7 @@ try {
   const policy = root.headers.get('content-security-policy') || '';
   const html = await root.text();
   assert.match(policy, /script-src 'self'/, 'CSP must restrict executable scripts');
+  assert.match(policy, /script-src[^;]*\bblob:/, 'CSP must allow ONNX Runtime worker module blobs');
   assert.doesNotMatch(policy, /'unsafe-inline'/, 'CSP must not allow arbitrary inline script');
   assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i, 'HTML must not depend on inline scripts or import maps');
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'HTML must not depend on inline event handlers');

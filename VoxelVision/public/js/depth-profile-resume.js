@@ -1,6 +1,7 @@
 /** Deterministic selection of the best resumable depth profile for one source. */
 
 import { descriptorConversionMode } from './depth-conversion-mode.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
 function profileDetail(descriptor = {}) {
   return Math.max(1, Number(descriptor.cols) || 1, Number(descriptor.rows) || 1);
@@ -55,7 +56,8 @@ export function resumableProfilesForSource(sessions, sourceIdentity, pipeline = 
     // Older sessions may have committed 1-11 frame transactions immediately
     // before their intentionally infrequent metadata checkpoint. Their mere
     // presence is therefore enough to make them resumable.
-    return identity === sourceIdentity && (!pipeline || descriptor.pipeline === pipeline);
+    return canonicalMediaIdentity(identity) === canonicalMediaIdentity(sourceIdentity)
+      && (!pipeline || descriptor.pipeline === pipeline);
   }).sort(compareProfiles);
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "voxelvision",
-  "version": "1.9.5",
+  "version": "1.9.6",
   "private": true,
   "type": "module",
   "description": "Interactive voxel video engine with selectable AI, luminance and fused depth paths plus replayable scored caching",

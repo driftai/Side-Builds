@@ -15,6 +15,7 @@ import {
   normalizeDepthConversionMode
 } from './depth-conversion-mode.js';
 import { RenderedDepthScorer } from './depth-render-score.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
 export class DepthPlaybackCoordinator {
   constructor(app) {
@@ -80,7 +81,7 @@ export class DepthPlaybackCoordinator {
     this.cachedDiagnostic = null;
     this.#renderConversionStatus();
     this.app.updateDepthDiagnostic?.();
-    if (load && conversionUsesAi(this.conversionMode)) await this.app.liveDepth.ensureReady();
+    if (load && conversionUsesAi(this.conversionMode)) await this.app.liveDepth.ensureReady({ retry: true });
     else if (load) this.app.liveDepth.announceReady();
     if (reconfigure && this.mode === 'hybrid' && this.source && this.app.depthMode === 'live') {
       return this.configure();
@@ -155,6 +156,7 @@ export class DepthPlaybackCoordinator {
       precision: canRetainAiIdentity ? priorDescriptor.precision : this.app.liveDepth.getEffectivePrecision?.() || this.app.liveDepth.precision,
       invert: this.app.liveDepth.invert,
       conversionMode: canRetainAiIdentity ? this.conversionMode : effectiveConversion,
+      foregroundAssist: this.app.liveDepth.foregroundAssist.enabled && this.conversionMode === 'fused' ? 'anime-v1' : null,
       sourceTitle: this.source.title,
       sourceBlob: this.source.blob || null,
       mediaInfo: this.source.mediaInfo || null,
@@ -329,7 +331,7 @@ export class DepthPlaybackCoordinator {
 
   async deleteSourceCache(sourceIdentity) {
     const activeIdentity = this.controller.source?.sourceIdentity;
-    if (activeIdentity === sourceIdentity) {
+    if (canonicalMediaIdentity(activeIdentity) === canonicalMediaIdentity(sourceIdentity)) {
       this.configureGeneration += 1;
       await this.controller.stop({ clearMemory: true });
       this.source = null;
@@ -342,6 +344,35 @@ export class DepthPlaybackCoordinator {
       this.renderStatus({ phase: 'live', message: 'Active cache removed · playback continues in Live only mode.' });
     }
     return this.controller.store.deleteSourceCache(sourceIdentity);
+  }
+  async deleteProfile(cacheId) {
+    const session = await this.controller.store.getSession(cacheId);
+    if (!session) return { sessions: 0, frames: 0 };
+    const active = this.controller.source;
+    const deletedActive = active?.cacheId === cacheId;
+    const sameVideo = active && canonicalMediaIdentity(active.sourceIdentity)
+      === canonicalMediaIdentity(session.sourceIdentity || session.descriptor?.source);
+    if (sameVideo) {
+      this.configureGeneration++;
+      if (this.restartTimer != null) window.clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+      await this.controller.stop({ clearMemory: true });
+    }
+    const result = await this.controller.store.deleteProfile(cacheId);
+    if (deletedActive) {
+      this.mode = 'live';
+      this.controller.setMode('live');
+      const control = document.getElementById('depthPlaybackMode');
+      if (control) control.value = 'live';
+      if (this.source) this.source.resumeSession = null;
+      this.fusion.reset();
+      this.cachedDiagnostic = null;
+      this.app.liveDepth.requestImmediate({ resetTemporal: true });
+      this.renderStatus({ phase: 'live', message: 'Profile removed. Video retained; live playback continues without recreating the deleted cache.' });
+    } else if (sameVideo) {
+      await this.configure();
+    }
+    return result;
   }
 
   async clearAllCaches() {
@@ -415,6 +446,10 @@ export class DepthPlaybackCoordinator {
     // intentionally checkpoint less often to keep IndexedDB write noise low.
     const indices = await this.controller.store.frameIndices(selected.id);
     const restored = { ...selected, frameCount: indices.length };
+    const maskEnabled = restored.descriptor?.foregroundAssist === 'anime-v1';
+    const maskControl = document.getElementById('foregroundAssist');
+    if (maskControl) maskControl.value = maskEnabled ? 'anime' : 'off';
+    if (this.app.liveDepth.foregroundAssist.enabled !== maskEnabled) this.app.liveDepth.foregroundAssist.setEnabled(maskEnabled);
     restoreCacheSampling(restored);
     if (typeof this.app.restoreCachedQualityProfile === 'function') {
       await this.app.restoreCachedQualityProfile(restored);

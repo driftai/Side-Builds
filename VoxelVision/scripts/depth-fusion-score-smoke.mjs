@@ -100,6 +100,16 @@ const startSecondPair = chained.render({
 }).frame;
 assert.ok(Math.abs(endFirstPair[0] - startSecondPair[0]) < 1e-6, 'aligned frame endpoints must not snap when the playback pair advances');
 
+const colorIndependent = new DepthRenderFusion({ mode: 'fused' });
+const candidate = new Float32Array(aligned);
+const presented = colorIndependent.render({ first: candidate, second: candidate, blend: 0,
+  width, height, rgba, pairKey: 'same', firstFrameKey: 'same', secondFrameKey: 'same', videoFrameVersion: 1 }).frame;
+assert.ok(presented.every((v, i) => Math.abs(v - candidate[i]) < 0.04), 'cached geometry must not be relifted by unrelated presentation-time colors');
+const replacement = new Float32Array(cells).fill(0.31);
+const refreshed = colorIndependent.render({ first: replacement, second: replacement, blend: 0,
+  width, height, rgba, pairKey: 'new', firstFrameKey: 'new', secondFrameKey: 'new', videoFrameVersion: 1 }).frame;
+assert.ok(refreshed.every(v => Math.abs(v - 0.31) < 1e-6), 'new cache endpoints must refresh even when the video is paused');
+
 const plans = planSceneAwareCalibration([
   { index: 0, segment: 0, median: 0.42, span: 0.4 },
   { index: 1, segment: 0, median: 0.58, span: 0.62 },

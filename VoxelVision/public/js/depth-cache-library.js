@@ -8,6 +8,7 @@ import { conversionScoreForSession } from './depth-conversion-score.js';
 import { conversionLabel, descriptorConversionMode } from './depth-conversion-mode.js';
 import { DEPTH_CACHE_PIPELINE_VERSION } from './depth-cache-codec.js';
 import { sortDepthProfilesByQuality } from './depth-profile-resume.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
 const ISSUE_LABELS = {
   'uneven-depth': 'Uneven / tilted panel',
@@ -25,7 +26,7 @@ function formatDate(value) {
 }
 
 function sourceIdentity(session) {
-  return String(session.sourceIdentity || session.descriptor?.source || session.id);
+  return canonicalMediaIdentity(session.sourceIdentity || session.descriptor?.source || session.id);
 }
 
 function sessionQuality(session) {
@@ -160,6 +161,7 @@ export class DepthCacheLibrary {
     const conversion = conversionLabel(descriptorConversionMode(descriptor, session.generationEnvironment));
     meta.textContent = `${descriptor.cols || '?'} × ${descriptor.rows || '?'} · ${descriptor.fps || '?'} depth FPS · ${conversion} · ${descriptor.model || 'model'} · ${percent}% playable (${frameCount} native${reusedFrames ? ` + ${reusedFrames} shared` : ''})`;
 
+    if (descriptor.foregroundAssist) meta.textContent += ' · Anime foreground assistance';
     const detail = document.createElement('div');
     detail.className = 'cache-meta';
     const calibrationLabel = session.calibration
@@ -174,7 +176,8 @@ export class DepthCacheLibrary {
     actions.className = 'cache-actions';
     actions.append(
       button('Replay', () => this.#runReplay(session, card), 'Open the stored source with this exact depth profile.'),
-      button('Recalibrate', () => this.#runRecalibration(session, card), 'Create a scene-aware calibration overlay while retaining original frames.')
+      button('Recalibrate', () => this.#runRecalibration(session, card), 'Create a scene-aware calibration overlay while retaining original frames.'),
+      button('Delete profile', () => this.#deleteProfile(session, card), 'Remove only this conversion profile. Keep the video and other profiles.')
     );
     profile.append(meta, detail, actions, this.#renderFeedback(session, card));
     return profile;
@@ -339,6 +342,20 @@ export class DepthCacheLibrary {
     } catch (error) {
       this.#disableCard(card, false);
       this.#setStatus(`Delete failed: ${error.message}`, 'missing');
+    }
+  }
+  async #deleteProfile(session, card) {
+    const d = session.descriptor || {};
+    const label = `${d.cols} × ${d.rows}, ${d.fps} FPS, ${conversionLabel(descriptorConversionMode(d, session.generationEnvironment))}${d.foregroundAssist ? ', anime assistance' : ''}`;
+    if (!window.confirm(`Delete the ${label} profile for “${session.sourceTitle || 'Cached video'}”? Its depth maps and feedback cannot be recovered. The video and other profiles are kept.`)) return;
+    this.#disableCard(card, true);
+    try {
+      const result = await this.coordinator.deleteProfile(session.id);
+      await this.refresh();
+      this.#setStatus(`Removed ${result.sessions} profile and ${result.frames} depth maps. Video and other profiles retained.`, 'ready');
+    } catch (error) {
+      this.#disableCard(card, false);
+      this.#setStatus(`Profile deletion failed: ${error.message}`, 'missing');
     }
   }
 

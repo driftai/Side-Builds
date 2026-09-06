@@ -16,7 +16,13 @@ const base = {
 const donorDescriptor = { ...base, cols: 512, rows: 288, fps: 4 };
 const target = { ...base, cols: 384, rows: 216, fps: 8 };
 assert.equal(descriptorsShareDepthTimeline(target, donorDescriptor), true);
+assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, foregroundAssist: 'anime-v1' }), false,
+  'assisted and unassisted frames must not silently satisfy each other');
 assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, model: 'balanced' }), false);
+assert.equal(descriptorsShareDepthTimeline(
+  { ...target, source: 'youtube:video:AbCdEf12345|quality:1080' },
+  { ...donorDescriptor, source: 'youtube:https://youtu.be/AbCdEf12345?si=old|quality:1080' }
+), true, 'tracking-token variants of one YouTube video must share their depth timeline');
 assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, conversion: 'model' }), false);
 assert.equal(descriptorsShareDepthTimeline(target, { ...donorDescriptor, conversion: 'luma', backend: 'luma' }), false);
 

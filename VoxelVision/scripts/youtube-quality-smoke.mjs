@@ -3,13 +3,33 @@ import {
   DEFAULT_YOUTUBE_QUALITY,
   buildYoutubeStrategies,
   getYoutubeQualityProfiles,
+  isSupportedYoutubeUrl,
   normalizeYoutubeQuality
 } from '../youtube-import.js';
+import {
+  canonicalMediaIdentity,
+  canonicalYoutubeUrl,
+  youtubeSourceIdentity,
+  youtubeUrlFromIdentity,
+  youtubeVideoId
+} from '../public/js/youtube-source.js';
 
 assert.equal(DEFAULT_YOUTUBE_QUALITY, '1080');
 assert.equal(normalizeYoutubeQuality('1080'), '1080');
 assert.equal(normalizeYoutubeQuality('bogus'), '1080');
 assert.equal(getYoutubeQualityProfiles().length, 5);
+const firstShare = 'https://youtu.be/AbCdEf12345?si=tracking-one';
+const secondShare = 'https://youtu.be/AbCdEf12345?si=tracking-two';
+assert.equal(youtubeVideoId(secondShare), 'AbCdEf12345');
+assert.equal(canonicalYoutubeUrl(secondShare), 'https://www.youtube.com/watch?v=AbCdEf12345');
+assert.equal(youtubeSourceIdentity(firstShare, '1080'), youtubeSourceIdentity(secondShare, '1080'));
+assert.equal(
+  canonicalMediaIdentity(`youtube:${firstShare}|quality:1080`),
+  youtubeSourceIdentity(secondShare, '1080'),
+  'legacy share URLs must resolve to the same saved video identity'
+);
+assert.equal(youtubeUrlFromIdentity(youtubeSourceIdentity(secondShare, '1080')), canonicalYoutubeUrl(secondShare));
+assert.equal(isSupportedYoutubeUrl('https://www.youtube.com/'), false, 'a channel/home URL is not an importable video');
 
 const noFfmpeg = buildYoutubeStrategies('1080');
 assert.equal(noFfmpeg.length, 1);

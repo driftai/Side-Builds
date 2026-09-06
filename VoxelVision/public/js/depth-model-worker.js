@@ -10,13 +10,31 @@ let runtime = null;
 let model = null;
 let modelProfile = null;
 let queue = Promise.resolve();
+let lastProgressPercent = -1;
+let lastProgressAt = 0;
 
 function post(message, transfer = []) {
   self.postMessage(message, transfer);
 }
 
+function postProgress(progress) {
+  const now = Date.now();
+  const percent = Number.isFinite(progress?.progress) ? Math.floor(progress.progress) : null;
+  if (percent != null) {
+    const meaningfulStep = percent >= 100 || percent >= lastProgressPercent + 2;
+    if (!meaningfulStep && now - lastProgressAt < 750) return;
+    lastProgressPercent = Math.max(lastProgressPercent, percent);
+  } else if (now - lastProgressAt < 750) {
+    return;
+  }
+  lastProgressAt = now;
+  post({ type: 'progress', progress });
+}
+
 async function initialize(message) {
   try {
+    lastProgressPercent = -1;
+    lastProgressAt = 0;
     runtime = await import(TRANSFORMERS_MODULE_URL);
     if (runtime.env) {
       runtime.env.allowLocalModels = false;
@@ -30,7 +48,7 @@ async function initialize(message) {
       device: message.backend,
       dtype: message.dtype,
       session_options: message.sessionOptions || {},
-      progress_callback: progress => post({ type: 'progress', progress })
+      progress_callback: postProgress
     });
     post({ type: 'ready' });
   } catch (error) {

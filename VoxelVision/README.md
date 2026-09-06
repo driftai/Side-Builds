@@ -2,7 +2,7 @@
 
 VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab. It turns ordinary video into an interactive, depth-aware voxel relief in Three.js, with live browser inference, analyze-ahead caching, temporal stabilization, and reusable conversion profiles.
 
-**Current release:** v1.9.5
+**Current release:** v1.9.6
 
 > VoxelVision began as an evolution of Joey Cato's original VoxelTV experience. Visit the original [VoxelTV “Take On Me” demo](https://voxeltv.surge.sh/#take-on-me-aha). The public VoxelVision distribution uses its own procedural demo and does not redistribute the original music video or its depth data.
 
@@ -16,9 +16,13 @@ VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab.
 - Recovers bounded foreground details such as illustrated hair, headwear, and other thin structures when model evidence supports them.
 - Interpolates cached depth against decoded video presentation timestamps for smoother playback.
 
-v1.9.5 adds explicit **AI + decoded video**, **AI model only**, and **Local luminance** conversion paths. Cache replay is no longer gated by a fresh AI-model startup, and quality scoring now samples the depth actually presented by Final Render Depth against the matching decoded color frames.
+v1.9.6 repairs ONNX Runtime execution-provider loading under the local server's Content Security Policy, so DA3/DA2 WebGPU and WASM workers can initialize normally. YouTube share URLs are now keyed by canonical video ID, making different `?si=` links for the same video reuse one cache. AI initialization failures are also retryable on a new source instead of becoming sticky for the rest of the tab.
 
-## Current v1.9.5 Workflow
+Playback now commits one seek per scrub gesture, pauses new background decoder seeks during scrubbing, and can reload the same local media after a bounded playback failure without importing YouTube again. Range serving handles suffix requests and cancelled streams. Cached endpoints are no longer relifted using another timestamp's image, combined geometric corrections share one displacement budget, and stationary pixels can recover from an initially incorrect height.
+
+v1.9.5 added explicit **AI + decoded video**, **AI model only**, and **Local luminance** conversion paths. Cache replay is not gated by a fresh AI-model startup, and quality scoring samples the depth actually presented by Final Render Depth against the matching decoded color frames.
+
+## Current v1.9.6 Workflow
 
 ### Selectable conversion paths
 
@@ -27,6 +31,14 @@ v1.9.5 adds explicit **AI + decoded video**, **AI model only**, and **Local lumi
 - **Local luminance depth** runs entirely in the browser without an AI-model download. It is useful for fast, deterministic conversion and as an explicit alternative when AI is unavailable.
 
 Each path has a distinct cache identity. Legacy cache descriptors remain readable and restore their historical mode.
+
+### Optional anime foreground assistance
+
+In **AI + decoded video**, choose **Foreground Mask Assistance → Anime foreground** to use the optional IS-Net-Anime silhouette model. First use downloads about 176 MB. Its worker runs independently of rendering and the depth worker. Unchanged regions can reuse recent masks; meaningful motion requests a new mask. It adds analysis time (roughly 200–240 ms per warm mask on the development machine), so leave it off for the fastest conversion.
+
+Masks constrain connected foreground membership; nearby model-depth anchors supply the heights. This improves some illuminated hair/head-detail misses but remains experimental: soft masks and monocular depth can still miss difficult scenes. Assistance does not run in model-only or local-luminance geometry. Assisted profiles are distinct, replay without rerunning segmentation, and restore their assistance setting on resume. A failed mask worker pauses assisted cache generation while retaining saved frames.
+
+Existing maps are retained rather than silently rewritten. Select the assistance option to generate its profile. Recalibration adjusts existing maps; it does not rerun segmentation.
 
 ### Hybrid playback and durable caching
 
@@ -38,6 +50,7 @@ Hybrid mode analyzes ahead of playback, keeps a bounded hot queue in system RAM,
 - Higher cache sampling rates can retain more source moments than the visible live-depth rate.
 - Recalibration creates a non-destructive scene-aware stabilization overlay while preserving original maps.
 - The cache library groups profiles by video and supports replay, resume, recalibration, reporting, per-video removal, and **Clear All**.
+- **Delete profile** removes one profile's maps, calibration and feedback after confirmation, retaining the video and other profiles. Deleting the active profile switches to live playback so analysis cannot immediately recreate it. Shared-frame counts are refreshed from surviving profiles.
 
 Browser storage is profile-specific. Clearing site data also clears the IndexedDB depth library.
 
@@ -138,6 +151,8 @@ npm run verify:verbose
 ```
 
 The verification runner checks syntax and focused smoke suites for model profiles, depth stability, aspect handling, adaptive quality/FPS behavior, durable cache reuse and resume, fusion, foreground recovery, scoring, feedback reports, YouTube selection, and public-release hygiene.
+
+Opt-in Chrome checks are `scripts/seek-runtime-smoke.cjs`, `scripts/cache-profile-delete-runtime-smoke.cjs`, and `scripts/assisted-depth-runtime-smoke.cjs` (requires Playwright and Chrome). Set `VOXELVISION_URL` for a test server and optionally `VOXELVISION_VIDEO_A` to a local media route. The assisted check downloads AI models; it is deliberately excluded from routine verification. Each check uses an isolated browser profile, prints one passing summary, and saves diagnostics under ignored `test-results/`.
 
 ## Project Layout
 

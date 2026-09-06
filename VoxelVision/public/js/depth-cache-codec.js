@@ -5,6 +5,7 @@
  */
 
 import { descriptorConversionMode, normalizeDepthConversionMode } from './depth-conversion-mode.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
 export const DEPTH_CACHE_SCHEMA_VERSION = 2;
 export const DEPTH_CACHE_PIPELINE_VERSION = 'voxelvision-depth-v7';
@@ -72,11 +73,13 @@ export function createDepthCacheDescriptor({
   backend,
   precision,
   invert,
-  conversionMode
+  conversionMode,
+  foregroundAssist
 }) {
   return Object.freeze({
     schema: DEPTH_CACHE_SCHEMA_VERSION,
     pipeline: DEPTH_CACHE_PIPELINE_VERSION,
+    ...(foregroundAssist === 'anime-v1' ? { foregroundAssist } : {}),
     source: String(sourceIdentity || 'unknown'),
     durationMs: Math.round(Math.max(0, Number(duration) || 0) * 1000),
     sourceWidth: Math.max(1, Math.round(Number(width) || 1)),
@@ -100,8 +103,10 @@ export function resumableDescriptorForConfig(session, config = {}) {
   const descriptor = session?.descriptor;
   if (!session?.id || !descriptor || descriptor.pipeline !== DEPTH_CACHE_PIPELINE_VERSION) return null;
   const expected = createDepthCacheDescriptor(config);
-  const exactKeys = ['source', 'sourceWidth', 'sourceHeight', 'cols', 'rows', 'fps', 'model', 'invert'];
+  const exactKeys = ['sourceWidth', 'sourceHeight', 'cols', 'rows', 'fps', 'model', 'invert'];
   if (!exactKeys.every(key => descriptor[key] === expected[key])) return null;
+  if ((descriptor.foregroundAssist || null) !== (expected.foregroundAssist || null)) return null;
+  if (canonicalMediaIdentity(descriptor.source) !== canonicalMediaIdentity(expected.source)) return null;
   if (descriptorConversionMode(descriptor, session.generationEnvironment) !== expected.conversion) return null;
   if (Math.abs(Number(descriptor.durationMs || 0) - Number(expected.durationMs || 0)) > 1000) return null;
   return { cacheId: session.id, descriptor };

@@ -2,8 +2,9 @@
 
 import { conversionScoreForSession } from './depth-conversion-score.js';
 import { descriptorConversionMode } from './depth-conversion-mode.js';
+import { youtubeUrlFromIdentity } from './youtube-source.js';
 
-export const VOXELVISION_VERSION = '1.9.5';
+export const VOXELVISION_VERSION = '1.9.6';
 export const FEEDBACK_SCHEMA_VERSION = 1;
 
 const KNOWN_ISSUES = new Set([
@@ -41,9 +42,7 @@ function cacheSummary(frameCount, totalFrames, reusedFrames = 0) {
 
 function reportSourceUrl(session) {
   const identity = String(session?.sourceIdentity || session?.descriptor?.source || '');
-  const candidate = identity.startsWith('youtube:')
-    ? identity.slice('youtube:'.length).split('|quality:')[0]
-    : session?.sourceUrl;
+  const candidate = identity.startsWith('youtube:') ? youtubeUrlFromIdentity(identity) : session?.sourceUrl;
   return /^https?:\/\//i.test(String(candidate || '')) ? String(candidate) : null;
 }
 
@@ -91,6 +90,7 @@ export function createConversionFeedbackReport(session, {
       url: reportSourceUrl(session),
       pipeline: descriptor.pipeline || null,
       model: descriptor.model || null,
+      foregroundAssist: descriptor.foregroundAssist || null,
       backend: descriptor.backend || null,
       precision: descriptor.precision || null,
       sourceFrame: dimensions(descriptor.sourceWidth, descriptor.sourceHeight),

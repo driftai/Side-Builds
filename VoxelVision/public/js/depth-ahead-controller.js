@@ -54,6 +54,7 @@ export class DepthAheadController {
     this.renderScoreAccumulator = new ConversionScoreAccumulator();
     this.previousScoredFrame = null;
     this.previousScoredGuide = null;
+    this.playbackSeeking = false;
   }
   setMemoryBudgetForSystemRam(systemMemoryGb) {
     this.ring.setBudgetBytes(memoryBudgetForSystemRam(systemMemoryGb));
@@ -189,6 +190,10 @@ export class DepthAheadController {
     this.#prioritizeWindow(index);
     this.#schedulePump();
   }
+  setPlaybackSeeking(seeking) {
+    this.playbackSeeking = Boolean(seeking);
+    if (!seeking) this.#schedulePump();
+  }
   async prepareForPlayback(time, { timeoutMs = 10000 } = {}) {
     if (!this.source || this.mode !== 'hybrid') return true;
     this.setPlaybackTime(time);
@@ -307,6 +312,8 @@ export class DepthAheadController {
   async #pump() {
     const epoch = this.epoch;
     while (this.source && this.mode === 'hybrid' && epoch === this.epoch) {
+      // Let the visible decoder finish a scrub before starting another hidden seek.
+      if (this.playbackSeeking) { await delay(40); continue; }
       const task = this.#nextTask();
       if (task == null) {
         await this.store.touchVariant(this.source.cacheId, {
@@ -383,6 +390,16 @@ export class DepthAheadController {
       }
     }
 
+    if (this.source.descriptor.foregroundAssist === 'anime-v1') {
+      // Poll only the bounded load state so changing source can cancel promptly.
+      while (this.engine.foregroundAssist.finishLoading && this.source && epoch === this.epoch) await delay(40);
+      if (!this.source || epoch !== this.epoch) return;
+      if (!this.engine.foregroundAssist.ready) {
+        const error = new Error('Optional anime mask model is unavailable. Existing cache remains playable; turn assistance off to continue base analysis.');
+        error.code = 'DEPTH_CACHE_PATH_MISMATCH';
+        throw error;
+      }
+    }
     await this.#seek(timeForFrameIndex(index, this.source.fps, this.source.duration), epoch);
     if (!this.source || epoch !== this.epoch) return;
     this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
@@ -462,6 +479,11 @@ export class DepthAheadController {
 
   #assertAnalysisPathCompatible() {
     const descriptor = this.source?.descriptor || {};
+    if (descriptor.foregroundAssist === 'anime-v1' && !this.engine.foregroundAssist.ready) {
+      const error = new Error('Mask-assisted analysis paused because its auxiliary worker is unavailable. Existing cached frames remain playable.');
+      error.code = 'DEPTH_CACHE_PATH_MISMATCH';
+      throw error;
+    }
     const expectedMode = descriptorConversionMode(descriptor, this.source?.generationEnvironment);
     const actualMode = this.engine.getEffectiveConversionMode?.() || expectedMode;
     const expectedBackend = String(descriptor.backend || '');

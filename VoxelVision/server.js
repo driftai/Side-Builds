@@ -1,5 +1,6 @@
 import http from 'http';
 import fs from 'fs';
+import { parseByteRange, streamMedia } from './media-range.js';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
@@ -50,7 +51,10 @@ function buildContentSecurityPolicy() {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'none'",
-    "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
+    // ONNX Runtime loads its cross-origin execution-provider module through a
+    // same-origin Blob URL. worker-src permits the worker itself; script-src
+    // must separately permit that worker's dynamic module import.
+    "script-src 'self' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net",
     "style-src 'self'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
@@ -198,22 +202,14 @@ function serveStatic(req, res, pathname) {
     const range = req.headers.range;
 
     if (range) {
-      const match = /^bytes=(\d+)-(\d*)$/.exec(range.trim());
-      if (!match) {
+      const parsed = parseByteRange(range, totalSize);
+      if (!parsed) {
         res.writeHead(416, responseHeaders({ 'Content-Range': `bytes */${totalSize}` }));
         res.end();
         return;
       }
 
-      const start = Number(match[1]);
-      const requestedEnd = match[2] ? Number(match[2]) : totalSize - 1;
-      const end = Math.min(requestedEnd, totalSize - 1);
-
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= totalSize) {
-        res.writeHead(416, responseHeaders({ 'Content-Range': `bytes */${totalSize}` }));
-        res.end();
-        return;
-      }
+      const { start, end } = parsed;
 
       const chunkSize = (end - start) + 1;
       res.writeHead(206, responseHeaders({
@@ -225,7 +221,7 @@ function serveStatic(req, res, pathname) {
       if (req.method === 'HEAD') {
         res.end();
       } else {
-        fs.createReadStream(filePath, { start, end }).pipe(res);
+        streamMedia(req, res, filePath, { start, end });
       }
       return;
     }
@@ -239,7 +235,7 @@ function serveStatic(req, res, pathname) {
     if (req.method === 'HEAD') {
       res.end();
     } else {
-      fs.createReadStream(filePath).pipe(res);
+      streamMedia(req, res, filePath);
     }
   });
 }
@@ -271,7 +267,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/status') {
     json(res, 200, {
       name: 'VoxelVision',
-      version: '1.9.5',
+      version: '1.9.6',
       status: 'ready',
       port: PORT,
       hardware: SYSTEM_HARDWARE,
@@ -334,7 +330,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const youtube = getYoutubeStatus();
   console.log('============================================================');
-  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.5');
+  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.6');
   console.log(`   Running at: http://${HOST}:${PORT}`);
   console.log(`   Serving: ${PUBLIC_DIR}`);
   console.log(`   Machine: ${SYSTEM_HARDWARE.cpuModel || 'CPU'} · ${SYSTEM_HARDWARE.logicalCores || '?'} threads · ${SYSTEM_HARDWARE.totalMemoryGb || '?'} GB RAM`);
@@ -345,7 +341,7 @@ server.listen(PORT, HOST, () => {
   console.log('   Live depth: DA3 FP16 hybrid WebGPU + Q8/WASM + automatic DA2 compatibility fallback');
   console.log('   Conversion paths: AI model only + local luminance + AI/decoded-video fusion');
   console.log('   Hybrid playback: reload-safe best-profile resume + cross-profile reuse + persistent 16-bit depth');
-  console.log('   Cache-first replay: stored depth opens before optional AI analysis recovery');
+  console.log('   Cache-first replay: canonical YouTube IDs + stored depth before optional AI recovery');
   console.log('   Render fusion: chained temporal alignment + mask-guided foreground detail + continuous translation');
   console.log('   Cache library: grouped videos + replay/recalibration/scoring + per-video/all-cache removal');
   console.log('   Model safety: isolated worker backends + real warm-up validation + patch/aspect/direction profiles');

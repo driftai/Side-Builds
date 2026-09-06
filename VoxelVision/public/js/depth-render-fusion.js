@@ -31,7 +31,7 @@ function meanGuideDifference(a, b, step = 1) {
   return count ? total / count : Infinity;
 }
 
-function motionCarry(previous, current, width, height, motion, strength) {
+function motionCarry(previous, current, width, height, motion, strength, guide, previousGuide) {
   if (!previous || previous.length !== current.length || strength <= 0) return current;
   const out = new Float32Array(current.length);
   const mix = clamp(strength * motion.confidence, 0, 0.14);
@@ -42,7 +42,9 @@ function motionCarry(previous, current, width, height, motion, strength) {
     for (let x = 0; x < width; x++) {
       const px = clamp(Math.round(x + motion.x), 0, width - 1);
       const index = y * width + x;
-      out[index] = current[index] + (previous[py * width + px] - current[index]) * mix;
+      const prior = py * width + px;
+      const localConfidence = clamp(1 - Math.abs(guide[index] - previousGuide[prior]) / 16, 0, 1);
+      out[index] = current[index] + (previous[prior] - current[index]) * mix * localConfidence;
     }
   }
   return out;
@@ -112,7 +114,7 @@ export function fuseDepthWithVideoEvidence(
     // Carry is intentionally tiny and disabled during meaningful local change;
     // it removes stationary shimmer without retaining visibly stale geometry.
     const carry = visualChange < 7 ? (7 - visualChange) / 7 : 0;
-    fused = motionCarry(previousFrame, edgeAligned, width, height, motion, carry);
+    fused = motionCarry(previousFrame, edgeAligned, width, height, motion, carry, guide, previousGuide);
   }
 
   return { frame: fused, guide, motion, detailRecovery: recovered.metrics };
@@ -169,12 +171,16 @@ export class DepthRenderFusion {
     videoFrameVersion = 0
   }) {
     const smoothBlend = sceneCut ? 0 : clamp(Number(blend) || 0, 0, 1);
-    if (videoFrameVersion === this.lastVideoFrameVersion && this.previousFrame) {
+    if (videoFrameVersion === this.lastVideoFrameVersion && pairKey === this.alignedPairKey && !sceneCut && this.previousFrame) {
       return { frame: this.previousFrame, reused: true, guide: this.previousGuide, detailRecovery: this.detailRecovery };
     }
     if (pairKey !== this.alignedPairKey) {
       this.alignedPairKey = pairKey;
-      if (sceneCut) this.alignedFrames.clear();
+      if (sceneCut) {
+        this.alignedFrames.clear();
+        this.previousFrame = null;
+        this.previousGuide = null;
+      }
       this.alignedFirst = this.alignedFrames.get(firstFrameKey) || first;
       this.alignedSecond = sceneCut
         ? second
@@ -193,17 +199,8 @@ export class DepthRenderFusion {
       this.recoveredFirst = null;
       this.recoveredSecond = null;
       this.detailRecovery = null;
-      if (this.mode === 'fused' && rgba) {
-        const firstRecovery = recoverForegroundDetail(this.alignedFirst, width, height, rgba);
-        const secondRecovery = recoverForegroundDetail(this.alignedSecond, width, height, rgba);
-        this.recoveredFirst = firstRecovery.frame;
-        this.recoveredSecond = secondRecovery.frame;
-        this.detailRecovery = {
-          regions: Math.max(firstRecovery.metrics.regions, secondRecovery.metrics.regions),
-          pixels: Math.max(firstRecovery.metrics.pixels, secondRecovery.metrics.pixels),
-          maximumLift: Math.max(firstRecovery.metrics.maximumLift, secondRecovery.metrics.maximumLift)
-        };
-      }
+      // Foreground recovery already ran on the analyzed source frame. Applying
+      // today's RGBA to both cached endpoints attaches masks to the wrong time.
     }
     const stableFirst = this.recoveredFirst || this.alignedFirst || first;
     const stableSecond = this.recoveredSecond || this.alignedSecond || second;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { recoverForegroundDetail } from '../public/js/foreground-detail-recovery.js';
+import { recoverMaskedDepthGaps } from '../public/js/semantic-depth-recovery.js';
 
 function fixture(width, height) {
   const cells = width * height;
@@ -56,5 +57,23 @@ const litResult = recoverForegroundDetail(lit.depth, 64, 48, lit.rgba);
 assert.ok(litResult.frame[12 * 64 + 30] > 0.5, 'a bounded illumination change must retain hair region membership');
 const flatPixels = new Uint8ClampedArray(1024).fill(80);
 assert.equal(recoverForegroundDetail(flat, 16, 16, flatPixels).frame, flat, 'color must not invent depth without model foreground evidence');
+
+for (const [w, h] of [[64, 48], [48, 64], [96, 36]]) {
+  const example = fixture(w, h);
+  const mask = new Uint8Array(w * h);
+  for (let i = 0; i < mask.length; i++) if (example.depth[i] > 0.155) mask[i] = 255;
+  for (const brightness of [90, 120, 210]) {
+    const colors = new Uint8ClampedArray(example.rgba);
+    for (let i = 0; i < mask.length; i++) if (mask[i] && example.depth[i] < 0.2) {
+      colors[i * 4] += brightness; colors[i * 4 + 1] += brightness * 0.8; colors[i * 4 + 2] += brightness * 0.6;
+    }
+    const result = recoverForegroundDetail(example.depth, w, h, colors, { semanticMask: mask });
+    assert.ok(result.frame[example.hairCenter] > 0.56, 'independent mask evidence must retain foreground through clipped/hue-shifted lighting');
+    assert.equal(result.frame[0], example.depth[0], 'unrelated background must stay unchanged');
+    assert.ok(result.frame.every(Number.isFinite));
+  }
+}
+assert.equal(recoverMaskedDepthGaps(flat, 16, 16, new Uint8Array(256).fill(255)).frame, flat,
+  'a silhouette with no depth anchors must not create geometry');
 
 console.log('Foreground detail recovery smoke passed.');

@@ -12,6 +12,8 @@ import { blendDepthFrames, resampleFloatBilinear } from './depth-processing.js';
 import { DepthPlaybackCoordinator } from './depth-playback-coordinator.js';
 import { resolveDepthDiagnosticView } from './depth-diagnostic-view.js';
 import { VoxelScene } from './voxel-scene.js';
+import { youtubeSourceIdentity } from './youtube-source.js';
+import { MediaPlaybackHealth } from './media-playback-health.js';
 
 const MAX_LIVE_VOXELS = 65536;
 const DEFAULT_DEMO = Object.freeze({
@@ -547,11 +549,11 @@ class VoxelVisionApp {
       this.showStatus(localPath
         ? 'Preparing local luminance depth for this video…'
         : `Preparing ${this.liveDepth.getRequestedModelProfile().name} for this video…`);
-      await this.liveDepth.ensureReady();
+      const backend = await this.liveDepth.ensureReady({ retry: !localPath });
       if (generation !== this.sourceGeneration) return;
       // A warm model returns immediately from ensureReady(). Re-announce the
       // backend for each source so later imports cannot remain Loading.
-      this.liveDepth.announceReady();
+      if (localPath || backend !== 'luma') this.liveDepth.announceReady();
     } else {
       this.setDepthBadge('Cached Depth · Ready', 'cached');
     }
@@ -692,20 +694,11 @@ class VoxelVisionApp {
       }
     });
 
-    seekBar.addEventListener('input', () => {
-      this.isSeeking = true;
-      if (this.video.duration) this.video.currentTime = (seekBar.value / 100) * this.video.duration;
-      if (this.depthMode === 'live') {
-        if (this.depthPlayback.mode === 'hybrid') this.depthPlayback.controller.setPlaybackTime(this.video.currentTime);
-        else this.liveDepth.requestImmediate({ resetTemporal: true });
-      }
-    });
-    seekBar.addEventListener('change', () => {
-      this.isSeeking = false;
-      if (this.depthMode === 'live') {
-        if (this.depthPlayback.mode === 'hybrid') this.depthPlayback.controller.setPlaybackTime(this.video.currentTime);
-        else this.liveDepth.requestImmediate({ resetTemporal: true });
-      }
+    this.mediaHealth = new MediaPlaybackHealth(this, seekBar, timeDisplay);
+    document.getElementById('foregroundAssist')?.addEventListener('change', e => {
+      this.liveDepth.foregroundAssist.setEnabled(e.target.value === 'anime');
+      this.liveDepth.requestImmediate({ resetTemporal: true });
+      this.depthPlayback.scheduleRestart();
     });
 
     heightSlider.addEventListener('input', () => {
@@ -847,7 +840,7 @@ class VoxelVisionApp {
       status.textContent = `Download complete · ${actual}. Initializing live AI depth…`;
       await this.loadLiveMedia(data.mediaUrl, `YouTube: ${data.title}`, {
         mediaInfo: data.mediaInfo || null,
-        sourceIdentity: `youtube:${url}|quality:${quality}`
+        sourceIdentity: youtubeSourceIdentity(url, quality)
       });
       status.textContent = `Ready · ${actual} · ${data.strategy === 'adaptive-merge' ? 'adaptive FFmpeg merge' : 'combined stream'} · live AI depth.`;
       status.dataset.state = 'ready';

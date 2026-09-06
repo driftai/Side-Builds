@@ -7,11 +7,14 @@ import {
   stabilizeDepthStatistics
 } from './depth-processing.js';
 import { descriptorConversionMode } from './depth-conversion-mode.js';
+import { canonicalMediaIdentity } from './youtube-source.js';
 
-const PROFILE_KEYS = ['pipeline', 'source', 'sourceWidth', 'sourceHeight', 'model', 'backend', 'precision', 'invert'];
+const PROFILE_KEYS = ['pipeline', 'sourceWidth', 'sourceHeight', 'model', 'backend', 'precision', 'invert'];
 
 export function descriptorsShareDepthTimeline(target = {}, donor = {}) {
   return PROFILE_KEYS.every(key => target[key] === donor[key])
+    && canonicalMediaIdentity(target.source) === canonicalMediaIdentity(donor.source)
+    && (target.foregroundAssist || null) === (donor.foregroundAssist || null)
     && descriptorConversionMode(target) === descriptorConversionMode(donor)
     && Math.abs(Number(target.durationMs || 0) - Number(donor.durationMs || 0)) <= 1000;
 }
