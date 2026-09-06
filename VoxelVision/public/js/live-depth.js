@@ -78,6 +78,7 @@ export class LiveDepthEngine {
     targetFps = 3,
     invert = false,
     onStatus = null,
+    onForegroundStatus = null,
     conditioning = null,
     modelProfile = DepthModels.DEFAULT_DEPTH_MODEL,
     conversionMode = 'fused'
@@ -89,6 +90,7 @@ export class LiveDepthEngine {
     this.foregroundAssist = new ForegroundMaskAssist(message => {
       const status = document.getElementById?.('foregroundAssistStatus');
       if (status) status.textContent = message;
+      if (typeof onForegroundStatus === 'function') onForegroundStatus(message);
     });
     this.requestedModelKey = DepthModels.getDepthModelProfile(modelProfile).key;
     this.conversionMode = normalizeDepthConversionMode(conversionMode);

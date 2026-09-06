@@ -20,6 +20,12 @@ const path = require('node:path');
       }
       await window.app.depthPlayback.library.refresh();
     });
+    await page.evaluate(() => {
+      const details = document.querySelector('.cache-profiles');
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+    });
+    await page.waitForFunction(() => document.querySelectorAll('.cache-profile').length === 2);
     // Exercise the actual confirmation/button handler, including cancellation.
     page.once('dialog', dialog => dialog.dismiss());
     await page.evaluate(() => [...document.querySelectorAll('.cache-profile')].find(e => e.textContent.includes('4 depth FPS')).querySelectorAll('button')[2].click());

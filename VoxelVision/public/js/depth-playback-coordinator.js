@@ -449,7 +449,9 @@ export class DepthPlaybackCoordinator {
     const maskEnabled = restored.descriptor?.foregroundAssist === 'anime-v1';
     const maskControl = document.getElementById('foregroundAssist');
     if (maskControl) maskControl.value = maskEnabled ? 'anime' : 'off';
-    if (this.app.liveDepth.foregroundAssist.enabled !== maskEnabled) this.app.liveDepth.foregroundAssist.setEnabled(maskEnabled);
+    // Cached assisted frames already contain the correction. Arm the optional
+    // worker without compiling it; lookahead starts it only for missing frames.
+    this.app.liveDepth.foregroundAssist.setEnabled(maskEnabled, { defer: true });
     restoreCacheSampling(restored);
     if (typeof this.app.restoreCachedQualityProfile === 'function') {
       await this.app.restoreCachedQualityProfile(restored);
@@ -468,6 +470,7 @@ export class DepthPlaybackCoordinator {
     const complete = indices.length + (Number(restored.reusableFrames) || 0) >= total;
     restored.cacheComplete = complete;
     restored.playableFrames = Math.min(total, indices.length + (Number(restored.reusableFrames) || 0));
+    restored.restoredFrameIndices = indices;
     await this.controller.store.touchVariant(selected.id, {
       frameCount: indices.length,
       analysisState: complete ? 'complete' : 'in-progress',

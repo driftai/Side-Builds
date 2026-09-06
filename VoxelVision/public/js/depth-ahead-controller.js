@@ -38,6 +38,7 @@ export class DepthAheadController {
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
     this.source = null;
+    this.sourceReady = false;
     this.knownPersistent = new Set();
     this.completedIndices = new Set();
     this.priorities = new Set();
@@ -67,6 +68,7 @@ export class DepthAheadController {
   async loadSource(config) {
     await this.stop({ clearMemory: true });
     if (this.mode !== 'hybrid') return null;
+    this.sourceReady = false;
 
     const generatedDescriptor = createDepthCacheDescriptor(config);
     const resumed = resumableDescriptorForConfig(config.resumeSession, config);
@@ -74,7 +76,14 @@ export class DepthAheadController {
     const cacheId = resumed?.cacheId || cacheIdForDescriptor(descriptor);
     const fps = descriptor.fps;
     const duration = Math.max(0.001, Number(config.duration) || 0.001);
-    const frameCount = Math.max(1, Math.ceil(duration * fps));
+    // A browser can report a remuxed video's duration a few milliseconds
+    // differently after reload. An exact resumed profile owns its established
+    // timeline, otherwise a completed cache can sprout one phantom missing
+    // frame and unnecessarily wake both AI models.
+    const resumedFrameCount = resumed ? Number(config.resumeSession?.totalFrames) : 0;
+    const frameCount = Math.max(1, Number.isFinite(resumedFrameCount) && resumedFrameCount > 0
+      ? Math.round(resumedFrameCount)
+      : Math.ceil(duration * fps));
     const epoch = this.epoch;
     this.source = {
       ...config,
@@ -102,6 +111,9 @@ export class DepthAheadController {
         mediaInfo: config.mediaInfo || null,
         kind: config.sourceBlob ? 'local' : (String(config.sourceIdentity).startsWith('youtube:') ? 'youtube' : 'url')
       });
+      const restoredIndices = config.resumeSession?.id === cacheId
+        ? config.resumeSession.restoredFrameIndices
+        : null;
       this.knownPersistent = await this.store.openVariant(cacheId, descriptor, {
         sourceIdentity: config.sourceIdentity,
         sourceTitle: config.sourceTitle || 'Cached video',
@@ -111,14 +123,16 @@ export class DepthAheadController {
         generationEnvironment: config.generationEnvironment || null,
         analysisState: 'in-progress',
         analysisUpdatedAt: Date.now()
-      });
+      }, { knownIndices: restoredIndices });
       const session = await this.store.getSession(cacheId);
       this.completedIndices = new Set(this.knownPersistent);
       const timelineDescriptor = {
         ...descriptor,
         conversion: descriptorConversionMode(descriptor, config.generationEnvironment)
       };
-      const reuse = await this.timeline.prepare(cacheId, timelineDescriptor, frameCount, this.knownPersistent);
+      const reuse = this.knownPersistent.size >= frameCount
+        ? (this.timeline.clear(), this.timeline.snapshot())
+        : await this.timeline.prepare(cacheId, timelineDescriptor, frameCount, this.knownPersistent);
       this.scoreAccumulator = new ConversionScoreAccumulator(session?.qualityAccumulator);
       this.renderScoreAccumulator = new ConversionScoreAccumulator(session?.renderQualityAccumulator);
       for (let index = 0; index < frameCount; index++) {
@@ -138,6 +152,7 @@ export class DepthAheadController {
       this.timeline.clear();
     }
 
+    this.sourceReady = true;
     this.playheadIndex = frameIndexAtTime(config.startTime || 0, fps, frameCount);
     this.backgroundCursor = 0;
     this.#prioritizeWindow(this.playheadIndex);
@@ -149,6 +164,7 @@ export class DepthAheadController {
     const endingSource = this.source;
     this.epoch += 1;
     this.source = null;
+    this.sourceReady = false;
     this.priorities.clear();
     if (this.pumpTimer != null) window.clearTimeout(this.pumpTimer);
     this.pumpTimer = null;
@@ -290,7 +306,7 @@ export class DepthAheadController {
   }
 
   #schedulePump() {
-    if (!this.source || this.mode !== 'hybrid' || this.pumpPromise || this.pumpTimer != null) return;
+    if (!this.source || !this.sourceReady || this.mode !== 'hybrid' || this.pumpPromise || this.pumpTimer != null) return;
     this.pumpTimer = window.setTimeout(() => {
       this.pumpTimer = null;
       this.pumpPromise = this.#pump().finally(() => { this.pumpPromise = null; });
@@ -311,7 +327,7 @@ export class DepthAheadController {
 
   async #pump() {
     const epoch = this.epoch;
-    while (this.source && this.mode === 'hybrid' && epoch === this.epoch) {
+    while (this.source && this.sourceReady && this.mode === 'hybrid' && epoch === this.epoch) {
       // Let the visible decoder finish a scrub before starting another hidden seek.
       if (this.playbackSeeking) { await delay(40); continue; }
       const task = this.#nextTask();
@@ -391,10 +407,19 @@ export class DepthAheadController {
     }
 
     if (this.source.descriptor.foregroundAssist === 'anime-v1') {
-      // Poll only the bounded load state so changing source can cancel promptly.
-      while (this.engine.foregroundAssist.finishLoading && this.source && epoch === this.epoch) await delay(40);
+      // Give the primary model sole use of the GPU during compilation. Starting
+      // both WebGPU model workers together makes cached playback visibly stall.
+      const backend = await this.engine.ensureReady();
       if (!this.source || epoch !== this.epoch) return;
-      if (!this.engine.foregroundAssist.ready) {
+      if (backend === 'luma') {
+        const error = new Error('Mask-assisted analysis paused because its AI depth model is unavailable. Existing cached frames remain playable.');
+        error.code = 'DEPTH_CACHE_PATH_MISMATCH';
+        throw error;
+      }
+      await delay(40);
+      const ready = await this.engine.foregroundAssist.ensureReady();
+      if (!this.source || epoch !== this.epoch) return;
+      if (!ready || !this.engine.foregroundAssist.ready) {
         const error = new Error('Optional anime mask model is unavailable. Existing cache remains playable; turn assistance off to continue base analysis.');
         error.code = 'DEPTH_CACHE_PATH_MISMATCH';
         throw error;

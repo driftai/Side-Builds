@@ -27,16 +27,22 @@ export class VoxelScene {
     this.canvas = canvasElement;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
+    this.normalPixelRatio = Math.min(window.devicePixelRatio, 2);
+    this.loadingPixelRatio = Math.min(window.devicePixelRatio, 1);
+    this.performanceMode = 'loading';
+    this.lastRenderAt = -Infinity;
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
       powerPreference: 'high-performance',
-      preserveDrawingBuffer: true // Required for snapshots
+      // Snapshot capture renders and reads synchronously, so retaining every
+      // back buffer only wastes GPU bandwidth during normal playback.
+      preserveDrawingBuffer: false
     });
     this.renderer.setSize(this.width, this.height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.loadingPixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
 
@@ -426,7 +432,18 @@ export class VoxelScene {
     this.uniforms.uBeatReact.value = audioState.pulse * 0.8;
   }
 
-  render(deltaTime = 0.016) {
+  setPerformanceMode(mode) {
+    const next = mode === 'loading' ? 'loading' : 'normal';
+    if (next === this.performanceMode) return;
+    this.performanceMode = next;
+    const ratio = next === 'loading' ? this.loadingPixelRatio : this.normalPixelRatio;
+    this.renderer.setPixelRatio(ratio);
+  }
+
+  render(deltaTime = 0.016, { force = false } = {}) {
+    const now = performance.now();
+    if (!force && this.performanceMode === 'loading' && now - this.lastRenderAt < 1000 / 30) return false;
+    this.lastRenderAt = now;
     if (this.autoOrbit) {
       const angle = deltaTime * this.orbitSpeed;
       this.camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
@@ -435,6 +452,7 @@ export class VoxelScene {
     this.updateCameraBounds();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    return true;
   }
 
   onResize() {
@@ -446,7 +464,11 @@ export class VoxelScene {
   }
 
   captureSnapshot() {
-    this.render();
-    return this.canvas.toDataURL('image/png');
+    const previousRatio = this.renderer.getPixelRatio();
+    if (previousRatio !== this.normalPixelRatio) this.renderer.setPixelRatio(this.normalPixelRatio);
+    this.render(0, { force: true });
+    const snapshot = this.canvas.toDataURL('image/png');
+    if (previousRatio !== this.normalPixelRatio) this.renderer.setPixelRatio(previousRatio);
+    return snapshot;
   }
 }

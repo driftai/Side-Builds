@@ -12,13 +12,15 @@ const path = require('node:path');
     await page.goto(process.env.VOXELVISION_URL || 'http://127.0.0.1:9095');
     await page.waitForFunction(() => window.app?.qualityGovernor && window.app.depthData && window.app.video.readyState >= 2);
     await page.selectOption('#foregroundAssist', 'anime');
-    await page.waitForFunction(() => window.app.liveDepth.foregroundAssist.ready, null, { timeout: 150000 });
+    record.deferredBeforeVideo = await page.evaluate(() => !window.app.liveDepth.foregroundAssist.worker);
+    if (!record.deferredBeforeVideo) throw new Error('optional model started before a live assisted analysis required it');
     await page.selectOption('#gridSelect', '512');
     await page.evaluate(async src => {
       await window.app.loadLiveMedia(src, 'Assisted depth regression', { sourceIdentity: 'test:assisted-cache' });
       window.app.video.muted = true;
       window.app.video.currentTime = Math.min(2, window.app.video.duration / 2);
     }, process.env.VOXELVISION_VIDEO_A || '/media/voxelvision-demo.mp4');
+    await page.waitForFunction(() => window.app.liveDepth.foregroundAssist.ready, null, { timeout: 150000 });
     await page.waitForFunction(() => window.app.depthPlayback.controller.snapshot().nativeFrames >= 4, null, { timeout: 60000 });
     record.analysis = await page.evaluate(async () => {
       const app = window.app, controller = app.depthPlayback.controller;

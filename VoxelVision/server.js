@@ -267,7 +267,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && pathname === '/api/status') {
     json(res, 200, {
       name: 'VoxelVision',
-      version: '1.9.6',
+      version: '1.9.7',
       status: 'ready',
       port: PORT,
       hardware: SYSTEM_HARDWARE,
@@ -330,7 +330,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const youtube = getYoutubeStatus();
   console.log('============================================================');
-  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.6');
+  console.log('   VOXELVISION STANDALONE TOOL SERVER v1.9.7');
   console.log(`   Running at: http://${HOST}:${PORT}`);
   console.log(`   Serving: ${PUBLIC_DIR}`);
   console.log(`   Machine: ${SYSTEM_HARDWARE.cpuModel || 'CPU'} · ${SYSTEM_HARDWARE.logicalCores || '?'} threads · ${SYSTEM_HARDWARE.totalMemoryGb || '?'} GB RAM`);
@@ -344,6 +344,7 @@ server.listen(PORT, HOST, () => {
   console.log('   Cache-first replay: canonical YouTube IDs + stored depth before optional AI recovery');
   console.log('   Render fusion: chained temporal alignment + mask-guided foreground detail + continuous translation');
   console.log('   Cache library: grouped videos + replay/recalibration/scoring + per-video/all-cache removal');
+  console.log('   Load stability: cache-first lazy UI + serialized AI startup + temporary GPU-pressure relief');
   console.log('   Model safety: isolated worker backends + real warm-up validation + patch/aspect/direction profiles');
   console.log('   Far-field quality: DA2 inverse-depth log transfer prevents distant geometry collapsing into shelves');
   console.log('   Depth fidelity: Float32 geometry + adaptive multi-axis bias correction + confidence-gated color guidance');

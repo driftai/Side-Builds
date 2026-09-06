@@ -36,8 +36,18 @@ function waitForApp(timeoutMs = 5000) {
   });
 }
 
+function waitForStartupIdle() {
+  return new Promise(resolve => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(resolve, { timeout: 200 });
+    else requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
 async function installHardwareAutotune() {
   const app = await waitForApp();
+  // WebGPU adapter probing is non-critical startup work. Avoid competing with
+  // the initial WebGL context, first paint and control binding.
+  await waitForStartupIdle();
   const profile = await detectMachineProfile();
   const gridSelect = document.getElementById('gridSelect');
   const gridLabel = document.getElementById('gridResLabel');

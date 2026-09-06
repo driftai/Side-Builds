@@ -33,6 +33,24 @@ function sessionQuality(session) {
   return conversionScoreForSession(session).quality;
 }
 
+function yieldToMainThread() {
+  if (globalThis.scheduler?.yield) return globalThis.scheduler.yield();
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+function scheduleWhenIdle(callback) {
+  if (typeof requestIdleCallback === 'function') {
+    return { idle: true, id: requestIdleCallback(callback, { timeout: 900 }) };
+  }
+  return { idle: false, id: setTimeout(callback, 80) };
+}
+
+function cancelScheduled(task) {
+  if (!task) return;
+  if (task.idle && typeof cancelIdleCallback === 'function') cancelIdleCallback(task.id);
+  else clearTimeout(task.id);
+}
+
 export function groupDepthCacheSessions(sessions = []) {
   const groups = new Map();
   for (const session of sessions) {
@@ -83,16 +101,24 @@ export class DepthCacheLibrary {
     this.coordinator = coordinator;
     this.container = document.getElementById('depthCacheLibrary');
     this.status = document.getElementById('depthCacheLibraryStatus');
+    this.refreshVersion = 0;
+    this.initialRefresh = null;
     document.getElementById('refreshDepthCacheBtn')?.addEventListener('click', () => this.refresh());
     document.getElementById('clearDepthCacheBtn')?.addEventListener('click', () => this.#clearAll());
-    this.refresh().catch(() => {});
+    // Cache browsing is not part of first paint. Let the player controls and
+    // WebGL surface become interactive before reading/rendering a large library.
+    this.initialRefresh = scheduleWhenIdle(() => this.refresh().catch(() => {}));
   }
 
   async refresh() {
     if (!this.container) return;
+    cancelScheduled(this.initialRefresh);
+    this.initialRefresh = null;
+    const version = ++this.refreshVersion;
     this.#setStatus('Reading browser-local analyses...', 'working');
     try {
       const sessions = await this.coordinator.listSessions();
+      if (version !== this.refreshVersion) return;
       this.container.replaceChildren();
       if (!sessions.length) {
         const empty = document.createElement('div');
@@ -103,7 +129,15 @@ export class DepthCacheLibrary {
         return;
       }
       const groups = groupDepthCacheSessions(sessions);
-      for (const group of groups) this.container.append(this.#renderGroup(group));
+      let sliceStartedAt = performance.now();
+      for (const group of groups) {
+        this.container.append(this.#renderGroup(group));
+        if (performance.now() - sliceStartedAt >= 12) {
+          await yieldToMainThread();
+          if (version !== this.refreshVersion) return;
+          sliceStartedAt = performance.now();
+        }
+      }
       this.#setStatus(`${groups.length} cached video${groups.length === 1 ? '' : 's'} · ${sessions.length} reusable profile${sessions.length === 1 ? '' : 's'}.`, 'ready');
     } catch (error) {
       this.#setStatus(`Cache library unavailable: ${error.message}`, 'missing');
@@ -141,9 +175,30 @@ export class DepthCacheLibrary {
     const summary = document.createElement('summary');
     summary.textContent = `Profiles (${group.sessions.length})`;
     profiles.append(summary);
-    for (const item of group.sessions) profiles.append(this.#renderProfile(item, card));
+    profiles.addEventListener('toggle', () => {
+      if (profiles.open && profiles.dataset.loaded !== 'true') {
+        this.#populateProfiles(profiles, group.sessions, card).catch(error => {
+          this.#setStatus(`Could not render cached profiles: ${error.message}`, 'missing');
+        });
+      }
+    });
     card.append(header, meta, actions, profiles);
     return card;
+  }
+
+  async #populateProfiles(profiles, sessions, card) {
+    if (profiles.dataset.loaded === 'true' || profiles.dataset.loading === 'true') return;
+    profiles.dataset.loading = 'true';
+    let sliceStartedAt = performance.now();
+    for (const session of sessions) {
+      profiles.append(this.#renderProfile(session, card));
+      if (performance.now() - sliceStartedAt >= 12) {
+        await yieldToMainThread();
+        sliceStartedAt = performance.now();
+      }
+    }
+    profiles.dataset.loaded = 'true';
+    delete profiles.dataset.loading;
   }
 
   #renderProfile(session, card) {

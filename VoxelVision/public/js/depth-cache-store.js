@@ -42,7 +42,7 @@ export class DepthCacheStore {
     return this.snapshot();
   }
 
-  async openVariant(cacheId, descriptor, details = {}) {
+  async openVariant(cacheId, descriptor, details = {}, { knownIndices = null } = {}) {
     if (!this.available) return new Set();
     const db = await this.#database();
     const transaction = db.transaction([SESSION_STORE, FRAME_STORE], 'readwrite');
@@ -56,7 +56,9 @@ export class DepthCacheStore {
       createdAt: current?.createdAt || Date.now(),
       lastAccess: Date.now()
     });
-    const keys = await requestResult(transaction.objectStore(FRAME_STORE).index('cacheId').getAllKeys(cacheId));
+    const keys = knownIndices == null
+      ? await requestResult(transaction.objectStore(FRAME_STORE).index('cacheId').getAllKeys(cacheId))
+      : knownIndices;
     await transactionDone(transaction);
     return new Set(keys.map(key => Number(Array.isArray(key) ? key[1] : key)));
   }

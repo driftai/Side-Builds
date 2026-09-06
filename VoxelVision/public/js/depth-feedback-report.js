@@ -4,7 +4,7 @@ import { conversionScoreForSession } from './depth-conversion-score.js';
 import { descriptorConversionMode } from './depth-conversion-mode.js';
 import { youtubeUrlFromIdentity } from './youtube-source.js';
 
-export const VOXELVISION_VERSION = '1.9.6';
+export const VOXELVISION_VERSION = '1.9.7';
 export const FEEDBACK_SCHEMA_VERSION = 1;
 
 const KNOWN_ISSUES = new Set([

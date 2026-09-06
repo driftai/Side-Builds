@@ -30,12 +30,15 @@ class VoxelVisionApp {
     this.sampleCtx = this.sampleCanvas.getContext('2d', { willReadFrequently: true });
 
     this.scene = new VoxelScene(this.canvas);
+    this.computePressureReasons = new Set(['startup']);
+    this.computeRestoreTask = null;
     this.audio = new AudioReactiveEngine();
     const selectedDepthModel = document.getElementById('depthModelSelect')?.value || DEFAULT_DEPTH_MODEL;
     this.liveDepth = new LiveDepthEngine({
       targetFps: 3,
       modelProfile: selectedDepthModel,
-      onStatus: state => this.handleLiveDepthStatus(state)
+      onStatus: state => this.handleLiveDepthStatus(state),
+      onForegroundStatus: message => this.handleForegroundAssistStatus(message)
     });
     this.depthPlayback = new DepthPlaybackCoordinator(this);
 
@@ -261,8 +264,40 @@ class VoxelVisionApp {
     return parts.join(' · ');
   }
 
+  setComputePressure(reason, active) {
+    if (!reason || !this.scene) return;
+    if (this.computeRestoreTask) {
+      const task = this.computeRestoreTask;
+      if (task.idle && typeof cancelIdleCallback === 'function') cancelIdleCallback(task.id);
+      else clearTimeout(task.id);
+      this.computeRestoreTask = null;
+    }
+    if (active) this.computePressureReasons.add(reason);
+    else this.computePressureReasons.delete(reason);
+    if (this.computePressureReasons.size) {
+      this.scene.setPerformanceMode('loading');
+      return;
+    }
+    const restore = () => {
+      this.computeRestoreTask = null;
+      if (!this.computePressureReasons.size) this.scene.setPerformanceMode('normal');
+    };
+    this.computeRestoreTask = typeof requestIdleCallback === 'function'
+      ? { idle: true, id: requestIdleCallback(restore, { timeout: 700 }) }
+      : { idle: false, id: setTimeout(restore, 120) };
+  }
+
+  handleForegroundAssistStatus(message = '') {
+    this.setComputePressure('foreground-model', String(message).startsWith('Loading'));
+  }
+
   handleLiveDepthStatus(state) {
     if (!state) return;
+    if (state.phase === 'module' || state.phase === 'model') {
+      this.setComputePressure('depth-model', true);
+    } else if (state.phase === 'ready' || state.phase === 'fallback' || state.phase === 'local') {
+      this.setComputePressure('depth-model', false);
+    }
     if (state.phase === 'local') {
       this.setDepthBadge('Live - Local Luminance', 'fallback');
       const modelCapability = document.getElementById('depthModelCapability');
@@ -356,10 +391,12 @@ class VoxelVisionApp {
 
       this.showStatus('Ready. Click Play to start.', { hideAfter: 3000 });
       this.startLoop();
+      this.setComputePressure('startup', false);
       this.refreshYoutubeCapability();
     } catch (err) {
       console.error('Failed to load default media:', err);
       this.showStatus(`Error: ${err.message}`, { error: true });
+      this.setComputePressure('startup', false);
     }
   }
 
@@ -507,6 +544,8 @@ class VoxelVisionApp {
     resumeSessionId = null
   } = {}) {
     const generation = ++this.sourceGeneration;
+    this.setComputePressure('source-load', true);
+    try {
     this.liveDepth.requestImmediate({ resetTemporal: true });
     this.video.pause();
     this.isPlaying = false;
@@ -571,6 +610,9 @@ class VoxelVisionApp {
         : 'Video ready with live depth. Click Play.',
       { hideAfter: 3200 }
     );
+    } finally {
+      this.setComputePressure('source-load', false);
+    }
   }
 
   async restoreDefaultMedia() {
@@ -696,9 +738,22 @@ class VoxelVisionApp {
 
     this.mediaHealth = new MediaPlaybackHealth(this, seekBar, timeDisplay);
     document.getElementById('foregroundAssist')?.addEventListener('change', e => {
-      this.liveDepth.foregroundAssist.setEnabled(e.target.value === 'anime');
-      this.liveDepth.requestImmediate({ resetTemporal: true });
-      this.depthPlayback.scheduleRestart();
+      const enabled = e.target.value === 'anime';
+      this.liveDepth.foregroundAssist.setEnabled(enabled, { defer: enabled });
+      const activate = async () => {
+        if (enabled && this.depthMode === 'live') {
+          // Compile one GPU model at a time. The base depth path stays usable
+          // while the optional specialist prepares in the background.
+          await this.liveDepth.ensureReady({ retry: true });
+          await new Promise(resolve => setTimeout(resolve, 40));
+          await this.liveDepth.foregroundAssist.ensureReady({ retry: true });
+        }
+        this.liveDepth.requestImmediate({ resetTemporal: true });
+        this.depthPlayback.scheduleRestart();
+      };
+      activate().catch(error => {
+        this.showStatus(`Foreground assistance could not start: ${error.message}`, { error: true, hideAfter: 4000 });
+      });
     });
 
     heightSlider.addEventListener('input', () => {

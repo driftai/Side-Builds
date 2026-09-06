@@ -10,12 +10,55 @@ export class ForegroundMaskAssist {
     this.id = 0;
     this.epoch = 0;
     this.interval = 0.5;
+    this.loading = null;
+    this.finishLoading = null;
+    this.failed = false;
   }
+
   reset() { this.cached = null; this.epoch++; }
-  setEnabled(enabled) {
-    this.enabled = Boolean(enabled);
+
+  setEnabled(enabled, { defer = false } = {}) {
+    const next = Boolean(enabled);
+    if (!next) {
+      this.enabled = false;
+      this.reset();
+      this.#stopWorker();
+      this.onStatus('Off');
+      return Promise.resolve(false);
+    }
+
+    this.enabled = true;
+    this.failed = false;
+    if (defer && this.loading) {
+      this.reset();
+      this.#stopWorker();
+    }
+    if (this.ready) return Promise.resolve(true);
+    if (this.loading) return this.loading;
+    if (defer) {
+      this.onStatus('Selected - loads only when uncached assisted frames are needed');
+      return Promise.resolve(false);
+    }
+    return this.ensureReady();
+  }
+
+  ensureReady({ retry = false } = {}) {
+    if (!this.enabled) return Promise.resolve(false);
+    if (this.ready) return Promise.resolve(true);
+    if (this.loading) return this.loading;
+    if (this.failed && !retry) return Promise.resolve(false);
+
+    this.failed = false;
     this.reset();
-    if (this.worker) this.worker.terminate();
+    this.#stopWorker();
+    this.loading = new Promise(resolve => { this.finishLoading = resolve; });
+    this.onStatus('Loading optional anime mask model (~176 MB)...');
+    this.#startWorker();
+    return this.loading;
+  }
+
+  #stopWorker() {
+    this.worker?.terminate();
     this.worker = null;
     this.ready = false;
     this.pending?.resolve(null);
@@ -23,9 +66,10 @@ export class ForegroundMaskAssist {
     this.pending = null;
     this.finishLoading?.(false);
     this.finishLoading = null;
-    if (!enabled) { this.onStatus('Off'); return; }
-    this.loading = new Promise(resolve => { this.finishLoading = resolve; });
-    this.onStatus('Loading optional anime mask model (~176 MB)…');
+    this.loading = null;
+  }
+
+  #startWorker() {
     try {
       this.worker = new Worker(new URL('./foreground-mask-worker.js', import.meta.url), { type: 'module' });
       const worker = this.worker;
@@ -38,32 +82,42 @@ export class ForegroundMaskAssist {
           this.ready = true;
           this.finishLoading?.(true);
           this.finishLoading = null;
-          this.onStatus('Ready · sparse anime foreground assistance');
+          this.loading = null;
+          this.onStatus('Ready - sparse anime foreground assistance');
         } else if (data.type === 'mask' && this.pending?.id === data.id) {
           clearTimeout(this.timer);
-          const job = this.pending; this.pending = null;
+          const job = this.pending;
+          this.pending = null;
           if (job.epoch !== this.epoch) { job.resolve(null); return; }
           this.cached = { ...job, mask: data.mask };
           this.interval = Math.max(0.5, Math.min(2, data.ms / 250));
-          this.onStatus(`Active · ${Math.round(data.ms)} ms per sparse mask`);
+          this.onStatus(`Active - ${Math.round(data.ms)} ms per sparse mask`);
           job.resolve(data.mask);
-        } else if (data.type === 'error') this.fail();
+        } else if (data.type === 'error') {
+          this.fail();
+        }
       };
       this.worker.postMessage({ type: 'load' });
-    } catch { this.fail(); }
+    } catch {
+      this.fail();
+    }
   }
+
   fail() {
     this.finishLoading?.(false);
     this.finishLoading = null;
+    this.loading = null;
     clearTimeout(this.timer);
     this.ready = false;
+    this.failed = true;
     this.pending?.resolve(null);
     this.pending = null;
     this.cached = null;
     this.worker?.terminate();
     this.worker = null;
-    this.onStatus('Mask assistance unavailable · base depth continues');
+    this.onStatus('Mask assistance unavailable - base depth continues');
   }
+
   async forFrame(rgba, width, height, mediaTime, video = null) {
     if (!this.enabled || !this.ready || !rgba || this.pending) return null;
     const prior = this.cached;
@@ -79,11 +133,14 @@ export class ForegroundMaskAssist {
           if ((offset === -1 && x === 0) || (offset === 1 && x === width - 1)
             || i + offset < 0 || i + offset >= width * height) continue;
           const k = (i + offset) * 4;
-          for (let c = 0; c < 3; c++) if (Math.abs(rgba[k + c] - prior.rgba[k + c]) > 10) stable = false;
+          for (let c = 0; c < 3; c++) {
+            if (Math.abs(rgba[k + c] - prior.rgba[k + c]) > 10) stable = false;
+          }
         }
         if (stable) mask[i] = prior.mask[i];
       }
-      let lost = 0, foreground = 0;
+      let lost = 0;
+      let foreground = 0;
       for (let i = 0; i < mask.length; i += Math.max(1, Math.floor(mask.length / 8192))) {
         if (prior.mask[i] < 96) continue;
         foreground++;
@@ -95,7 +152,6 @@ export class ForegroundMaskAssist {
     }
     return new Promise(resolve => {
       const id = ++this.id;
-      const copy = new Uint8ClampedArray(rgba);
       this.pending = { id, resolve, epoch: this.epoch, rgba: new Uint8ClampedArray(rgba), width, height, mediaTime };
       this.timer = setTimeout(() => this.fail(), 5000);
       const worker = this.worker;
@@ -107,6 +163,7 @@ export class ForegroundMaskAssist {
           worker.postMessage({ type: 'mask', id, bitmap, width, height }, [bitmap]);
         }).catch(() => this.fail());
       } else {
+        const copy = new Uint8ClampedArray(rgba);
         worker.postMessage({ type: 'mask', id, rgba: copy.buffer, width, height }, [copy.buffer]);
       }
     });

@@ -2,7 +2,7 @@
 
 VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab. It turns ordinary video into an interactive, depth-aware voxel relief in Three.js, with live browser inference, analyze-ahead caching, temporal stabilization, and reusable conversion profiles.
 
-**Current release:** v1.9.6
+**Current release:** v1.9.7
 
 > VoxelVision began as an evolution of Joey Cato's original VoxelTV experience. Visit the original [VoxelTV “Take On Me” demo](https://voxeltv.surge.sh/#take-on-me-aha). The public VoxelVision distribution uses its own procedural demo and does not redistribute the original music video or its depth data.
 
@@ -16,13 +16,15 @@ VoxelVision is a local-first 3D voxel video engine and audio-reactive media lab.
 - Recovers bounded foreground details such as illustrated hair, headwear, and other thin structures when model evidence supports them.
 - Interpolates cached depth against decoded video presentation timestamps for smoother playback.
 
-v1.9.6 repairs ONNX Runtime execution-provider loading under the local server's Content Security Policy, so DA3/DA2 WebGPU and WASM workers can initialize normally. YouTube share URLs are now keyed by canonical video ID, making different `?si=` links for the same video reuse one cache. AI initialization failures are also retryable on a new source instead of becoming sticky for the rest of the tab.
+v1.9.7 keeps startup and cached-video restoration responsive. Completed assisted caches no longer compile either AI model just to replay, unfinished assisted work starts the depth and mask models sequentially, and the cache library creates profile controls only when their group is opened. During unavoidable WebGPU model compilation, VoxelVision temporarily lowers display-side GPU pressure and automatically restores full render quality afterward.
+
+v1.9.6 repairs ONNX Runtime execution-provider loading under the local server's Content Security Policy, so DA3/DA2 WebGPU and WASM workers can initialize normally. YouTube share URLs are keyed by canonical video ID, making different `?si=` links for the same video reuse one cache. AI initialization failures are also retryable on a new source instead of becoming sticky for the rest of the tab.
 
 Playback now commits one seek per scrub gesture, pauses new background decoder seeks during scrubbing, and can reload the same local media after a bounded playback failure without importing YouTube again. Range serving handles suffix requests and cancelled streams. Cached endpoints are no longer relifted using another timestamp's image, combined geometric corrections share one displacement budget, and stationary pixels can recover from an initially incorrect height.
 
 v1.9.5 added explicit **AI + decoded video**, **AI model only**, and **Local luminance** conversion paths. Cache replay is not gated by a fresh AI-model startup, and quality scoring samples the depth actually presented by Final Render Depth against the matching decoded color frames.
 
-## Current v1.9.6 Workflow
+## Current v1.9.7 Workflow
 
 ### Selectable conversion paths
 
