@@ -152,6 +152,8 @@
     if (type !== window.currentKeyboardType) window.releaseAllKeys?.();
     resetKeyboardAnalogState();
     window.currentKeyboardType = type;
+    const select = document.getElementById("keyboard-type-select");
+    if (select && select.value !== type) select.value = type;
     try { localStorage.setItem("omnipad.keyboardType", type); } catch (_) {}
     const hint = document.getElementById("keyboard-type-hint");
     if (hint) hint.textContent = TYPES[type].label;

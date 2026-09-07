@@ -1,9 +1,6 @@
 (() => {
   "use strict";
 
-  let observerWs = null;
-  let observerSlot = 1;
-  let observerConnected = false;
   let lastKeySet = new Set();
 
   const style = document.createElement("style");
@@ -214,47 +211,11 @@
     }
   }
 
-  function connectObserver() {
-    const params = new URLSearchParams(window.location.search);
-    const code = (params.get("code") || "").trim().toUpperCase();
-    if (!code) return;
-    observerSlot = parseInt(params.get("slot") || "1", 10) || 1;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    observerWs = new WebSocket(`${protocol}//${window.location.host}/ws/player`);
-    observerWs.onopen = () => {
-      observerWs.send(JSON.stringify({ type: "join", slot_id: observerSlot, name: "UI Monitor", code, source: "observer" }));
-    };
-    observerWs.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "joined" || msg.type === "join_ack") {
-          observerConnected = true;
-          window.OmniPadSharedControllerState?.apply?.(msg.shared_config || {});
-          if (msg.current_state && (Object.keys(msg.current_state.buttons || {}).length > 0 || (msg.current_state.key_codes && msg.current_state.key_codes.length > 0))) {
-            renderRemoteState(msg.current_state);
-          } else {
-            clearRemoteHighlights();
-          }
-        } else if (msg.type === "input_state") {
-          renderRemoteState(msg.state || {});
-        } else if (msg.type === "shared_config") {
-          window.OmniPadSharedControllerState?.apply?.(msg.config || {}, msg);
-        }
-      } catch (err) {
-        console.debug("Remote input monitor message error", err);
-      }
-    };
-    observerWs.onclose = () => {
-      observerConnected = false;
-      clearRemoteHighlights();
-      setTimeout(connectObserver, 1000);
-    };
-  }
-
   window.addEventListener("DOMContentLoaded", () => {
     updateKeyboardControllerLabels();
     const layoutSelect = document.getElementById("vk-layout-select");
     if (layoutSelect) layoutSelect.addEventListener("change", () => updateKeyboardControllerLabels());
-    connectObserver();
   });
+  window.addEventListener("omnipad:input-state", event => renderRemoteState(event.detail?.state || {}));
+  window.addEventListener("beforeunload", clearRemoteHighlights);
 })();

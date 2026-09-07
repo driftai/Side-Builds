@@ -39,6 +39,9 @@ def test_hybrid_dom_and_module_contract() -> None:
     assert 'touchLayout: "camera_actions"' in script
     assert 'id="sync-hybrid-layout"' in html and 'data-hybrid-keyboard-view="essential"' in html
     assert "shared_controller_state.js?v=" in html
+    assert "mouse_camera_popout_bridge.js?v=" in html
+    assert "vk-essential-group" in text("static/js/virtual_keyboard.js")
+    assert "min-width: 0 !important" in css and "flex-grow: 5" in css
 
 
 def test_hybrid_packet_is_not_double_mapped() -> None:
@@ -77,6 +80,8 @@ def test_keyboard_shapes_and_single_platform_labels() -> None:
     assert 'shape: "compact_arrowless"' in adapter
     assert "keyboardType?.shape" in renderer
     assert "getActiveControllerBadges" in renderer
+    assert 'addEventListener("omnipad:input-state"' in monitor
+    assert "new WebSocket" not in monitor, "Input mirroring must reuse the authenticated controller socket"
     assert 'A: "A"' in adapter and 'A: "✕"' in adapter
     assert 'A: "A / ✕"' not in adapter and 'A: "✕ / A"' not in adapter
     assert 'badge: "A / ✕"' not in layouts and 'badge: "✕ / A"' not in layouts
@@ -86,6 +91,8 @@ def test_keyboard_shapes_and_single_platform_labels() -> None:
 def test_camera_and_phone_contracts() -> None:
     html = text("static/play.html")
     mouse = text("static/js/mouse_camera.js")
+    popout = text("static/js/mouse_camera_popout.js")
+    popout_bridge = text("static/js/mouse_camera_popout_bridge.js")
     touch = text("static/js/touch_controller.js")
     layouts = text("static/css/touch_controller_layouts.css")
     keyboard_css = text("static/css/virtual_keyboard.css")
@@ -94,6 +101,9 @@ def test_camera_and_phone_contracts() -> None:
     assert "omnipad.mouseInvertY" in mouse and "omnipad.mouseInvertX" in mouse
     assert "directedX" in mouse and "directedY" in mouse
     assert "Math.min(rect.width, rect.height) / 2" in mouse
+    assert 'event.origin !== window.location.origin' in popout_bridge
+    assert 'event.source !== popup' in popout_bridge
+    assert 'window.opener?.postMessage' in popout and 'omnipad:mouse-camera-visual' in mouse
     assert '["keyboard", "hybrid"]' in mouse
     for preset, class_name in (("phone_reach", "touch-layout-phone-reach"), ("camera_actions", "touch-layout-camera-actions")):
         assert f"{preset}:" in touch

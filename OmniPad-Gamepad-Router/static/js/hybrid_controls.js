@@ -89,6 +89,7 @@
       try { localStorage.setItem(STORAGE_KEY, selectedPreset); } catch (_) {}
     }
     renderVisibility();
+    window.renderVirtualKeyboard?.(window.currentKeyboardLayout || "xbox_controller");
     if (active && preset.touchLayout) window.applyTouchLayout?.(preset.touchLayout, { broadcast });
     if (broadcast) notifyShared();
   }
@@ -111,6 +112,7 @@
     const picker = document.getElementById("hybrid-preset-select");
     if (picker) picker.value = "custom";
     renderVisibility();
+    window.renderVirtualKeyboard?.(window.currentKeyboardLayout || "xbox_controller");
     if (broadcast) notifyShared();
   }
 
@@ -122,6 +124,7 @@
     if (Array.isArray(config.hybrid_parts)) visibleParts = new Set(config.hybrid_parts.filter(part => PARTS.includes(part)));
     if (config.hybrid_keyboard_view) keyboardView = config.hybrid_keyboard_view;
     renderVisibility();
+    window.renderVirtualKeyboard?.(window.currentKeyboardLayout || "xbox_controller");
   }
 
   function setActive(nextActive) {

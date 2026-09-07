@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>OmniPad — Remote Player 2</title>
   <link rel="stylesheet" href="/static/css/common.css?v=1.4.0">
-  <link rel="stylesheet" href="/static/css/play.css?v=1.6.0">
-  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.6.0">
-  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.6.0">
-  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.6.0">
-  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.6.0">
-  <link rel="stylesheet" href="/static/css/hybrid_controls.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/play.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/css/hybrid_controls.css?v=1.7.0">
 </head>
 <body>
 
@@ -111,7 +111,7 @@
               <option value="vim_camera">WASD + HJKL Camera</option>
             </select>
             <div class="keyboard-type-hint" id="keyboard-type-hint">Standard PC (WASD + Arrows)</div>
-            <label class="keyboard-sync-toggle"><input type="checkbox" id="sync-keyboard-type" checked> Match physical keyboard type across this slot</label>
+            <label class="keyboard-sync-toggle" title="The first keyboard-type change leads during near-simultaneous changes."><input type="checkbox" id="sync-keyboard-type" checked> Match physical keyboard type across this slot (first change leads)</label>
           </div>
           <div class="active-keys-bar" id="vk-active-keys-bar" data-hybrid-part="keyboard"><span class="active-keys-label">Held Keys:</span><span id="vk-active-keys-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:.75rem;color:var(--text-muted);">None (Press any key or click below)</span></span></div>
           <div class="vk-chassis" id="vk-chassis" data-hybrid-part="keyboard"></div>
@@ -162,16 +162,6 @@
           <div style="display:inline-flex;align-items:center;gap:6px;">
             <button type="button" class="btn btn-xs btn-secondary" id="touch-routing-btn" title="Toggle phone touchscreen routing to game">🪟 Touch Routing: On</button>
           </div>
-          <label class="touch-layout-picker">Layout:
-            <select id="touch-layout-select" aria-label="Touchscreen controller layout preset">
-              <option value="classic_landscape" selected>Classic Landscape</option>
-              <option value="twin_stick_landscape">Twin-Stick Landscape</option>
-              <option value="playstation_landscape">PlayStation Landscape</option>
-              <option value="compact_thumbs">Compact Thumb-Friendly</option>
-              <option value="phone_reach">Phone Reach</option>
-              <option value="camera_actions">Camera + Actions</option>
-            </select>
-          </label>
         </div>
         <div class="touch-controller-shell touch-layout-classic" id="touch-controller-shell">
           <div class="touch-controller-subhint" id="touch-layout-description">Balanced layout — sticks, center controls, and action buttons stay close to a traditional full controller.</div>
@@ -181,27 +171,28 @@
             <div class="touch-stick-cluster touch-stick-pair"><div class="touch-stick" id="touch-left-stick" data-hybrid-part="left-stick" aria-label="Left analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-left-stick-knob">LS</div><div class="touch-stick-label">LEFT STICK</div></div><div class="touch-stick" id="touch-right-stick" data-hybrid-part="right-stick" aria-label="Right analog stick"><div class="touch-stick-ring"></div><div class="touch-stick-knob" id="touch-right-stick-knob">RS</div><div class="touch-stick-label">RIGHT STICK</div></div></div>
           </div>
           <div class="touch-shoulders" data-hybrid-part="shoulders"><div class="touch-shoulder-row touch-left-shoulders"><button class="touch-shoulder-btn" id="touch-lb">LB</button><div class="touch-trigger" id="touch-lt">LT</div></div><div class="touch-shoulder-row touch-right-shoulders"><div class="touch-trigger" id="touch-rt">RT</div><button class="touch-shoulder-btn" id="touch-rb">RB</button></div></div>
-          <div class="touch-controller-main touch-action-row"><div></div><div class="touch-controller-hint">Controller buttons</div><div class="touch-action-cluster" data-hybrid-part="actions"><button class="touch-action-btn" id="touch-y">Y</button><button class="touch-action-btn" id="touch-x">X</button><button class="touch-action-btn" id="touch-b">B</button><button class="touch-action-btn" id="touch-a">A</button></div></div>
+          <div class="touch-controller-main touch-action-row"><div class="touch-action-cluster" data-hybrid-part="actions"><button class="touch-action-btn" id="touch-y">Y</button><button class="touch-action-btn" id="touch-x">X</button><button class="touch-action-btn" id="touch-b">B</button><button class="touch-action-btn" id="touch-a">A</button></div></div>
         </div>
       </section>
     </main>
   </div>
 
   <script src="/static/js/gamepad_viz.js?v=1.4.0"></script>
-  <script src="/static/js/keyboard_layouts.js?v=1.6.0"></script>
+  <script src="/static/js/keyboard_layouts.js?v=1.7.0"></script>
   <script src="/static/js/gamepad_profiles.js?v=1.4.0"></script>
-  <script src="/static/js/virtual_keyboard.js?v=1.6.0"></script>
-  <script src="/static/js/target_routing.js?v=1.6.0"></script>
-  <script src="/static/js/input_capture.js?v=1.6.0"></script>
-  <script src="/static/js/touch_keyboard_bridge.js?v=1.6.0"></script>
-  <script src="/static/js/keyboard_type_adapter.js?v=1.6.0"></script>
-  <script src="/static/js/device_modes.js?v=1.6.0"></script>
-  <script src="/static/js/play.js?v=1.6.0"></script>
-  <script src="/static/js/low_latency_input.js?v=1.6.0"></script>
-  <script src="/static/js/mouse_camera.js?v=1.6.0"></script>
-  <script src="/static/js/remote_input_monitor.js?v=1.6.0"></script>
-  <script src="/static/js/touch_controller.js?v=1.6.0"></script>
-  <script src="/static/js/hybrid_controls.js?v=1.6.0"></script>
-  <script src="/static/js/shared_controller_state.js?v=1.6.0"></script>
+  <script src="/static/js/virtual_keyboard.js?v=1.7.0"></script>
+  <script src="/static/js/target_routing.js?v=1.7.0"></script>
+  <script src="/static/js/input_capture.js?v=1.7.0"></script>
+  <script src="/static/js/touch_keyboard_bridge.js?v=1.7.0"></script>
+  <script src="/static/js/keyboard_type_adapter.js?v=1.7.0"></script>
+  <script src="/static/js/device_modes.js?v=1.7.0"></script>
+  <script src="/static/js/play.js?v=1.7.0"></script>
+  <script src="/static/js/low_latency_input.js?v=1.7.0"></script>
+  <script src="/static/js/mouse_camera.js?v=1.7.0"></script>
+  <script src="/static/js/mouse_camera_popout_bridge.js?v=1.7.0"></script>
+  <script src="/static/js/remote_input_monitor.js?v=1.7.0"></script>
+  <script src="/static/js/touch_controller.js?v=1.7.0"></script>
+  <script src="/static/js/hybrid_controls.js?v=1.7.0"></script>
+  <script src="/static/js/shared_controller_state.js?v=1.7.0"></script>
 </body>
 </html>

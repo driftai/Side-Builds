@@ -31,6 +31,9 @@ def test_access_log_filter():
     quiet = RoutineAccessFilter()
     assert quiet.filter(access_record("GET", "/api/status", 200)) is False
     assert quiet.filter(access_record("GET", "/api/target/status?x=1", 304)) is False
+    assert quiet.filter(access_record("GET", "/static/js/play.js?v=1.7.0", 200)) is False
+    assert quiet.filter(access_record("GET", "/static/css/play.css", 304)) is False
+    assert quiet.filter(access_record("GET", "/static/js/play.js", 404)) is True
     assert quiet.filter(access_record("GET", "/api/status", 500)) is True
     assert quiet.filter(access_record("POST", "/api/target/status", 200)) is True
     assert quiet.filter(access_record("GET", "/play", 200)) is True

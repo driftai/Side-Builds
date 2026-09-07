@@ -192,6 +192,8 @@ function connect() {
         handlePong(msg);
       } else if (msg.type === "focus_result") {
         window.handleTargetFocusResult?.(msg);
+      } else if (msg.type === "input_state") {
+        window.dispatchEvent(new CustomEvent("omnipad:input-state", { detail: { state: msg.state || {} } }));
       } else if (msg.type === "shared_config") {
         window.OmniPadSharedControllerState?.apply?.(msg.config || {}, msg);
       }
@@ -234,6 +236,7 @@ function handleJoined(msg) {
   reconnectDelayMs = 800;
   window.isObserverMode = !!msg.observer;
   window.OmniPadSharedControllerState?.joined?.(msg.shared_config || {});
+  window.dispatchEvent(new CustomEvent("omnipad:input-state", { detail: { state: msg.current_state || {} } }));
   window.updateRoutingUI?.();
   const joinCard = document.getElementById("join-card");
   if (joinCard) joinCard.style.display = "none";

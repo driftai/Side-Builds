@@ -156,6 +156,7 @@ function renderVirtualKeyboard(layoutName) {
       const keyEl = document.createElement("div");
       keyEl.className = ["vk-key", ...structuralClasses, highlightClass, badgeInfo ? "vk-essential-key" : ""].filter(Boolean).join(" ");
       keyEl.dataset.code = keyDef.code;
+      if (badgeText) keyEl.dataset.controllerAction = badgeText;
       keyEl.innerHTML = `
         <span>${keyDef.label}</span>
         ${keyDef.sub ? `<span class="vk-key-sub">${keyDef.sub}</span>` : ""}
@@ -191,6 +192,30 @@ function renderVirtualKeyboard(layoutName) {
     rowEl.classList.toggle("vk-row-no-essential", !rowEl.querySelector(".vk-essential-key"));
     chassis.appendChild(rowEl);
   });
+
+  if (document.getElementById("controller-arena")?.dataset.hybridKeyboardView === "essential") {
+    const groupOrder = ["movement", "camera", "dpad", "actions", "shoulders", "system"];
+    const groups = new Map(groupOrder.map(name => [name, []]));
+    chassis.querySelectorAll(".vk-essential-key").forEach(key => {
+      const action = key.dataset.controllerAction || "";
+      const group = action.startsWith("LS") ? "movement"
+        : action.startsWith("RS") ? "camera"
+        : action.startsWith("D") ? "dpad"
+        : /^(L[12TB]|R[12TB])$/.test(action) ? "shoulders"
+        : /^(BACK|SHARE|START|OPTIONS|GUIDE|PS|L3|R3)$/.test(action) ? "system"
+        : "actions";
+      groups.get(group).push(key);
+    });
+    chassis.replaceChildren(...groupOrder.flatMap(name => {
+      const keys = groups.get(name);
+      if (!keys.length) return [];
+      const group = document.createElement("div");
+      group.className = `vk-essential-group vk-essential-${name}`;
+      group.setAttribute("aria-label", `${name} controls`);
+      group.append(...keys);
+      return [group];
+    }));
+  }
 
   activeKeys.forEach(code => highlightVirtualKey(code, true));
   updateActiveKeysDisplay();

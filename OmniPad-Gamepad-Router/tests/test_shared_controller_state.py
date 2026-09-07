@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from router.player_sync import sanitize_shared_config
+from router.player_sync import SharedConfigArbiter, sanitize_shared_config
 from router.slot_manager import SlotManager
 
 
@@ -53,18 +53,31 @@ def main():
     })
     assert clean["mouse_sensitivity"] == 1 and "bad" not in clean
     assert clean["hybrid_parts"] == ["keyboard", "right-stick"]
+
+    shared, arbiter = {}, SharedConfigArbiter()
+    assert arbiter.merge(shared, {"keyboard_type": "standard"}, "seed", "laptop", now=1.0)[0]
+    assert arbiter.merge(shared, {"keyboard_type": "arrowless"}, "change", "phone", now=2.0)[0]
+    assert shared["keyboard_type"] == "arrowless" and arbiter.keyboard_leader == "phone"
+    _, source = arbiter.merge(shared, {"keyboard_type": "compact65"}, "change", "laptop", now=2.5)
+    assert shared["keyboard_type"] == "arrowless" and source == ""
+    arbiter.merge(shared, {"keyboard_type": "compact65"}, "change", "laptop", now=3.3)
+    assert shared["keyboard_type"] == "compact65" and arbiter.keyboard_leader == "laptop"
     asyncio.run(collaboration_contract())
 
     html = (ROOT / "static/play.html").read_text(encoding="utf-8")
     shared = (ROOT / "static/js/shared_controller_state.js").read_text(encoding="utf-8")
+    adapter = (ROOT / "static/js/keyboard_type_adapter.js").read_text(encoding="utf-8")
     server = (ROOT / "server.py").read_text(encoding="utf-8")
     assert 'id="sync-keyboard-type" checked' in html
     assert 'id="sync-hybrid-layout" checked' in html
     assert "source_id: sourceId" in shared and "meta.source_id === sourceId" in shared
+    assert 'send(collect(), "seed")' in shared and 'sync_intent: intent' in shared
     assert "if (!syncKeyboardEnabled()) delete clean.keyboard_type" in shared
+    assert "pendingPatch = { ...pendingPatch, ...(patch || collect()) }" in shared
+    assert 'select.value !== type' in adapter
     assert "delete clean.hybrid_parts" in shared
-    assert 'mtype == "shared_config"' in server and "sanitize_shared_config" in server
-    print("Shared controller state passed: collaborative peers, bounded config, opt-out sync, and safe detach.")
+    assert 'mtype == "shared_config"' in server and "shared_config_arbiter.merge" in server
+    print("Shared controller state passed: collaborative peers, first-change leadership, opt-out sync, and safe detach.")
 
 
 if __name__ == "__main__":

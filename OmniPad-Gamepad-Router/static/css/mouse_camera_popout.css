@@ -1,0 +1,17 @@
+:root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #080b12; color: #eef6ff; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100svh; display: grid; place-items: center; background: radial-gradient(circle at top, #16243a, #080b12 65%); }
+.camera-shell { width: min(100%, 760px); min-height: 100svh; padding: 14px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 10px; }
+header, .camera-options { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+header span, p { color: #94a3b8; font-size: .78rem; margin: 0; }
+.camera-options label { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,.06); font-size: .78rem; }
+.camera-options label:first-child { flex: 1 1 240px; }
+.camera-options input[type="range"] { flex: 1; min-width: 110px; }
+.camera-pad { position: relative; min-height: 250px; overflow: hidden; border: 1px solid rgba(0,229,255,.4); border-radius: 16px; background: radial-gradient(circle, rgba(0,229,255,.11), rgba(0,0,0,.45)); touch-action: none; cursor: crosshair; }
+.axis { position: absolute; pointer-events: none; background: rgba(255,255,255,.22); }
+.axis-x { left: 5%; right: 5%; top: 50%; height: 1px; }
+.axis-y { top: 5%; bottom: 5%; left: 50%; width: 1px; }
+.camera-puck { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; transform: translate(-50%,-50%); border-radius: 50%; background: #00e5ff; box-shadow: 0 0 18px #00e5ff; }
+.camera-label { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); color: #a8bfd3; font-size: .8rem; text-align: center; pointer-events: none; }
+.camera-pad.active { border-color: #00e5ff; box-shadow: 0 0 22px rgba(0,229,255,.18); }
+@media (max-width: 520px) { .camera-shell { padding: 8px; } .camera-pad { min-height: 58svh; } .camera-options label { flex: 1 1 45%; } }

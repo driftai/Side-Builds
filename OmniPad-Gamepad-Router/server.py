@@ -26,7 +26,6 @@ from router.background_helper import (
     background_helper_running,
     shutdown_background_helper as _shutdown_background_helper,
 )
-from router.player_sync import sanitize_shared_config
 from router.security import is_local_client_host, is_public_tunnel_websocket
 from router.targeting import target_manager
 
@@ -66,23 +65,16 @@ async def _unregister_player_observer(slot_id: int, websocket: WebSocket) -> Non
 
 
 async def _broadcast_player_input_state(slot_id: int, state: Dict[str, Any]) -> None:
-    observers = list(_player_observers.get(slot_id, set()))
-    if not observers:
-        return
     payload = {"type": "input_state", "slot_id": slot_id, "state": state or {}, "server_time": time.time()}
-    stale = []
-    for observer in observers:
-        try:
-            await observer.send_json(payload)
-        except Exception:
-            stale.append(observer)
-    for observer in stale:
-        await _unregister_player_observer(slot_id, observer)
+    await _broadcast_slot_message(slot_id, payload)
 
 
 async def _broadcast_slot_message(slot_id: int, payload: Dict[str, Any]) -> None:
+    observers = set(_player_observers.get(slot_id, set()))
+    slot = slot_manager.slots.get(slot_id)
+    recipients = observers | (set(slot.controller_websockets) if slot else set())
     stale = []
-    for observer in list(_player_observers.get(slot_id, set())):
+    for observer in recipients:
         try:
             await observer.send_json(payload)
         except Exception:
@@ -228,6 +220,7 @@ async def player_websocket_endpoint(websocket: WebSocket):
                         "title": slot.display_title, "backend": slot.controller_type,
                         "socd_mode": slot.socd_mode.value, "deadzone": slot.deadzone,
                         "vigem_available": VIGEM_AVAILABLE,
+                        "current_state": slot.last_state,
                         "shared_config": slot.shared_config,
                     })
                 else:
@@ -244,13 +237,20 @@ async def player_websocket_endpoint(websocket: WebSocket):
                 slot = slot_manager.slots.get(attached_slot) if attached_slot is not None else None
                 if slot is None or not slot_manager.is_controller_peer(attached_slot, websocket):
                     continue
-                patch = sanitize_shared_config(msg.get("patch"))
+                patch = msg.get("patch")
                 if patch:
-                    slot.shared_config.update(patch)
+                    source_id = str(msg.get("source_id") or "")[:80]
+                    intent = "seed" if msg.get("sync_intent") == "seed" else "change"
+                    should_broadcast, broadcast_source = slot.shared_config_arbiter.merge(
+                        slot.shared_config, patch, intent, source_id,
+                    )
+                    if not should_broadcast:
+                        continue
                     await _broadcast_slot_message(attached_slot, {
                         "type": "shared_config", "slot_id": attached_slot,
                         "config": slot.shared_config,
-                        "source_id": str(msg.get("source_id") or "")[:80],
+                        "source_id": broadcast_source,
+                        "keyboard_type_leader": slot.shared_config_arbiter.keyboard_leader,
                     })
             elif mtype == "focus_target":
                 slot = slot_manager.slots.get(attached_slot) if attached_slot is not None else None

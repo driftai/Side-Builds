@@ -6,6 +6,7 @@
   const POINTERS = new Map();
   const RESETTERS = new Set();
   let installed = false;
+  let currentLayout = "classic_landscape";
 
   // play.js declares the canonical global lexical `touchState` and exports `window.touchState`.
   function state() { return (typeof window !== "undefined" && window.touchState) ? window.touchState : touchState; }
@@ -57,7 +58,6 @@
 
   function applyLayout(name, options = {}) {
     const shell = document.getElementById("touch-controller-shell");
-    const picker = document.getElementById("touch-layout-select");
     const description = document.getElementById("touch-layout-description");
     const resolvedName = TOUCH_LAYOUTS[name] ? name : "classic_landscape";
     const preset = TOUCH_LAYOUTS[resolvedName];
@@ -65,7 +65,8 @@
     resetAll();
     Object.values(TOUCH_LAYOUTS).forEach(layout => shell.classList.remove(layout.shellClass));
     shell.classList.add(preset.shellClass);
-    if (picker && picker.value !== resolvedName) picker.value = resolvedName;
+    currentLayout = resolvedName;
+    window.currentTouchLayout = resolvedName;
     if (description) description.textContent = preset.description;
     updatePlatformLabels(resolvedName);
 
@@ -80,12 +81,6 @@
   }
 
   function installLayoutPicker() {
-    const picker = document.getElementById("touch-layout-select");
-    if (picker && picker.dataset.bound !== "1") {
-      picker.dataset.bound = "1";
-      picker.addEventListener("change", e => applyLayout(e.target.value));
-    }
-
     document.querySelectorAll(".touch-pill-btn").forEach(btn => {
       if (btn.dataset.bound !== "1") {
         btn.dataset.bound = "1";
@@ -105,6 +100,7 @@
   if (typeof window !== "undefined") {
     window.applyTouchLayout = applyLayout;
     window.resetTouchAll = resetAll;
+    window.currentTouchLayout = currentLayout;
   }
 
   function setAxisPair(left, x, y) {

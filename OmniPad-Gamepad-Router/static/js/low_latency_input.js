@@ -177,7 +177,7 @@
   // next movement/camera key is not swallowed by a focused dropdown.
   document.addEventListener("change", event => {
     const target = event.target;
-    if (target?.matches?.("#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode, #hybrid-preset-select, #touch-layout-select")) {
+    if (target?.matches?.("#vk-layout-select, #keyboard-type-select, #profile-select, #join-mode, #hybrid-preset-select")) {
       target.blur();
     }
   });

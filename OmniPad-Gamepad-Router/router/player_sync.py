@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+import time
 from typing import Any, Dict, Mapping
 
 
@@ -45,3 +47,45 @@ def sanitize_shared_config(patch: Mapping[str, Any] | None) -> Dict[str, Any]:
     if "hybrid_parts" in source and isinstance(source["hybrid_parts"], list):
         result["hybrid_parts"] = sorted({str(part) for part in source["hybrid_parts"] if str(part) in HYBRID_PARTS})
     return result
+
+
+@dataclass
+class SharedConfigArbiter:
+    """Merge peer settings deterministically; first near-simultaneous keyboard change leads."""
+
+    keyboard_leader: str = ""
+    keyboard_changed_at: float = 0.0
+    lead_window_seconds: float = 1.2
+
+    def merge(
+        self,
+        current: Dict[str, Any],
+        candidate: Mapping[str, Any] | None,
+        intent: str,
+        source_id: str,
+        now: float | None = None,
+    ) -> tuple[bool, str]:
+        patch = sanitize_shared_config(candidate)
+        if not patch:
+            return False, source_id
+        if intent == "seed":
+            for key, value in patch.items():
+                current.setdefault(key, value)
+            return True, source_id
+
+        rejected_keyboard_change = False
+        if "keyboard_type" in patch:
+            timestamp = time.monotonic() if now is None else now
+            competing = (
+                self.keyboard_leader
+                and self.keyboard_leader != source_id
+                and timestamp - self.keyboard_changed_at < self.lead_window_seconds
+            )
+            if competing:
+                patch.pop("keyboard_type", None)
+                rejected_keyboard_change = True
+            else:
+                self.keyboard_leader = source_id
+                self.keyboard_changed_at = timestamp
+        current.update(patch)
+        return True, "" if rejected_keyboard_change else source_id

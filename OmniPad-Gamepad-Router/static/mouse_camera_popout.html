@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniPad Mouse Camera</title>
+  <link rel="stylesheet" href="/static/css/mouse_camera_popout.css?v=1.7.0">
+</head>
+<body>
+  <main class="camera-shell">
+    <header>
+      <strong>OmniPad Right Stick</strong>
+      <span id="connection">Connecting to player window…</span>
+    </header>
+    <div class="camera-options">
+      <label>Sensitivity <input id="sensitivity" type="range" min="1" max="200" value="20"><span id="sensitivity-value">20%</span></label>
+      <label><input id="invert-y" type="checkbox"> Invert vertical</label>
+      <label><input id="invert-x" type="checkbox"> Invert horizontal</label>
+    </div>
+    <div id="camera-pad" class="camera-pad" aria-label="Detached right-stick camera pad">
+      <span class="axis axis-x"></span><span class="axis axis-y"></span>
+      <span id="camera-puck" class="camera-puck"></span>
+      <span id="camera-label" class="camera-label">Click to lock mouse • drag on touch</span>
+    </div>
+    <p>Closing this window releases the right stick and any keys held here.</p>
+  </main>
+  <script src="/static/js/mouse_camera_popout.js?v=1.7.0"></script>
+</body>
+</html>

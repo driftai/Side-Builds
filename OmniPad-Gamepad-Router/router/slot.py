@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, List, Set
 from fastapi import WebSocket
 
 from .controller import BaseController
+from .player_sync import SharedConfigArbiter
 from .socd import SOCDCleaner, SOCDMode
 
 
@@ -41,6 +42,7 @@ class PlayerSlot:
     client_last_seen: Dict[Any, float] = field(default_factory=dict)
     client_last_seq: Dict[Any, int] = field(default_factory=dict)
     shared_config: Dict[str, Any] = field(default_factory=dict)
+    shared_config_arbiter: SharedConfigArbiter = field(default_factory=SharedConfigArbiter)
 
     def get_public_state(self) -> Dict[str, Any]:
         now = time.time()

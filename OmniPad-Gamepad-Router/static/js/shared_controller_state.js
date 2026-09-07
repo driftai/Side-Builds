@@ -4,6 +4,7 @@
 
   let latest = {};
   let publishTimer = null;
+  let pendingPatch = {};
   const sourceId = globalThis.crypto?.randomUUID?.() || `browser-${Date.now()}-${Math.random()}`;
 
   function syncKeyboardEnabled() {
@@ -21,7 +22,7 @@
       mouse_sensitivity: mouse.sensitivity,
       mouse_invert_x: Boolean(mouse.invertX),
       mouse_invert_y: Boolean(mouse.invertY),
-      touch_layout: document.getElementById("touch-layout-select")?.value,
+      touch_layout: window.currentTouchLayout,
       keyboard_type: window.currentKeyboardType,
       hybrid_preset: hybrid.preset,
       hybrid_parts: hybrid.parts,
@@ -29,7 +30,7 @@
     };
   }
 
-  function send(patch) {
+  function send(patch, intent = "change") {
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([, value]) => value !== undefined));
     if (!syncKeyboardEnabled()) delete clean.keyboard_type;
     if (!syncHybridEnabled()) {
@@ -37,21 +38,26 @@
       delete clean.hybrid_parts;
       delete clean.hybrid_keyboard_view;
     }
-    if (Object.keys(clean).length) window.sendPlayerControlMessage?.({ type: "shared_config", source_id: sourceId, patch: clean });
+    if (Object.keys(clean).length) window.sendPlayerControlMessage?.({
+      type: "shared_config", source_id: sourceId, sync_intent: intent, patch: clean,
+    });
   }
 
   function publish(patch) {
+    pendingPatch = { ...pendingPatch, ...(patch || collect()) };
     if (publishTimer) clearTimeout(publishTimer);
     publishTimer = setTimeout(() => {
       publishTimer = null;
-      send(patch || collect());
+      const outgoing = pendingPatch;
+      pendingPatch = {};
+      send(outgoing);
     }, 35);
   }
 
   function apply(config, meta = {}) {
     if (!config || typeof config !== "object") return;
-    if (meta.source_id && meta.source_id === sourceId) return;
     latest = { ...latest, ...config };
+    if (meta.source_id && meta.source_id === sourceId) return;
     if (config.mouse_sensitivity !== undefined) window.setMouseSensitivity?.(config.mouse_sensitivity, { broadcast: false });
     if (config.mouse_invert_x !== undefined || config.mouse_invert_y !== undefined) {
       const current = window.OmniPadMouseCameraPreferences?.get?.() || {};
@@ -68,7 +74,7 @@
 
   function joined(config) {
     if (config && Object.keys(config).length) apply(config);
-    else setTimeout(() => send(collect()), 0);
+    else setTimeout(() => send(collect(), "seed"), 0);
   }
 
   function install() {

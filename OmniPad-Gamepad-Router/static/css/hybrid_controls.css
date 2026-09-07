@@ -58,19 +58,44 @@
 .hybrid-keyboard-views { justify-content: flex-start; }
 .hybrid-keyboard-views > strong { font-size: .72rem; color: var(--text-secondary); }
 
-.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-chassis { overflow: hidden; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-chassis { overflow: hidden; width: 100%; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-row { width: 100%; min-width: 0; }
 .controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-key {
-  min-width: clamp(17px, 2.55vw, 34px);
+  flex: 1 1 0;
+  min-width: 0 !important;
   height: clamp(30px, 4.2vw, 38px);
   font-size: clamp(.48rem, 1vw, .66rem);
+  padding-inline: 1px;
+  overflow: hidden;
 }
-.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-space { min-width: clamp(90px, 14vw, 170px); }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-1-25 { flex-grow: 1.25; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-1-5 { flex-grow: 1.5; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-1-75 { flex-grow: 1.75; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-2 { flex-grow: 2; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-2-25 { flex-grow: 2.25; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-w-space { flex-grow: 5; min-width: 0; max-width: none; }
+.controller-arena[data-hybrid-keyboard-view="full-fit"] .vk-spacer { flex: .35 1 0; width: 0; }
 .controller-arena[data-hybrid-keyboard-view="essential"] .vk-key:not(.vk-essential-key),
 .controller-arena[data-hybrid-keyboard-view="essential"] .vk-spacer,
 .controller-arena[data-hybrid-keyboard-view="essential"] .vk-row-no-essential { display: none; }
-.controller-arena[data-hybrid-keyboard-view="essential"] .vk-row {
+.controller-arena[data-hybrid-keyboard-view="essential"] .vk-chassis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 8px;
+  overflow: hidden;
+}
+.controller-arena[data-hybrid-keyboard-view="essential"] .vk-essential-group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(36px, 1fr));
+  gap: 4px;
   min-width: 0;
-  flex-wrap: wrap;
+}
+.controller-arena[data-hybrid-keyboard-view="essential"] .vk-essential-group .vk-key {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: 40px;
+  padding: 2px;
 }
 
 .controller-arena.hybrid-active {

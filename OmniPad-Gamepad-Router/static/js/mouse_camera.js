@@ -41,6 +41,7 @@
     try { localStorage.setItem("omnipad.mouseSensitivity", mouseSensitivity); } catch (_) {}
     updateSensitivityUI();
     notifyShared({ mouse_sensitivity: mouseSensitivity }, options);
+    window.dispatchEvent(new CustomEvent("omnipad:mouse-camera-preferences"));
   }
 
   function updateSensitivityUI() {
@@ -64,6 +65,7 @@
     } catch (_) {}
     updateSensitivityUI();
     notifyShared({ mouse_invert_x: invertX, mouse_invert_y: invertY }, options);
+    window.dispatchEvent(new CustomEvent("omnipad:mouse-camera-preferences"));
   }
 
   function transmitMouseNow() {
@@ -87,6 +89,7 @@
       const element = document.getElementById(id);
       if (element) { element.style.left = left; element.style.top = top; }
     }
+    window.dispatchEvent(new CustomEvent("omnipad:mouse-camera-visual", { detail: { rx: state.rx, ry: state.ry } }));
   }
 
   function renderRemoteState(rx, ry) {
@@ -101,6 +104,7 @@
       if (element) { element.style.left = left; element.style.top = top; }
     }
     pad?.classList.toggle("remote-active", Math.hypot(safeRx, safeRy) > 0.04);
+    window.dispatchEvent(new CustomEvent("omnipad:mouse-camera-visual", { detail: { rx: safeRx, ry: safeRy } }));
   }
 
   function updateLabel(text) {

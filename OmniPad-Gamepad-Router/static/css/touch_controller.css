@@ -78,25 +78,6 @@
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.35);
 }
 
-.touch-layout-picker {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-secondary);
-  font-size: .72rem;
-  font-weight: 800;
-}
-
-.touch-layout-picker select {
-  min-width: 180px;
-  max-width: 100%;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.07);
-  color: #fff;
-}
-
 .touch-controller-subhint {
   color: var(--text-muted);
   font-size: .68rem;
@@ -355,17 +336,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .touch-controller-primary-row {
-    display: flex;
-    flex-direction: column;
-  }
-  .touch-stick-pair {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .touch-action-row { grid-template-columns: 1fr; }
   .touch-action-row > .touch-action-cluster { justify-self: center; width: min(100%, 220px); }
-  .touch-action-row > div:first-child { display: none; }
   .touch-stick { width: min(31vw, 112px); }
   .touch-action-cluster { gap: 6px; grid-template-columns: repeat(2, minmax(44px, 1fr)); }
   .touch-action-btn { min-height: 46px; }

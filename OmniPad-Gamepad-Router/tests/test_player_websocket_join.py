@@ -12,6 +12,17 @@ if str(ROOT) not in sys.path:
 from server import app, slot_manager
 
 
+async def receive_type(websocket, expected_type, limit=32):
+    """Ignore asynchronous state mirrors while waiting for a control response."""
+    seen = []
+    for _ in range(limit):
+        message = json.loads(await asyncio.wait_for(websocket.recv(), timeout=2.0))
+        if message.get("type") == expected_type:
+            return message
+        seen.append(message.get("type"))
+    raise AssertionError(f"Expected {expected_type!r}; received {seen!r}")
+
+
 async def run_server_and_test():
     print("\n" + "=" * 70)
     print("  TEST: Player WebSocket Join & Interactive Input Streaming")
@@ -221,17 +232,13 @@ async def run_server_and_test():
 
             # 6. Send Ping Heartbeat
             await ws.send(json.dumps({"type": "ping", "t": 1000.0}))
-            pong_raw = await ws.recv()
-            pong = json.loads(pong_raw)
-            assert pong.get("type") == "pong"
+            pong = await receive_type(ws, "pong")
             assert pong.get("t") == 1000.0
             print(f"  [PASS] Received ping-pong heartbeat: {pong}")
 
             # 7. Leave Observer Session
             await ws.send(json.dumps({"type": "leave"}))
-            left_raw = await ws.recv()
-            left_resp = json.loads(left_raw)
-            assert left_resp.get("type") == "left"
+            left_resp = await receive_type(ws, "left")
             print("  [PASS] Observer clean leave verified")
 
         # 8. Test Malformed Frames, Unknown Keycodes, Stale Seq, and Disconnect Neutralization

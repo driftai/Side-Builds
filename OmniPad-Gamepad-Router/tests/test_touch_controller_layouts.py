@@ -38,9 +38,10 @@ EXPECTED_LAYOUTS = {
 def test_layout_selector_exposes_all_presets():
     print("\n--- 1. Testing Touchscreen Presets Definition & DOM Options ---")
     for name in EXPECTED_LAYOUTS:
-        assert f'value="{name}"' in HTML, f"Preset '{name}' missing from play.html <select>"
+        assert f'data-preset="{name}"' in HTML, f"Preset '{name}' missing from play.html preset bar"
         assert f"{name}:" in JS, f"Preset '{name}' missing from TOUCH_LAYOUTS in touch_controller.js"
-    print(f"  [PASS] All {len(EXPECTED_LAYOUTS)} presets defined in JS and present in play.html selector")
+    assert 'id="touch-layout-select"' not in HTML, "Duplicate touch layout dropdown must stay removed"
+    print(f"  [PASS] All {len(EXPECTED_LAYOUTS)} presets defined once in the touch preset bar")
 
 
 def test_layout_classes_are_styled():
@@ -53,11 +54,10 @@ def test_layout_classes_are_styled():
 
 def test_classic_is_single_default():
     print("\n--- 3. Testing Single Default Preset & Persistence ---")
-    # Verify exactly one selected option in HTML
-    touch_select = HTML.split('id="touch-layout-select"', 1)[1].split("</select>", 1)[0]
-    selected_matches = [m for m in touch_select.split('<option') if 'selected' in m and any(k in m for k in EXPECTED_LAYOUTS)]
-    assert len(selected_matches) == 1, f"Expected exactly 1 default selected layout, found {len(selected_matches)}"
-    assert 'value="classic_landscape" selected' in HTML, "classic_landscape must be the default preset"
+    preset_bar = HTML.split('id="touch-preset-pills"', 1)[1].split("</div>", 1)[0]
+    active_presets = [item for item in preset_bar.split("<button") if "active" in item]
+    assert len(active_presets) == 1, f"Expected exactly 1 active default layout, found {len(active_presets)}"
+    assert 'class="btn btn-xs touch-pill-btn active" data-preset="classic_landscape"' in HTML
 
     # Verify localStorage key
     assert '"omnipad.touchLayout"' in JS
@@ -74,6 +74,11 @@ def test_twin_stick_and_playstation_structural_rules():
     assert ".touch-layout-phone-reach" in CSS
     assert ".touch-layout-camera-actions" in CSS
     assert "resetAll();" in JS, "applyLayout must invoke resetAll() to safely release active touches"
+    assert "display: contents" in CSS, "Nested legacy rows must flatten into the shared controller deck"
+    for area in ("dpad", "left-stick", "right-stick", "actions", "left-shoulders", "right-shoulders"):
+        assert area in CSS
+    assert "Controller buttons" not in HTML
+    assert "#touch-right-stick { width: clamp(104px" in CSS
     print("  [PASS] Specific structural grid and safety reset rules verified")
 
 

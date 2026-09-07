@@ -6,10 +6,13 @@ from typing import Optional, Tuple
 
 _QUIET_GET_PATHS = frozenset({
     "/api/status",
+    "/api/profiles",
+    "/api/targets",
     "/api/target/status",
     "/api/background-capture/status",
     "/api/background-capture/input-state",
 })
+_QUIET_GET_PREFIXES = ("/static/",)
 
 
 def _request_details(record: logging.LogRecord) -> Optional[Tuple[str, str, int]]:
@@ -30,7 +33,8 @@ class RoutineAccessFilter(logging.Filter):
         if details is None:
             return True
         method, path, status = details
-        return not (method == "GET" and path in _QUIET_GET_PATHS and status in {200, 304})
+        quiet_path = path in _QUIET_GET_PATHS or path.startswith(_QUIET_GET_PREFIXES)
+        return not (method == "GET" and quiet_path and status in {200, 304})
 
 
 def install_access_log_filter() -> None:
