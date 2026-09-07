@@ -39,6 +39,9 @@ function initWebSocket() {
         if (msg.data && msg.data.target && typeof renderTargetStatus === "function") {
           renderTargetStatus(msg.data.target);
         }
+      } else if (msg.type === "focus_request") {
+        const status = document.getElementById("remote-focus-status");
+        if (status) status.textContent = `${msg.name || "A remote player"} requested game focus. Enable the checkbox to allow Cloudflare focus requests.`;
       }
     } catch (e) {
       console.error("Failed to parse telemetry:", e);
@@ -121,6 +124,10 @@ async function fetchInitialStatus() {
     const gateCheckbox = document.getElementById("target-gate-checkbox");
     if (gateCheckbox && data.target && typeof data.target.gate_enabled === "boolean") {
       gateCheckbox.checked = data.target.gate_enabled;
+    }
+    const remoteFocusCheckbox = document.getElementById("remote-focus-checkbox");
+    if (remoteFocusCheckbox && data.target) {
+      remoteFocusCheckbox.checked = Boolean(data.target.remote_focus_enabled);
     }
 
     if (data.summary && typeof updateDashboard === "function") {

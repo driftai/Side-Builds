@@ -6,6 +6,7 @@ let playerWs = null, activeSlot = 1, friendName = "Player 2", roomCode = "", isC
 let packetSeq = 0, localVisualizer = null, inputLoopHandle = null, pingInterval = null;
 let latestRttMs = null;
 let manualDisconnect = false, reconnectTimer = null, currentMode = "keyboard";
+let connectionAttemptId = 0, joinAckTimer = null, reconnectDelayMs = 800;
 window.currentMode = currentMode;
 window.isConnected = isConnected;
 
@@ -66,9 +67,11 @@ function setupEventListeners() {
 
   const vkSelect = document.getElementById("vk-layout-select");
   if (vkSelect) {
+    if ([...vkSelect.options].some(option => option.value === window.currentKeyboardLayout)) vkSelect.value = window.currentKeyboardLayout;
     vkSelect.onchange = (e) => {
       if (typeof releaseAllKeys === "function") releaseAllKeys();
       window.currentKeyboardLayout = e.target.value;
+      try { localStorage.setItem("omnipad.controlLabels", window.currentKeyboardLayout); } catch (_) {}
       if (typeof renderVirtualKeyboard === "function") renderVirtualKeyboard(window.currentKeyboardLayout);
     };
   }
@@ -113,15 +116,33 @@ function setCurrentInputMode(mode) {
   window.currentMode = mode;
 }
 
+function setConnectionStatus(text, badgeClass = "badge-warning") {
+  const badge = document.getElementById("status-badge");
+  if (badge) {
+    badge.className = `badge ${badgeClass}`;
+    badge.innerHTML = `<span class="status-dot"></span> ${text}`;
+  }
+}
+
+function scheduleReconnect() {
+  if (manualDisconnect || reconnectTimer || !navigator.onLine) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!manualDisconnect && !isConnected) connect();
+  }, reconnectDelayMs);
+  reconnectDelayMs = Math.min(5000, Math.round(reconnectDelayMs * 1.6));
+}
+
 function connect() {
   manualDisconnect = false;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (playerWs && (playerWs.readyState === WebSocket.CONNECTING || playerWs.readyState === WebSocket.OPEN)) return;
 
   friendName = (document.getElementById("join-name")?.value.trim()) || "Player 2";
-  roomCode = (document.getElementById("join-room-code")?.value.trim().toUpperCase()) || "";
+  roomCode = window.OmniPadRoomCode?.resolveForJoin?.() || (document.getElementById("join-room-code")?.value.trim().toUpperCase()) || "";
   activeSlot = parseInt(document.getElementById("join-slot")?.value, 10) || 1;
   if (!roomCode) {
-    alert("Please enter the pairing room code shown on the host dashboard.");
+    setConnectionStatus("Missing room code", "badge-red");
     return;
   }
 
@@ -131,18 +152,31 @@ function connect() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/ws/player`;
 
-  playerWs = new WebSocket(wsUrl);
+  const attemptId = ++connectionAttemptId;
+  const ws = new WebSocket(wsUrl);
+  playerWs = ws;
+  setConnectionStatus("Connecting...");
 
-  playerWs.onopen = () => {
-    playerWs.send(JSON.stringify({ type: "join", slot_id: activeSlot, name: friendName, code: roomCode }));
+  ws.onopen = () => {
+    if (attemptId !== connectionAttemptId || ws !== playerWs) return ws.close();
+    setConnectionStatus("Authenticating...");
+    ws.send(JSON.stringify({ type: "join", slot_id: activeSlot, name: friendName, code: roomCode, source: "browser" }));
+    if (joinAckTimer) clearTimeout(joinAckTimer);
+    joinAckTimer = setTimeout(() => {
+      if (attemptId !== connectionAttemptId || isConnected) return;
+      setConnectionStatus("No join response — retry", "badge-red");
+      try { ws.close(); } catch (_) {}
+    }, 6000);
   };
 
   window.isObserverMode = false;
 
-  playerWs.onmessage = (event) => {
+  ws.onmessage = (event) => {
+    if (attemptId !== connectionAttemptId || ws !== playerWs) return;
     try {
       const msg = JSON.parse(event.data);
       if (msg.type === "joined" || msg.type === "join_ack") {
+        if (joinAckTimer) { clearTimeout(joinAckTimer); joinAckTimer = null; }
         window.isObserverMode = !!msg.observer;
         handleJoined(msg);
       } else if (msg.type === "demoted_to_observer") {
@@ -150,37 +184,36 @@ function connect() {
         handleDemotedToObserver(msg);
       } else if (msg.type === "error") {
         if (!isConnected) {
-          alert(`Connection error: ${msg.message || msg.error || "Failed to connect."}`);
-          disconnect();
+          setConnectionStatus(msg.message || msg.error || "Connection failed", "badge-red");
+          manualDisconnect = true;
+          try { ws.close(); } catch (_) {}
         }
       } else if (msg.type === "pong") {
         handlePong(msg);
       } else if (msg.type === "focus_result") {
         window.handleTargetFocusResult?.(msg);
+      } else if (msg.type === "shared_config") {
+        window.OmniPadSharedControllerState?.apply?.(msg.config || {}, msg);
       }
     } catch (e) {
       console.error("Failed to parse server message:", e);
     }
   };
 
-  playerWs.onclose = () => {
+  ws.onerror = () => {
+    if (attemptId === connectionAttemptId && !isConnected) setConnectionStatus("WebSocket connection failed", "badge-red");
+  };
+
+  ws.onclose = () => {
+    if (attemptId !== connectionAttemptId || ws !== playerWs) return;
+    playerWs = null;
+    if (joinAckTimer) { clearTimeout(joinAckTimer); joinAckTimer = null; }
     isConnected = false;
     window.isConnected = false;
     window.updateRoutingUI?.();
     if (!manualDisconnect) {
-      const statusBadge = document.getElementById("status-badge");
-      if (statusBadge) {
-        statusBadge.className = "badge badge-warning";
-        statusBadge.innerHTML = `<span class="status-dot"></span> Reconnecting to Host...`;
-      }
-      if (!reconnectTimer) {
-        reconnectTimer = setTimeout(() => {
-          reconnectTimer = null;
-          if (!manualDisconnect && !isConnected) connect();
-        }, 1200);
-      }
-    } else {
-      disconnect();
+      setConnectionStatus(navigator.onLine ? "Reconnecting to Host..." : "Offline — waiting for network");
+      scheduleReconnect();
     }
   };
 }
@@ -198,7 +231,9 @@ function handleJoined(msg) {
   isConnected = true;
   window.isConnected = true;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  reconnectDelayMs = 800;
   window.isObserverMode = !!msg.observer;
+  window.OmniPadSharedControllerState?.joined?.(msg.shared_config || {});
   window.updateRoutingUI?.();
   const joinCard = document.getElementById("join-card");
   if (joinCard) joinCard.style.display = "none";
@@ -245,17 +280,22 @@ function handleJoined(msg) {
 
 function disconnect() {
   manualDisconnect = true;
+  connectionAttemptId++;
   isConnected = false;
   window.isConnected = false;
   window.updateRoutingUI?.();
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (joinAckTimer) { clearTimeout(joinAckTimer); joinAckTimer = null; }
   if (typeof stopBackgroundInputMirrorTimer === "function") stopBackgroundInputMirrorTimer();
   if (typeof releaseKeySource === "function") releaseKeySource(window.BACKGROUND_NATIVE_SOURCE || "background_native");
   if (inputLoopHandle) cancelAnimationFrame(inputLoopHandle);
   if (pingInterval) clearInterval(pingInterval);
 
-  if (playerWs && playerWs.readyState === WebSocket.OPEN) {
-    try { playerWs.send(JSON.stringify({ type: "leave" })); playerWs.close(); } catch (e) {}
+  if (playerWs) {
+    try {
+      if (playerWs.readyState === WebSocket.OPEN) playerWs.send(JSON.stringify({ type: "leave" }));
+      playerWs.close();
+    } catch (e) {}
   }
   playerWs = null;
   if (typeof releaseAllKeys === "function") releaseAllKeys();
@@ -278,6 +318,14 @@ function sendPing() {
     playerWs.send(JSON.stringify({ type: "ping", t: performance.now(), rtt_ms: latestRttMs }));
   }
 }
+
+window.addEventListener("online", () => {
+  reconnectDelayMs = 200;
+  if (!manualDisconnect && !isConnected) scheduleReconnect();
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !manualDisconnect && !isConnected) scheduleReconnect();
+});
 
 function handlePong(msg) {
   const rtt = Math.max(1, Math.round(performance.now() - msg.t));

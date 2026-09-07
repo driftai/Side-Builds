@@ -175,7 +175,7 @@ async def run_server_and_test():
             assert slot.websocket is not None
             print("  [PASS] Observer disconnect did not detach controlling player")
 
-            # 5b. Test Phone Connect Handoff (Phone connects after laptop was open)
+            # 5b. Test collaborative phone + laptop control on one slot.
             async with websockets.connect(uri) as ws_phone:
                 phone_join = {
                     "type": "join",
@@ -188,12 +188,9 @@ async def run_server_and_test():
                 phone_resp = json.loads(await ws_phone.recv())
                 assert phone_resp.get("type") == "joined"
                 assert phone_resp.get("status") == "ok"
-                # Laptop (ws) receives demotion notification
-                demote_msg = json.loads(await ws.recv())
-                assert demote_msg.get("type") == "demoted_to_observer"
-                assert demote_msg.get("observer") is True
+                assert len(slot.controller_websockets) == 2
                 assert slot.friend_name == "Phone Player"
-                print("  [PASS] Phone player cleanly took over Slot 1, laptop demoted to observer")
+                print("  [PASS] Phone joined Slot 1 without demoting the laptop")
 
                 # Phone sends input -> reaches slot controller and broadcasts to laptop (ws)
                 phone_frame = {
@@ -209,11 +206,18 @@ async def run_server_and_test():
                 await asyncio.sleep(0.05)
                 assert slot.last_state["buttons"]["A"] is True
                 assert slot.last_state["buttons"]["START"] is True
-                # Laptop receives broadcast from phone's button press
-                laptop_broadcast = json.loads(await ws.recv())
-                assert laptop_broadcast.get("type") == "input_state"
-                assert laptop_broadcast["state"]["buttons"]["A"] is True
-                print("  [PASS] Phone button presses routed through server to game and laptop monitor")
+                laptop_frame = {
+                    "type": "input", "seq": 6, "input_surface": "keyboard",
+                    "mapping_profile": "universal", "buttons": {"Y": True},
+                    "axes": {"lx": 0.0, "ly": 1.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+                    "key_codes": ["KeyW", "KeyQ"],
+                }
+                await ws.send(json.dumps(laptop_frame))
+                await asyncio.sleep(0.05)
+                assert slot.last_state["buttons"]["A"] is True
+                assert slot.last_state["buttons"]["Y"] is True
+                assert slot.last_state["axes"]["ly"] == 1.0
+                print("  [PASS] Phone and laptop input fused bidirectionally on one slot")
 
             # 6. Send Ping Heartbeat
             await ws.send(json.dumps({"type": "ping", "t": 1000.0}))

@@ -12,6 +12,7 @@ class AppConfig(BaseModel):
     # Empty means server.py will generate a fresh per-run room code.
     room_code: str = ""
     target_gate_enabled: bool = True
+    remote_focus_enabled: bool = False
     title: str = "OmniPad - Remote Gamepad Router"
     version: str = "1.1.2-dev"
 

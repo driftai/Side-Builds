@@ -280,6 +280,16 @@ class TargetManager:
         try:
             if win32gui.IsIconic(hwnd):
                 win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            else:
+                win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+            try:
+                win32gui.BringWindowToTop(hwnd)
+                win32gui.SetWindowPos(
+                    hwnd, win32con.HWND_TOP, 0, 0, 0, 0,
+                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW,
+                )
+            except Exception:
+                pass
             requested = bool(win32gui.SetForegroundWindow(hwnd))
             self._invalidate_caches()
             focused = self.is_target_foreground()

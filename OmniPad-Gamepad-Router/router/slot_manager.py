@@ -77,17 +77,22 @@ class SlotManager:
                 await asyncio.sleep(0.03) # 33Hz watchdog check
                 now = time.time()
                 for slot in self.slots.values():
-                    if slot.friend_name and slot.is_active:
-                        if (now - slot.last_seen) > self.watchdog_timeout:
-                            # Watchdog trigger: neutralize controls
-                            if slot.controller:
-                                slot.controller.release_all()
-                            slot.is_active = False
-                            slot.last_state = {
-                                "buttons": {},
-                                "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0}
-                            }
-                            logger.debug("[Slot %d] Watchdog neutralized inputs (timeout > %.2fs)", slot.slot_id, self.watchdog_timeout)
+                    stale_clients = [
+                        client_id for client_id, seen_at in slot.client_last_seen.items()
+                        if now - seen_at > self.watchdog_timeout
+                    ]
+                    if not stale_clients:
+                        continue
+                    for client_id in stale_clients:
+                        slot.client_packets.pop(client_id, None)
+                        slot.client_last_seen.pop(client_id, None)
+                        slot.client_last_seq.pop(client_id, None)
+                    if slot.client_packets:
+                        latest_id = max(slot.client_last_seen, key=slot.client_last_seen.get)
+                        await self._apply_fused_packets(slot, slot.client_packets[latest_id])
+                    else:
+                        self._neutralize_slot(slot)
+                        logger.debug("[Slot %d] Watchdog neutralized inputs (timeout > %.2fs)", slot.slot_id, self.watchdog_timeout)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -118,7 +123,16 @@ class SlotManager:
     def unregister_host_ws(self, ws: WebSocket) -> None:
         self.host_websockets.discard(ws)
 
-    async def attach_player(self, slot_id: int, friend_name: str, ws: WebSocket) -> bool:
+    async def broadcast_host_event(self, payload: Dict[str, Any]) -> None:
+        stale = set()
+        for ws in self.host_websockets:
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                stale.add(ws)
+        self.host_websockets -= stale
+
+    async def attach_player(self, slot_id: int, friend_name: str, ws: WebSocket, exclusive: bool = False) -> bool:
         """Attach a remote player WebSocket to a slot."""
         async with self._lock:
             if slot_id not in self.slots:
@@ -132,27 +146,28 @@ class SlotManager:
                 except Exception as e:
                     logger.error("Failed to create controller for slot %d: %s", slot_id, e)
 
-            slot.friend_name = friend_name[:24]
+            first_controller = not slot.controller_websockets or exclusive
+            if exclusive:
+                slot.controller_websockets.clear()
+                slot.controller_names.clear()
+                slot.client_packets.clear()
+                slot.client_last_seen.clear()
+                slot.client_last_seq.clear()
+            slot.controller_websockets.add(ws)
+            slot.controller_names[ws] = friend_name[:24]
+            slot.friend_name = slot.controller_names[ws]
             slot.websocket = ws
-            slot.connected_at = time.time()
+            if first_controller:
+                slot.connected_at = time.time()
             slot.last_seen = time.time()
             slot.last_seq = -1
-            slot.packet_count = 0
+            if first_controller:
+                slot.packet_count = 0
             slot.is_active = True
-            slot.client_packets.clear()
-            slot.client_last_seen.clear()
-            slot.last_state = {
-                "buttons": {},
-                "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
-                "key_codes": [],
-                "keyboard_fallback_codes": [],
-            }
-            if slot.controller:
-                try:
-                    slot.controller.release_all()
-                except Exception:
-                    pass
-            logger.info(">>> [Slot %d] Player '%s' connected (Backend: %s) <<<", slot_id, slot.friend_name, slot.controller_type)
+            if first_controller:
+                self._neutralize_slot(slot)
+                slot.is_active = True
+            logger.info(">>> [Slot %d] Player '%s' connected (Backend: %s, peers: %d) <<<", slot_id, slot.friend_name, slot.controller_type, len(slot.controller_websockets))
             return True
 
     async def detach_player(self, slot_id: int, ws: Optional[WebSocket] = None) -> None:
@@ -162,25 +177,36 @@ class SlotManager:
                 return
             slot = self.slots[slot_id]
             if ws is not None:
+                was_controller = ws in slot.controller_websockets
+                slot.controller_websockets.discard(ws)
+                slot.controller_names.pop(ws, None)
                 slot.client_packets.pop(ws, None)
                 slot.client_last_seen.pop(ws, None)
-            if ws is not None and slot.websocket is not ws:
-                # Slot was handed off to a newer connection; do not detach
+                slot.client_last_seq.pop(ws, None)
+                if not was_controller:
+                    return
+            if ws is not None and slot.controller_websockets:
+                if slot.websocket is ws or slot.websocket not in slot.controller_websockets:
+                    slot.websocket = next(iter(slot.controller_websockets))
+                slot.friend_name = slot.controller_names.get(slot.websocket, slot.friend_name)
+                if slot.client_packets:
+                    latest_id = max(slot.client_last_seen, key=slot.client_last_seen.get)
+                    await self._apply_fused_packets(slot, slot.client_packets[latest_id])
+                else:
+                    self._neutralize_slot(slot)
                 return
             slot.friend_name = None
             slot.websocket = None
+            slot.controller_websockets.clear()
+            slot.controller_names.clear()
             slot.is_active = False
             slot.latency_ms = None
             slot.jitter_ms = None
             slot._recent_latencies.clear()
             slot.client_packets.clear()
             slot.client_last_seen.clear()
-            slot.last_state = {
-                "buttons": {},
-                "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0}
-            }
-            if slot.controller:
-                slot.controller.release_all()
+            slot.client_last_seq.clear()
+            self._neutralize_slot(slot)
             logger.info("[Slot %d] Player detached", slot_id)
 
     async def update_latency(self, slot_id: int, rtt_ms: float) -> None:
@@ -188,6 +214,7 @@ class SlotManager:
         if slot_id not in self.slots:
             return
         slot = self.slots[slot_id]
+        slot.last_seen = time.time()
         slot.latency_ms = rtt_ms
         slot._recent_latencies.append(rtt_ms)
         if len(slot._recent_latencies) > 20:
@@ -207,11 +234,14 @@ class SlotManager:
         if slot.muted:
             return
 
+        cid = client_id if client_id is not None else "default"
         seq = int(packet.get("seq", -1))
+        previous_seq = slot.client_last_seq.get(cid, -1)
         # Drop stale / out-of-order packets if seq is provided
-        if seq != -1 and seq <= slot.last_seq and (slot.last_seq - seq) < 1000:
+        if seq != -1 and seq <= previous_seq and (previous_seq - seq) < 1000:
             return
         if seq != -1:
+            slot.client_last_seq[cid] = seq
             slot.last_seq = seq
 
         now = time.time()
@@ -219,7 +249,6 @@ class SlotManager:
         slot.packet_count += 1
         slot.is_active = True
 
-        cid = client_id or "default"
         slot.client_packets[cid] = packet
         slot.client_last_seen[cid] = now
 
@@ -228,10 +257,14 @@ class SlotManager:
         for c in stale_clients:
             slot.client_packets.pop(c, None)
             slot.client_last_seen.pop(c, None)
+            slot.client_last_seq.pop(c, None)
 
+        await self._apply_fused_packets(slot, packet)
+
+    async def _apply_fused_packets(self, slot: PlayerSlot, latest_packet: Dict[str, Any]) -> None:
         state = build_normalized_input_state(
             slot.client_packets,
-            packet,
+            latest_packet,
             slot.socd_cleaner,
             slot.deadzone,
         )
@@ -242,7 +275,7 @@ class SlotManager:
         # Background Routing Gating:
         # If background_routing is disabled (False), inputs stay confined to the browser
         # site alone and are not routed to Windows virtual controllers / keyboard.
-        background_routing = packet.get("background_routing", True)
+        background_routing = latest_packet.get("background_routing", True)
         if not background_routing:
             if slot.controller:
                 try:
@@ -281,7 +314,29 @@ class SlotManager:
             try:
                 slot.controller.apply(state)
             except Exception as e:
-                logger.error("[Slot %d] Controller apply error: %s", slot_id, e)
+                logger.error("[Slot %d] Controller apply error: %s", slot.slot_id, e)
+
+    @staticmethod
+    def _neutral_state() -> Dict[str, Any]:
+        return {
+            "buttons": {},
+            "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0},
+            "key_codes": [],
+            "keyboard_fallback_codes": [],
+        }
+
+    def _neutralize_slot(self, slot: PlayerSlot) -> None:
+        slot.is_active = False
+        slot.last_state = self._neutral_state()
+        if slot.controller:
+            try:
+                slot.controller.release_all()
+            except Exception:
+                pass
+
+    def is_controller_peer(self, slot_id: int, ws: WebSocket) -> bool:
+        slot = self.slots.get(slot_id)
+        return bool(slot and ws in slot.controller_websockets)
 
     async def set_controller_type(self, slot_id: int, new_type: str) -> bool:
         """Switch controller emulation backend dynamically."""
@@ -355,5 +410,9 @@ class SlotManager:
             "max_slots": self.max_slots,
             "slots": [s.get_public_state() for s in self.slots.values()],
             "available_backends": ControllerFactory.get_available_backends(),
-            "target": {**target_manager.get_status(), "gate_enabled": config.target_gate_enabled},
+            "target": {
+                **target_manager.get_status(),
+                "gate_enabled": config.target_gate_enabled,
+                "remote_focus_enabled": config.remote_focus_enabled,
+            },
         }

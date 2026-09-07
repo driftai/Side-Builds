@@ -53,6 +53,16 @@
   margin-bottom: 8px;
 }
 
+.keyboard-sync-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: .7rem;
+}
+
 .mouse-camera-title,
 .mouse-camera-actions {
   display: flex;
@@ -242,7 +252,8 @@
 }
 
 .mouse-camera-pad.active .mouse-camera-puck,
-.mouse-camera-pad.center-armed .mouse-camera-puck {
+.mouse-camera-pad.center-armed .mouse-camera-puck,
+.mouse-camera-pad.remote-active .mouse-camera-puck {
   opacity: 0.85;
 }
 

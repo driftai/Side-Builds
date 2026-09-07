@@ -72,9 +72,22 @@ function Start-Router {
     }
     $existing = Read-ControlState
     if (Test-ManagedProcess $existing) {
+        if ($Mode -eq 'tunnel') {
+            $status = Get-RouterStatus $existing
+            $tunnelStatus = if ($status) { [string]$status.tunnel.status } else { '' }
+            if ($tunnelStatus -notin @('online', 'starting')) {
+                $response = Invoke-ControlApi $existing 'POST' '/api/tunnel/start'
+                if (-not $response.ok) { throw 'Existing LAN router is running, but its Cloudflare tunnel failed to start.' }
+            }
+            $existing.mode = 'tunnel'
+            Write-ControlState $existing
+            Write-Host 'Existing LAN router upgraded to Cloudflare + LAN mode.' -ForegroundColor Green
+        }
         Start-RuntimeViewer $existing
         Show-RouterStatus
-        Write-Host 'The existing managed router was left running.' -ForegroundColor Yellow
+        if ($Mode -ne 'tunnel') {
+            Write-Host 'The existing managed router was left running.' -ForegroundColor Yellow
+        }
         return
     }
     if ($existing) {

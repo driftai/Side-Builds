@@ -28,6 +28,7 @@ def build_normalized_input_state(
         ][:32]
     else:
         raw_buttons: Dict[str, bool] = {}
+        legacy_mapped_buttons: Dict[str, bool] = {}
         raw_key_codes_set: set[str] = set()
         keyboard_fallback_codes_set: set[str] = set()
         raw_axes = {
@@ -58,14 +59,24 @@ def build_normalized_input_state(
                 if client_value > raw_axes[axis]:
                     raw_axes[axis] = client_value
 
+            client_surface = str(client_packet.get("input_surface") or "unknown")
+            if client_surface not in {"background_native", "keyboard", "hybrid"}:
+                for action, pressed in map_key_codes_to_gamepad(
+                    client_packet.get("key_codes") or [],
+                    str(client_packet.get("mapping_profile") or "universal"),
+                ).items():
+                    if pressed:
+                        legacy_mapped_buttons[action] = True
+
         raw_key_codes = list(raw_key_codes_set)[:64]
         keyboard_fallback_codes = list(keyboard_fallback_codes_set)[:32]
+        raw_buttons.update(legacy_mapped_buttons)
 
     # Browser Keyboard mode is already resolved into backend-neutral buttons
     # and LS/RS axes. Mapping its raw key identities here a second time makes
     # camera keys perform unrelated movement/actions. Raw key_codes are still
     # retained for the physical and UMDF keyboard backends.
-    if input_surface not in {"background_native", "keyboard", "hybrid"}:
+    if len(client_packets) <= 1 and input_surface not in {"background_native", "keyboard", "hybrid"}:
         mapped_buttons = map_key_codes_to_gamepad(raw_key_codes, mapping_profile)
         for action, pressed in mapped_buttons.items():
             if pressed:
@@ -82,7 +93,11 @@ def build_normalized_input_state(
 
     # Keyboard ramping and low-sensitivity mouse input are already deliberate
     # values, so the controller deadzone must not attenuate them again.
-    if input_surface in {"keyboard", "hybrid", "background_native"}:
+    has_preprocessed_surface = any(
+        str(packet.get("input_surface") or "unknown") in {"keyboard", "hybrid", "background_native"}
+        for packet in client_packets.values()
+    )
+    if has_preprocessed_surface:
         effective_deadzone = 0.0
     elif input_surface == "touch":
         effective_deadzone = 0.02

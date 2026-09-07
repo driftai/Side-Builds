@@ -177,6 +177,7 @@ function handleTargetFocusResult(message) {
     rate_limited: "Focus request already sent.",
     not_controller: "Only the active player can focus the game.",
     unsupported: "Host focus is unavailable on this platform.",
+    host_approval_required: "Focus request sent to the host; host approval is off.",
   };
   status.textContent = messages[message.reason] || (message.ok ? "Game focused on the host." : "Game focus request failed.");
   if (message.ok) refreshTargetStatus();

@@ -26,6 +26,10 @@ async function loadTargets() {
 function renderTargetStatus(status) {
   const el = document.getElementById("target-status");
   if (!el) return;
+  const remoteFocusCheckbox = document.getElementById("remote-focus-checkbox");
+  if (remoteFocusCheckbox && typeof status?.remote_focus_enabled === "boolean") {
+    remoteFocusCheckbox.checked = status.remote_focus_enabled;
+  }
   if (!status || !status.selected) {
     el.textContent = "No game target selected. Keyboard 2 is unrestricted until you select one.";
     el.title = "";
@@ -85,6 +89,17 @@ async function setTargetGate(enabled) {
   });
 }
 
+async function setRemoteFocusPolicy(enabled) {
+  const res = await fetch("/api/target/remote-focus", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled })
+  });
+  if (!res.ok) {
+    const checkbox = document.getElementById("remote-focus-checkbox");
+    if (checkbox) checkbox.checked = !enabled;
+  }
+}
+
 async function clearTarget() {
   const res = await fetch("/api/target/clear", { method: "POST" });
   const data = await res.json();
@@ -102,6 +117,8 @@ function setupTargetEvents() {
   if (clearBtn) clearBtn.onclick = clearTarget;
   const gateCheckbox = document.getElementById("target-gate-checkbox");
   if (gateCheckbox) gateCheckbox.onchange = (e) => setTargetGate(e.target.checked);
+  const remoteFocusCheckbox = document.getElementById("remote-focus-checkbox");
+  if (remoteFocusCheckbox) remoteFocusCheckbox.onchange = (e) => setRemoteFocusPolicy(e.target.checked);
 
   // Host telemetry normally supplies target state. This relaxed fallback only
   // runs while that WebSocket is unavailable.

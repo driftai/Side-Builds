@@ -277,6 +277,7 @@
 
 .target-gate { display: block; margin-top: 12px; color: var(--text-secondary); font-size: 0.78rem; }
 .target-gate input { margin-right: 8px; }
+.target-policy-hint { margin-top: 5px; color: var(--text-muted); font-size: .72rem; }
 
 
 /* Keyboard backend visualizer */

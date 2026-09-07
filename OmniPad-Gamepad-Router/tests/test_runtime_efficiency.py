@@ -99,7 +99,7 @@ def test_browser_polling_is_demand_driven():
     assert "waiting for the current room code" in tunnel
     assert "encodeURIComponent(roomCode)" in tunnel
     assert "code=SF6-ROOM" not in tunnel
-    assert "dashboard.js?v=1.4.0" in index
+    assert '/static/js/dashboard.js?v=' in index
 
 
 def test_event_loop_filter_is_exactly_scoped():

@@ -81,8 +81,8 @@ async def test_observer_read_only_containment():
         print("  [PASS] Observer input injection attempt was blocked by server containment.")
 
 
-async def test_authoritative_ownership_and_demotion():
-    test_section("3. Authoritative Slot Ownership & Demotion Handoff")
+async def test_authenticated_browser_peer_collaboration():
+    test_section("3. Authenticated Same-Slot Browser Collaboration")
     uri = f"ws://127.0.0.1:{TEST_PORT}/ws/player"
     slot = slot_manager.slots[1]
 
@@ -97,7 +97,7 @@ async def test_authoritative_ownership_and_demotion():
     }))
     ack1 = json.loads(await ws1.recv())
     assert ack1.get("type") == "joined" and ack1.get("observer") is not True
-    print("  [PASS] Player 1 joined and acquired authoritative slot ownership.")
+    print("  [PASS] Player 1 joined as a controlling browser peer.")
 
     # Player 1 sends input -> accepted
     await ws1.send(json.dumps({
@@ -109,7 +109,7 @@ async def test_authoritative_ownership_and_demotion():
     await asyncio.sleep(0.05)
     assert slot.last_state["buttons"].get("A") is True
 
-    # Player 2 joins slot 1 -> takes over ownership
+    # Player 2 joins the same slot and collaborates instead of replacing Player 1.
     ws2 = await websockets.connect(uri)
     await ws2.send(json.dumps({
         "type": "join",
@@ -121,12 +121,10 @@ async def test_authoritative_ownership_and_demotion():
     ack2 = json.loads(await ws2.recv())
     assert ack2.get("type") == "joined" and ack2.get("observer") is not True
 
-    # Player 1 should receive demoted_to_observer notification
-    demote_msg = json.loads(await ws1.recv())
-    assert demote_msg.get("type") == "demoted_to_observer"
-    print("  [PASS] Player 1 was cleanly demoted to read-only observer when Player 2 attached.")
+    assert len(slot.controller_websockets) == 2
+    print("  [PASS] Player 2 joined without demoting Player 1.")
 
-    # Stale Player 1 sends input -> MUST BE IGNORED
+    # Each peer owns an independent sequence stream and both inputs are fused.
     await ws1.send(json.dumps({
         "type": "input",
         "seq": 2,
@@ -134,7 +132,7 @@ async def test_authoritative_ownership_and_demotion():
         "axes": {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "lt": 0.0, "rt": 0.0}
     }))
     await asyncio.sleep(0.05)
-    assert not slot.last_state["buttons"].get("B"), "Demoted Player 1 input MUST be ignored"
+    assert slot.last_state["buttons"].get("B") is True
 
     # Player 2 sends input -> ACCEPTED
     await ws2.send(json.dumps({
@@ -145,7 +143,8 @@ async def test_authoritative_ownership_and_demotion():
     }))
     await asyncio.sleep(0.05)
     assert slot.last_state["buttons"].get("X") is True
-    print("  [PASS] Authoritative Player 2 successfully controls slot.")
+    assert slot.last_state["buttons"].get("B") is True
+    print("  [PASS] Both browser peers control and fuse safely with per-peer sequence numbers.")
 
     await ws1.close()
     await ws2.close()
@@ -251,7 +250,7 @@ async def main():
     try:
         await test_host_websocket_gate()
         await test_observer_read_only_containment()
-        await test_authoritative_ownership_and_demotion()
+        await test_authenticated_browser_peer_collaboration()
         await test_room_code_and_malformed_input_resilience()
         await test_focus_request_authorization()
         print("\n" + "=" * 70)

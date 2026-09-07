@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>OmniPad — Remote Player 2</title>
   <link rel="stylesheet" href="/static/css/common.css?v=1.4.0">
-  <link rel="stylesheet" href="/static/css/play.css?v=1.5.0">
-  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.5.0">
-  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.5.0">
-  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.5.0">
-  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.5.0">
-  <link rel="stylesheet" href="/static/css/hybrid_controls.css?v=1.5.0">
+  <link rel="stylesheet" href="/static/css/play.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/virtual_keyboard.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/touch_controller.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/touch_controller_layouts.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/input_extensions.css?v=1.6.0">
+  <link rel="stylesheet" href="/static/css/hybrid_controls.css?v=1.6.0">
 </head>
 <body>
 
@@ -69,6 +69,7 @@
                 <option value="keyboard_mouse_camera">Keyboard + Mouse Camera</option>
                 <option value="keyboard_actions">Keyboard + Action Buttons</option>
                 <option value="phone_split">Phone Split Controls</option>
+                <option value="landscape_companion">Landscape WASD + Camera + Actions</option>
                 <option value="full_hybrid">Everything</option>
                 <option value="custom" disabled>Custom visibility</option>
               </select>
@@ -84,6 +85,13 @@
             <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="actions"> Action buttons</label>
             <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="shoulders"> Shoulders</label>
             <label class="hybrid-toggle"><input type="checkbox" data-hybrid-toggle="center"> Menu / center</label>
+          </div>
+          <div class="hybrid-toggle-grid hybrid-keyboard-views" aria-label="Hybrid keyboard view">
+            <strong>Keyboard view:</strong>
+            <label class="hybrid-toggle"><input type="radio" name="hybrid-keyboard-view" data-hybrid-keyboard-view="standard" checked> Scrollable</label>
+            <label class="hybrid-toggle"><input type="radio" name="hybrid-keyboard-view" data-hybrid-keyboard-view="full-fit"> Fit whole keyboard</label>
+            <label class="hybrid-toggle"><input type="radio" name="hybrid-keyboard-view" data-hybrid-keyboard-view="essential"> Mapped keys only</label>
+            <label class="hybrid-toggle"><input type="checkbox" id="sync-hybrid-layout" checked> Match Hybrid setup across this slot</label>
           </div>
         </div>
       </section>
@@ -103,6 +111,7 @@
               <option value="vim_camera">WASD + HJKL Camera</option>
             </select>
             <div class="keyboard-type-hint" id="keyboard-type-hint">Standard PC (WASD + Arrows)</div>
+            <label class="keyboard-sync-toggle"><input type="checkbox" id="sync-keyboard-type" checked> Match physical keyboard type across this slot</label>
           </div>
           <div class="active-keys-bar" id="vk-active-keys-bar" data-hybrid-part="keyboard"><span class="active-keys-label">Held Keys:</span><span id="vk-active-keys-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:.75rem;color:var(--text-muted);">None (Press any key or click below)</span></span></div>
           <div class="vk-chassis" id="vk-chassis" data-hybrid-part="keyboard"></div>
@@ -122,7 +131,7 @@
                 <label class="mouse-direction-toggle"><input type="checkbox" id="mouse-invert-y"> Invert vertical</label>
                 <label class="mouse-direction-toggle"><input type="checkbox" id="mouse-invert-x"> Invert horizontal</label>
                 <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-fullscreen-btn" title="Toggle Fullscreen Camera View">⛶ Fullscreen</button>
-                <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-popout-btn" title="Open Camera Pad in Detached Window">🗗 Pop-Out Window</button>
+                <button type="button" class="btn btn-secondary btn-xs" id="mouse-camera-popout-btn" title="Open Camera Pad in Detached Window">&#8599; Pop-Out Window</button>
               </div>
             </div>
             <div class="mouse-camera-pad" id="mouse-camera-pad" aria-label="Mouse camera right-stick pad">
@@ -179,19 +188,20 @@
   </div>
 
   <script src="/static/js/gamepad_viz.js?v=1.4.0"></script>
-  <script src="/static/js/keyboard_layouts.js?v=1.5.0"></script>
+  <script src="/static/js/keyboard_layouts.js?v=1.6.0"></script>
   <script src="/static/js/gamepad_profiles.js?v=1.4.0"></script>
-  <script src="/static/js/virtual_keyboard.js?v=1.5.0"></script>
-  <script src="/static/js/target_routing.js?v=1.5.0"></script>
-  <script src="/static/js/input_capture.js?v=1.5.0"></script>
-  <script src="/static/js/touch_keyboard_bridge.js?v=1.5.0"></script>
-  <script src="/static/js/keyboard_type_adapter.js?v=1.5.0"></script>
-  <script src="/static/js/device_modes.js?v=1.5.0"></script>
-  <script src="/static/js/play.js?v=1.5.0"></script>
-  <script src="/static/js/low_latency_input.js?v=1.5.0"></script>
-  <script src="/static/js/mouse_camera.js?v=1.5.0"></script>
-  <script src="/static/js/remote_input_monitor.js?v=1.5.0"></script>
-  <script src="/static/js/touch_controller.js?v=1.5.0"></script>
-  <script src="/static/js/hybrid_controls.js?v=1.5.0"></script>
+  <script src="/static/js/virtual_keyboard.js?v=1.6.0"></script>
+  <script src="/static/js/target_routing.js?v=1.6.0"></script>
+  <script src="/static/js/input_capture.js?v=1.6.0"></script>
+  <script src="/static/js/touch_keyboard_bridge.js?v=1.6.0"></script>
+  <script src="/static/js/keyboard_type_adapter.js?v=1.6.0"></script>
+  <script src="/static/js/device_modes.js?v=1.6.0"></script>
+  <script src="/static/js/play.js?v=1.6.0"></script>
+  <script src="/static/js/low_latency_input.js?v=1.6.0"></script>
+  <script src="/static/js/mouse_camera.js?v=1.6.0"></script>
+  <script src="/static/js/remote_input_monitor.js?v=1.6.0"></script>
+  <script src="/static/js/touch_controller.js?v=1.6.0"></script>
+  <script src="/static/js/hybrid_controls.js?v=1.6.0"></script>
+  <script src="/static/js/shared_controller_state.js?v=1.6.0"></script>
 </body>
 </html>

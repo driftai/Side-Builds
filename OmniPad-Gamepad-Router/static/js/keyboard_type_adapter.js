@@ -147,7 +147,7 @@
     smoothLx = smoothLy = smoothRx = smoothRy = 0;
   }
 
-  function setKeyboardType(type) {
+  function setKeyboardType(type, options = {}) {
     if (!TYPES[type]) type = "standard";
     if (type !== window.currentKeyboardType) window.releaseAllKeys?.();
     resetKeyboardAnalogState();
@@ -157,6 +157,9 @@
     if (hint) hint.textContent = TYPES[type].label;
     window.renderVirtualKeyboard?.(window.currentKeyboardLayout || "xbox_controller");
     window.transmitCurrentInputState?.();
+    if (options.broadcast !== false) {
+      window.dispatchEvent(new CustomEvent("omnipad:shared-config-change", { detail: { patch: { keyboard_type: type } } }));
+    }
   }
 
   function sourceKeySets() {
@@ -188,6 +191,25 @@
       if (action) resolved.buttons[action] = true;
     }
     return resolved;
+  }
+
+  function codesForControllerState(buttons = {}, axes = {}) {
+    const spec = TYPES[window.currentKeyboardType] || TYPES.standard;
+    const codes = new Set();
+    const pick = (mapping, action) => {
+      const entry = Object.entries(mapping || {}).find(([, value]) => value === action);
+      if (entry) codes.add(entry[0]);
+    };
+    if (Number(axes.lx || 0) < -0.12) codes.add(spec.move.left);
+    if (Number(axes.lx || 0) > 0.12) codes.add(spec.move.right);
+    if (Number(axes.ly || 0) > 0.12) codes.add(spec.move.up);
+    if (Number(axes.ly || 0) < -0.12) codes.add(spec.move.down);
+    if (Number(axes.rx || 0) < -0.12) codes.add(spec.camera.left);
+    if (Number(axes.rx || 0) > 0.12) codes.add(spec.camera.right);
+    if (Number(axes.ry || 0) > 0.12) codes.add(spec.camera.up);
+    if (Number(axes.ry || 0) < -0.12) codes.add(spec.camera.down);
+    for (const [action, pressed] of Object.entries(buttons || {})) if (pressed) pick(spec.buttons, action);
+    return Array.from(codes).filter(Boolean);
   }
 
   function approach(current, target) {
@@ -259,5 +281,6 @@
   window.getActiveControllerBadges = getActiveControllerBadges;
   window.setKeyboardType = setKeyboardType;
   window.resetKeyboardAnalogState = resetKeyboardAnalogState;
+  window.getCodesForControllerState = codesForControllerState;
   window.OmniPadKeyboardSemantics = { TYPES, FIXED_LAYOUTS, resolve, approach };
 })();

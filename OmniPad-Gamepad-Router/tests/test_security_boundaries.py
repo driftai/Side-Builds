@@ -83,7 +83,9 @@ def run_endpoint_matrix_tests():
     assert st_tc_cf == 403
     st_tg_cf, _, _ = make_http_request("POST", "/api/target/gate", cf_host, {"enabled": True})
     assert st_tg_cf == 403
-    print("  [PASS] POST /api/target/*: 403 Cloudflare on select/clear/gate (Protected)")
+    st_rf_cf, _, _ = make_http_request("POST", "/api/target/remote-focus", cf_host, {"enabled": True})
+    assert st_rf_cf == 403
+    print("  [PASS] POST /api/target/*: 403 Cloudflare on select/clear/gate/focus-policy (Protected)")
 
     # 4. Background Keyboard Helper APIs
     st_bh_stat_cf, _, _ = make_http_request("GET", "/api/background-capture/status", cf_host)

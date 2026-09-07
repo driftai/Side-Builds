@@ -25,7 +25,7 @@ def test_hybrid_dom_and_module_contract() -> None:
     assert 'data-mode="hybrid"' in html and 'id="section-hybrid"' in html
     assert "hybrid_controls.js?v=" in html and "hybrid_controls.css?v=" in html
     assert "touch_keyboard_bridge.js?v=" in html
-    for preset in ("keyboard_touch_camera", "keyboard_mouse_camera", "keyboard_actions", "phone_split", "full_hybrid"):
+    for preset in ("keyboard_touch_camera", "keyboard_mouse_camera", "keyboard_actions", "phone_split", "landscape_companion", "full_hybrid"):
         assert f'value="{preset}"' in html and f"{preset}:" in script
     for part in ("keyboard", "mouse", "left-stick", "right-stick", "dpad", "actions", "shoulders", "center"):
         assert f'data-hybrid-toggle="{part}"' in html
@@ -37,6 +37,8 @@ def test_hybrid_dom_and_module_contract() -> None:
     assert "captureTouchKeyboardFallbackCodes" in bridge
     assert 'A: "KeyJ"' in bridge and '"ArrowLeft", "ArrowRight"' in bridge
     assert 'touchLayout: "camera_actions"' in script
+    assert 'id="sync-hybrid-layout"' in html and 'data-hybrid-keyboard-view="essential"' in html
+    assert "shared_controller_state.js?v=" in html
 
 
 def test_hybrid_packet_is_not_double_mapped() -> None:
@@ -91,6 +93,7 @@ def test_camera_and_phone_contracts() -> None:
     assert 'id="mouse-invert-y"' in html and 'id="mouse-invert-x"' in html
     assert "omnipad.mouseInvertY" in mouse and "omnipad.mouseInvertX" in mouse
     assert "directedX" in mouse and "directedY" in mouse
+    assert "Math.min(rect.width, rect.height) / 2" in mouse
     assert '["keyboard", "hybrid"]' in mouse
     for preset, class_name in (("phone_reach", "touch-layout-phone-reach"), ("camera_actions", "touch-layout-camera-actions")):
         assert f"{preset}:" in touch
@@ -108,12 +111,31 @@ def test_remote_focus_is_narrow_and_best_effort() -> None:
     assert 'id="focus-target-btn"' in html
     assert '{ type: "focus_target" }' in client
     assert 'mtype == "focus_target"' in server
-    assert "slot.websocket is not websocket" in server
+    assert "slot_manager.is_controller_peer" in server
+    assert "host_approval_required" in server
     assert "last_focus_request_at < 0.75" in server
     assert "def focus_selected" in targeting
     assert "SetForegroundWindow" in targeting and "SW_RESTORE" in targeting
     assert "AttachThreadInput" not in targeting
     assert "synthetic Alt input" in targeting
+
+
+def test_same_slot_shared_config_is_bounded() -> None:
+    from router.player_sync import sanitize_shared_config
+
+    config = sanitize_shared_config({
+        "mouse_sensitivity": 500,
+        "mouse_invert_y": True,
+        "touch_layout": "phone_reach",
+        "keyboard_type": "compact65",
+        "hybrid_preset": "landscape_companion",
+        "hybrid_parts": ["keyboard", "right-stick", "unknown"],
+        "hybrid_keyboard_view": "essential",
+        "untrusted": "discard-me",
+    })
+    assert config["mouse_sensitivity"] == 200
+    assert config["hybrid_parts"] == ["keyboard", "right-stick"]
+    assert "untrusted" not in config
 
 
 def test_keyboard_backends_merge_touch_fallback_without_controller_remap() -> None:
@@ -141,6 +163,7 @@ def main() -> None:
     test_camera_and_phone_contracts()
     test_remote_focus_is_narrow_and_best_effort()
     test_keyboard_backends_merge_touch_fallback_without_controller_remap()
+    test_same_slot_shared_config_is_bounded()
     print("Hybrid controls passed: shared input, safe focus, labels, camera preferences, and mobile presets.")
 
 

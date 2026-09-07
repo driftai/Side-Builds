@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
 from router.security import (
     is_local_client_host,
     is_public_tunnel_request,
+    is_public_tunnel_websocket,
     is_local_request,
     public_target_status,
 )
@@ -24,6 +25,7 @@ def request(host: str, client: str):
 def test_public_tunnel_detection():
     assert is_public_tunnel_request(request("example.trycloudflare.com", "203.0.113.10"))
     assert not is_public_tunnel_request(request("192.168.1.209:8000", "192.168.1.42"))
+    assert is_public_tunnel_websocket(request("example.trycloudflare.com", "203.0.113.10"))
 
 
 def test_local_client_detection():
@@ -44,6 +46,7 @@ def test_remote_target_status_is_redacted():
         "target_running": True,
         "selection_mode": "target-process",
         "platform_windows": True,
+        "remote_focus_enabled": False,
     }
     safe = public_target_status(status)
     assert safe == {
@@ -52,6 +55,7 @@ def test_remote_target_status_is_redacted():
         "target_running": True,
         "selection_mode": "target-process",
         "platform_windows": True,
+        "remote_focus_enabled": False,
     }
     assert "pid" not in safe
     assert "exe_path" not in safe

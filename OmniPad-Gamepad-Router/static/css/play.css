@@ -301,3 +301,13 @@
   .target-scope-actions { width: 100%; justify-content: center; }
   .target-scope-hint { text-align: center; }
 }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .play-container { max-width: none; padding: 4px; gap: 4px; }
+  .play-header, .target-scope-bar, .background-input-controls-bar { display: none !important; }
+  .controller-arena { padding: 4px; gap: 5px; }
+  .device-tabs-wrap { gap: 3px; }
+  .mode-tabs { padding: 2px; gap: 3px; }
+  .mode-tab { min-height: 34px; padding: 4px 8px; font-size: .72rem; }
+  .arena-section { gap: 5px; }
+}

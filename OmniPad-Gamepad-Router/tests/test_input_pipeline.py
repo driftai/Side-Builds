@@ -141,6 +141,19 @@ def test_touch_keyboard_fallback_stays_separate_from_controller_mapping():
     assert state["axes"]["rx"] == -0.6
 
 
+def test_mixed_peer_keyboard_axis_is_not_redeadzoned():
+    keyboard = {
+        "input_surface": "keyboard", "mapping_profile": "universal",
+        "buttons": {}, "axes": {"lx": 0.05}, "key_codes": ["KeyD"],
+    }
+    touch = {
+        "input_surface": "touch", "mapping_profile": "universal",
+        "buttons": {}, "axes": {}, "key_codes": [],
+    }
+    state = normalize({"keyboard": keyboard, "touch": touch}, touch)
+    assert state["axes"]["lx"] == 0.05
+
+
 def test_surface_deadzone_and_socd_contracts():
     touch = {
         "input_surface": "touch",
@@ -180,6 +193,7 @@ def main():
         test_background_native_does_not_remap_keys,
         test_multi_client_fusion,
         test_touch_keyboard_fallback_stays_separate_from_controller_mapping,
+        test_mixed_peer_keyboard_axis_is_not_redeadzoned,
         test_surface_deadzone_and_socd_contracts,
     )
     for test in tests:

@@ -3,6 +3,7 @@
  */
 
 let currentKeyboardLayout = "xbox_controller";
+try { currentKeyboardLayout = localStorage.getItem("omnipad.controlLabels") || currentKeyboardLayout; } catch (_) {}
 
 const activeKeys = new Set();
 const srcHolds = new Map();     // sourceId -> Set<keyCode>
@@ -148,11 +149,12 @@ function renderVirtualKeyboard(layoutName) {
       }
 
       const badgeInfo = badgeMap[keyDef.code];
-      const badgeText = badgeInfo ? badgeInfo.badge : (keyDef.badge || "");
+      const badgeText = badgeInfo ? badgeInfo.badge : "";
       const highlightClass = badgeInfo ? badgeInfo.highlight : "";
+      const structuralClasses = String(keyDef.class || "").split(/\s+/).filter(name => name && !name.startsWith("vk-highlight-"));
 
       const keyEl = document.createElement("div");
-      keyEl.className = `vk-key ${keyDef.class || ""} ${highlightClass}`.trim();
+      keyEl.className = ["vk-key", ...structuralClasses, highlightClass, badgeInfo ? "vk-essential-key" : ""].filter(Boolean).join(" ");
       keyEl.dataset.code = keyDef.code;
       keyEl.innerHTML = `
         <span>${keyDef.label}</span>
@@ -186,6 +188,7 @@ function renderVirtualKeyboard(layoutName) {
       rowEl.appendChild(keyEl);
     });
 
+    rowEl.classList.toggle("vk-row-no-essential", !rowEl.querySelector(".vk-essential-key"));
     chassis.appendChild(rowEl);
   });
 

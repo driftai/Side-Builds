@@ -375,3 +375,22 @@
   .touch-trigger { min-height: 44px; }
   .touch-center-pad { min-height: 62px; }
 }
+
+/* Phone controls use Phone Reach as the maximum size across every preset. */
+@media (max-width: 768px) {
+  .touch-layout-toolbar { min-width: 0; overflow: hidden; }
+  .touch-toolbar-title-group { width: 100%; min-width: 0; }
+  .touch-preset-pills { width: 100%; max-width: 100%; overflow-x: auto; }
+  .touch-stick { width: min(29vw, 104px) !important; }
+  .touch-action-cluster {
+    grid-template-columns: repeat(2, 44px) !important;
+    justify-content: center;
+  }
+  .touch-action-btn { width: 44px; min-height: 44px !important; }
+  .touch-dpad-controller {
+    grid-template-columns: repeat(3, 38px) !important;
+    grid-template-rows: repeat(3, 38px) !important;
+  }
+  .touch-dpad-controller .touch-controller-btn { width: 38px !important; height: 38px !important; }
+  .touch-shoulder-btn, .touch-trigger { min-height: 40px !important; }
+}

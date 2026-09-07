@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OmniPad — Remote Gamepad Router</title>
   <link rel="stylesheet" href="/static/css/common.css?v=1.4.0">
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=1.4.0">
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=1.6.0">
 </head>
 <body>
 
@@ -95,6 +95,8 @@
         <button class="btn btn-primary btn-sm" id="target-attach-btn">Attach</button>
       </div>
       <label class="target-gate"><input type="checkbox" id="target-gate-checkbox" checked> Only route remote input while this target is foreground</label>
+      <label class="target-gate"><input type="checkbox" id="remote-focus-checkbox"> Allow Cloudflare players to request Focus Game</label>
+      <p class="target-policy-hint" id="remote-focus-status">Off by default. LAN players can request focus; Windows may still require one local click.</p>
     </section>
 
     <!-- Slot Cards Grid -->
@@ -120,9 +122,9 @@
   <!-- Scripts -->
   <script src="/static/js/qrcode.min.js?v=1.4.0"></script>
   <script src="/static/js/gamepad_viz.js?v=1.4.0"></script>
-  <script src="/static/js/dashboard_targets.js?v=1.4.0"></script>
+  <script src="/static/js/dashboard_targets.js?v=1.6.0"></script>
   <script src="/static/js/dashboard_tunnel.js?v=1.4.0"></script>
   <script src="/static/js/dashboard_slots.js?v=1.4.0"></script>
-  <script src="/static/js/dashboard.js?v=1.4.0"></script>
+  <script src="/static/js/dashboard.js?v=1.6.0"></script>
 </body>
 </html>

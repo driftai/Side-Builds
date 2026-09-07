@@ -36,6 +36,8 @@ def test_control_surface_contract():
     assert "Start-RuntimeViewer" in manager_contract
     assert "-WindowStyle Normal" in manager_contract
     assert "Cloudflare tunnel is already stopped; no managed router is running." in manager
+    assert "Existing LAN router upgraded to Cloudflare + LAN mode." in manager
+    assert "Invoke-ControlApi $existing 'POST' '/api/tunnel/start'" in manager
     assert "Write-Error" not in manager_contract
     assert "[V] Open/reopen live router runtime console" in control
     assert "Managed launcher PID" in viewer

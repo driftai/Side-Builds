@@ -4,7 +4,7 @@ Player Slot Data Structure & State Serialization.
 
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Set
 from fastapi import WebSocket
 
 from .controller import BaseController
@@ -19,6 +19,8 @@ class PlayerSlot:
     controller: Optional[BaseController] = None
     friend_name: Optional[str] = None
     websocket: Optional[WebSocket] = None
+    controller_websockets: Set[WebSocket] = field(default_factory=set)
+    controller_names: Dict[WebSocket, str] = field(default_factory=dict)
     connected_at: float = 0.0
     last_seen: float = 0.0
     last_seq: int = -1
@@ -37,6 +39,8 @@ class PlayerSlot:
     })
     client_packets: Dict[Any, Dict[str, Any]] = field(default_factory=dict)
     client_last_seen: Dict[Any, float] = field(default_factory=dict)
+    client_last_seq: Dict[Any, int] = field(default_factory=dict)
+    shared_config: Dict[str, Any] = field(default_factory=dict)
 
     def get_public_state(self) -> Dict[str, Any]:
         now = time.time()
@@ -48,6 +52,7 @@ class PlayerSlot:
             "backend_name": getattr(self.controller, "display_name", "None") if self.controller else "None",
             "connected": self.friend_name is not None,
             "friend_name": self.friend_name,
+            "peer_count": len(self.controller_websockets),
             "is_alive": is_alive,
             "latency_ms": round(self.latency_ms, 1) if self.latency_ms is not None else None,
             "jitter_ms": round(self.jitter_ms, 1) if self.jitter_ms is not None else None,

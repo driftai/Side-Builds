@@ -152,7 +152,11 @@ async def get_server_status(request: Request):
         "primary_lan_url": lan_urls[0] if lan_urls else None,
         "all_lan_urls": lan_urls,
         "tunnel": _tunnel_manager.get_info() if _tunnel_manager else {},
-        "target": {**target_manager.get_status(), "gate_enabled": config.target_gate_enabled},
+        "target": {
+            **target_manager.get_status(),
+            "gate_enabled": config.target_gate_enabled,
+            "remote_focus_enabled": config.remote_focus_enabled,
+        },
         "summary": _slot_manager.get_summary() if _slot_manager else {},
     }
 
@@ -232,12 +236,13 @@ async def kick_slot_player(slot_id: int, request: Request):
     if not _slot_manager:
         raise HTTPException(status_code=503, detail="SlotManager not initialized.")
     slot = _slot_manager.slots.get(slot_id)
-    if slot and slot.websocket:
-        try:
-            await slot.websocket.send_json({"type": "kicked", "reason": "Host disconnected slot."})
-            await slot.websocket.close()
-        except Exception:
-            pass
+    if slot:
+        for peer in list(slot.controller_websockets):
+            try:
+                await peer.send_json({"type": "kicked", "reason": "Host disconnected slot."})
+                await peer.close()
+            except Exception:
+                pass
     await _slot_manager.detach_player(slot_id)
     return {"ok": True, "slot_id": slot_id}
 
@@ -331,7 +336,7 @@ async def clear_target(request: Request):
 
 @router.get("/api/target/status")
 async def target_status(request: Request):
-    status = target_manager.get_status()
+    status = {**target_manager.get_status(), "remote_focus_enabled": config.remote_focus_enabled}
     if is_public_tunnel_request(request):
         return public_target_status(status)
     return status
@@ -346,6 +351,18 @@ async def set_target_gate(req: TargetGateRequest, request: Request):
     require_local_request(request)
     config.target_gate_enabled = bool(req.enabled)
     return {"ok": True, "enabled": config.target_gate_enabled}
+
+
+class RemoteFocusRequest(BaseModel):
+    enabled: bool
+
+
+@router.post("/api/target/remote-focus")
+async def set_remote_focus(req: RemoteFocusRequest, request: Request):
+    """Host opt-in for public-tunnel requests to focus the selected game."""
+    require_host_request(request)
+    config.remote_focus_enabled = bool(req.enabled)
+    return {"ok": True, "enabled": config.remote_focus_enabled}
 
 
 @router.get("/api/profiles")

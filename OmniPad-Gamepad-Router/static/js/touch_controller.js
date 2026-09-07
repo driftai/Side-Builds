@@ -55,7 +55,7 @@
     }
   }
 
-  function applyLayout(name) {
+  function applyLayout(name, options = {}) {
     const shell = document.getElementById("touch-controller-shell");
     const picker = document.getElementById("touch-layout-select");
     const description = document.getElementById("touch-layout-description");
@@ -74,6 +74,9 @@
     });
 
     try { localStorage.setItem("omnipad.touchLayout", resolvedName); } catch (_) {}
+    if (options.broadcast !== false) {
+      window.dispatchEvent(new CustomEvent("omnipad:shared-config-change", { detail: { patch: { touch_layout: resolvedName } } }));
+    }
   }
 
   function installLayoutPicker() {

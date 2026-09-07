@@ -23,6 +23,12 @@ def is_public_tunnel_request(request: Request) -> bool:
     return host.endswith(PUBLIC_TUNNEL_SUFFIX) or host == PUBLIC_TUNNEL_SUFFIX.lstrip(".")
 
 
+def is_public_tunnel_websocket(websocket: WebSocket) -> bool:
+    """WebSocket equivalent of :func:`is_public_tunnel_request`."""
+    host = _host_header(websocket.headers)
+    return host.endswith(PUBLIC_TUNNEL_SUFFIX) or host == PUBLIC_TUNNEL_SUFFIX.lstrip(".")
+
+
 _PRIVATE_NETWORKS = (
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
@@ -91,4 +97,5 @@ def public_target_status(target_status: dict) -> dict:
         "target_running": target_status.get("target_running"),
         "selection_mode": target_status.get("selection_mode"),
         "platform_windows": target_status.get("platform_windows"),
+        "remote_focus_enabled": bool(target_status.get("remote_focus_enabled")),
     }

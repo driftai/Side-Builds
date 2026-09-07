@@ -31,10 +31,16 @@
     return mouseSensitivity / 100;
   }
 
-  function setSensitivity(value) {
+  function notifyShared(patch, options) {
+    if (options?.broadcast === false) return;
+    window.dispatchEvent(new CustomEvent("omnipad:shared-config-change", { detail: { patch } }));
+  }
+
+  function setSensitivity(value, options = {}) {
     mouseSensitivity = Math.max(1, Math.min(200, parseInt(value, 10) || 20));
     try { localStorage.setItem("omnipad.mouseSensitivity", mouseSensitivity); } catch (_) {}
     updateSensitivityUI();
+    notifyShared({ mouse_sensitivity: mouseSensitivity }, options);
   }
 
   function updateSensitivityUI() {
@@ -48,7 +54,7 @@
     if (invertYInput) invertYInput.checked = invertY;
   }
 
-  function setDirections(nextInvertX, nextInvertY) {
+  function setDirections(nextInvertX, nextInvertY, options = {}) {
     reset(true);
     invertX = Boolean(nextInvertX);
     invertY = Boolean(nextInvertY);
@@ -57,6 +63,7 @@
       localStorage.setItem("omnipad.mouseInvertY", invertY ? "1" : "0");
     } catch (_) {}
     updateSensitivityUI();
+    notifyShared({ mouse_invert_x: invertX, mouse_invert_y: invertY }, options);
   }
 
   function transmitMouseNow() {
@@ -80,6 +87,20 @@
       const element = document.getElementById(id);
       if (element) { element.style.left = left; element.style.top = top; }
     }
+  }
+
+  function renderRemoteState(rx, ry) {
+    if (state.active || state.locked || activePointerId !== null) return;
+    const safeRx = Math.max(-1, Math.min(1, Number(rx) || 0));
+    const safeRy = Math.max(-1, Math.min(1, Number(ry) || 0));
+    const pad = document.getElementById("mouse-camera-pad");
+    const left = `${((safeRx + 1) / 2) * 100}%`;
+    const top = `${((-safeRy + 1) / 2) * 100}%`;
+    for (const id of ["mouse-camera-center", "mouse-camera-puck"]) {
+      const element = document.getElementById(id);
+      if (element) { element.style.left = left; element.style.top = top; }
+    }
+    pad?.classList.toggle("remote-active", Math.hypot(safeRx, safeRy) > 0.04);
   }
 
   function updateLabel(text) {
@@ -155,10 +176,14 @@
     const rect = pad.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
-    const x = Math.max(rect.left, Math.min(rect.right, event.clientX));
-    const y = Math.max(rect.top, Math.min(rect.bottom, event.clientY));
-    const normalizedX = ((x - rect.left) / rect.width) * 2 - 1;
-    const normalizedY = ((y - rect.top) / rect.height) * 2 - 1;
+    const radius = Math.max(1, Math.min(rect.width, rect.height) / 2);
+    let normalizedX = (event.clientX - (rect.left + rect.width / 2)) / radius;
+    let normalizedY = (event.clientY - (rect.top + rect.height / 2)) / radius;
+    const magnitude = Math.hypot(normalizedX, normalizedY);
+    if (magnitude > 1) {
+      normalizedX /= magnitude;
+      normalizedY /= magnitude;
+    }
     if (!centerArmed) {
       if (Math.hypot(normalizedX, normalizedY) > 0.28) {
         updateLabel("🎯 DRAG THROUGH CENTER TO ARM AIMING");
@@ -300,6 +325,7 @@ const pad=document.getElementById('pad'),dot=document.getElementById('dot'),labe
   window.openMouseCameraPopout = openPopoutWindow;
   window.setMouseSensitivity = setSensitivity;
   window.resetMouseCameraState = reset;
+  window.renderRemoteMouseCameraState = renderRemoteState;
   window.OmniPadMouseCameraPreferences = {
     get: () => ({ sensitivity: mouseSensitivity, invertX, invertY }),
     setDirections,

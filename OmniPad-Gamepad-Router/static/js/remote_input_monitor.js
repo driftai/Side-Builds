@@ -157,6 +157,7 @@
     }
     lastKeySet.clear();
     renderRemoteTouchState({}, {});
+    window.renderRemoteMouseCameraState?.(0, 0);
     if (typeof localVisualizer !== "undefined" && localVisualizer) {
       localVisualizer.update({ buttons: {}, axes: {} });
     }
@@ -164,9 +165,10 @@
 
   function renderRemoteState(state) {
     state = state || {};
-    const keyCodes = Array.isArray(state.key_codes) ? state.key_codes.map(String) : [];
+    const rawKeyCodes = Array.isArray(state.key_codes) ? state.key_codes.map(String) : [];
     const buttons = state.buttons && typeof state.buttons === "object" ? state.buttons : {};
     const axes = state.axes && typeof state.axes === "object" ? state.axes : {};
+    const keyCodes = Array.from(new Set([...rawKeyCodes, ...(window.getCodesForControllerState?.(buttons, axes) || [])]));
     const pressedButtons = Object.entries(buttons).filter(([, value]) => !!value).map(([name]) => name);
 
     // Diff active keys smoothly without blanket DOM clearing
@@ -189,6 +191,7 @@
 
     // Update Touchscreen Controller mirroring
     renderRemoteTouchState(buttons, axes);
+    window.renderRemoteMouseCameraState?.(Number(axes.rx || 0), Number(axes.ry || 0));
 
     // Update Gamepad visualizer with correct object structure
     if (typeof localVisualizer !== "undefined" && localVisualizer) {
@@ -226,6 +229,7 @@
         const msg = JSON.parse(event.data);
         if (msg.type === "joined" || msg.type === "join_ack") {
           observerConnected = true;
+          window.OmniPadSharedControllerState?.apply?.(msg.shared_config || {});
           if (msg.current_state && (Object.keys(msg.current_state.buttons || {}).length > 0 || (msg.current_state.key_codes && msg.current_state.key_codes.length > 0))) {
             renderRemoteState(msg.current_state);
           } else {
@@ -233,6 +237,8 @@
           }
         } else if (msg.type === "input_state") {
           renderRemoteState(msg.state || {});
+        } else if (msg.type === "shared_config") {
+          window.OmniPadSharedControllerState?.apply?.(msg.config || {}, msg);
         }
       } catch (err) {
         console.debug("Remote input monitor message error", err);

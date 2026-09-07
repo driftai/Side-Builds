@@ -26,7 +26,8 @@ from router.background_helper import (
     background_helper_running,
     shutdown_background_helper as _shutdown_background_helper,
 )
-from router.security import is_local_client_host
+from router.player_sync import sanitize_shared_config
+from router.security import is_local_client_host, is_public_tunnel_websocket
 from router.targeting import target_manager
 
 logging.basicConfig(
@@ -71,6 +72,17 @@ async def _broadcast_player_input_state(slot_id: int, state: Dict[str, Any]) -> 
     payload = {"type": "input_state", "slot_id": slot_id, "state": state or {}, "server_time": time.time()}
     stale = []
     for observer in observers:
+        try:
+            await observer.send_json(payload)
+        except Exception:
+            stale.append(observer)
+    for observer in stale:
+        await _unregister_player_observer(slot_id, observer)
+
+
+async def _broadcast_slot_message(slot_id: int, payload: Dict[str, Any]) -> None:
+    stale = []
+    for observer in list(_player_observers.get(slot_id, set())):
         try:
             await observer.send_json(payload)
         except Exception:
@@ -183,6 +195,7 @@ async def player_websocket_endpoint(websocket: WebSocket):
                         "socd_mode": slot.socd_mode.value, "deadzone": slot.deadzone,
                         "vigem_available": VIGEM_AVAILABLE, "observer": True,
                         "current_state": slot.last_state,
+                        "shared_config": slot.shared_config,
                     })
                     continue
                 helper_active = background_helper_running()
@@ -195,16 +208,18 @@ async def player_websocket_endpoint(websocket: WebSocket):
                         "socd_mode": slot.socd_mode.value, "deadzone": slot.deadzone,
                         "vigem_available": VIGEM_AVAILABLE, "background_helper_active": True,
                         "observer": True, "current_state": slot.last_state,
+                        "shared_config": slot.shared_config,
                     })
                     continue
-                old_ws = slot.websocket
-                if old_ws is not None and old_ws is not websocket:
-                    await _register_player_observer(slot_id, old_ws)
-                    try:
-                        await old_ws.send_json({"type": "demoted_to_observer", "observer": True, "current_state": slot.last_state})
-                    except Exception:
-                        pass
-                attached = await slot_manager.attach_player(slot_id, friend_name, websocket)
+                exclusive = source == "background_keyboard_helper"
+                if exclusive:
+                    for old_ws in list(slot.controller_websockets):
+                        await _register_player_observer(slot_id, old_ws)
+                        try:
+                            await old_ws.send_json({"type": "demoted_to_observer", "observer": True, "current_state": slot.last_state})
+                        except Exception:
+                            pass
+                attached = await slot_manager.attach_player(slot_id, friend_name, websocket, exclusive=exclusive)
                 if attached:
                     attached_slot = slot_id
                     slot = slot_manager.slots[slot_id]
@@ -213,21 +228,41 @@ async def player_websocket_endpoint(websocket: WebSocket):
                         "title": slot.display_title, "backend": slot.controller_type,
                         "socd_mode": slot.socd_mode.value, "deadzone": slot.deadzone,
                         "vigem_available": VIGEM_AVAILABLE,
+                        "shared_config": slot.shared_config,
                     })
                 else:
                     await websocket.send_json({"type": "error", "error": "Failed to attach to slot.", "message": "Failed to attach to slot."})
             elif mtype == "input":
-                # Observers are read-only. Only the authoritative owner can emit input.
+                # Explicit observers are read-only; authenticated browser peers collaborate.
                 if attached_slot is None:
                     continue
                 slot = slot_manager.slots.get(attached_slot)
-                if slot is not None and slot.websocket is websocket:
+                if slot is not None and slot_manager.is_controller_peer(attached_slot, websocket):
                     await slot_manager.process_input_packet(attached_slot, msg, client_id=websocket)
                     await _broadcast_player_input_state(attached_slot, slot.last_state)
+            elif mtype == "shared_config":
+                slot = slot_manager.slots.get(attached_slot) if attached_slot is not None else None
+                if slot is None or not slot_manager.is_controller_peer(attached_slot, websocket):
+                    continue
+                patch = sanitize_shared_config(msg.get("patch"))
+                if patch:
+                    slot.shared_config.update(patch)
+                    await _broadcast_slot_message(attached_slot, {
+                        "type": "shared_config", "slot_id": attached_slot,
+                        "config": slot.shared_config,
+                        "source_id": str(msg.get("source_id") or "")[:80],
+                    })
             elif mtype == "focus_target":
                 slot = slot_manager.slots.get(attached_slot) if attached_slot is not None else None
-                if slot is None or slot.websocket is not websocket:
+                if slot is None or not slot_manager.is_controller_peer(attached_slot, websocket):
                     await websocket.send_json({"type": "focus_result", "ok": False, "reason": "not_controller"})
+                    continue
+                if is_public_tunnel_websocket(websocket) and not config.remote_focus_enabled:
+                    await slot_manager.broadcast_host_event({
+                        "type": "focus_request", "slot_id": attached_slot,
+                        "name": friend_name,
+                    })
+                    await websocket.send_json({"type": "focus_result", "ok": False, "reason": "host_approval_required"})
                     continue
                 now = time.monotonic()
                 if now - last_focus_request_at < 0.75:
