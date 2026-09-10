@@ -122,12 +122,65 @@ Write-Host "[Setup] Installing official Windows FreeToken engine into .venvs\fre
     $RuntimeWheel $KernelWheel
 if ($LASTEXITCODE -ne 0) { throw "FreeToken engine install failed." }
 
+# The official Windows wheel currently needs the same narrowly scoped Qwen3-MoE
+# block-FP8 adapter correction that is already approved for the pinned Linux
+# source runtime. Apply only hash-pinned compatibility patches declared by the
+# Windows runtime manifest. The applier is strict, atomic across all target files,
+# and uses Python stdlib only, so native-Windows setup does not gain a Git/compiler
+# dependency. If the pinned wheel ever changes incompatibly, setup fails closed.
+$AppliedCompatibilityPatches = @()
+$PatchApplier = Join-Path $Root "scripts\apply-windows-freetoken-patch.py"
+$SitePackages = Join-Path $FtVenv "Lib\site-packages"
+if ($Config.freetoken.compatibility_patches) {
+    if (-not (Test-Path -LiteralPath $PatchApplier)) {
+        throw "Windows FreeToken compatibility patch applier is missing: $PatchApplier"
+    }
+    foreach ($Patch in @($Config.freetoken.compatibility_patches)) {
+        if ([string]$Patch.scope -ne "python/freetoken/models/qwen3_moe/") {
+            throw "Unsupported Windows FreeToken patch scope for $($Patch.id): $($Patch.scope)"
+        }
+        $PatchPath = Join-Path $Root ([string]$Patch.file)
+        if (-not (Test-Path -LiteralPath $PatchPath)) {
+            throw "Required Windows FreeToken compatibility patch is missing: $PatchPath"
+        }
+        Assert-Hash $PatchPath ([string]$Patch.sha256)
+        Write-Host "[Setup] Applying verified FreeToken compatibility patch: $($Patch.id)"
+        & $FtPython $PatchApplier `
+            --site-packages $SitePackages `
+            --patch $PatchPath `
+            --expected-sha256 ([string]$Patch.sha256)
+        if ($LASTEXITCODE -ne 0) {
+            throw "FreeToken compatibility patch failed: $($Patch.id)"
+        }
+        $AppliedCompatibilityPatches += "$($Patch.id):$($Patch.sha256)"
+    }
+
+    & $FtPython -c "from freetoken.models.qwen3_moe import setup_offload_expert_banks; from freetoken.models.qwen3_moe.config import _fp8_block_quant"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Patched Qwen3-MoE compatibility symbols failed to import."
+    }
+}
+
 $FtExe = Join-Path $FtVenv "Scripts\ft.exe"
 if (-not (Test-Path $FtExe)) { throw "Project-local ft.exe is missing after install." }
 & $FtExe --help | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Project-local ft.exe self-check failed." }
 
-$Provenance = [ordered]@{ schema_version = 1; installed_at = [DateTimeOffset]::UtcNow.ToString("o"); tool_root = $Root; uv_version = $Config.uv.version; uv_sha256 = $Config.uv.sha256; python_version = $Config.python_version; freetoken_version = $Config.freetoken.version; freetoken_wheel_sha256 = $Config.freetoken.wheel_sha256; kernel_cache_sha256 = $Config.freetoken.kernel_cache_sha256; venv = $FtVenv; self_contained = $true; python_registry_disabled = $true }
+$Provenance = [ordered]@{
+    schema_version = 1
+    installed_at = [DateTimeOffset]::UtcNow.ToString("o")
+    tool_root = $Root
+    uv_version = $Config.uv.version
+    uv_sha256 = $Config.uv.sha256
+    python_version = $Config.python_version
+    freetoken_version = $Config.freetoken.version
+    freetoken_wheel_sha256 = $Config.freetoken.wheel_sha256
+    kernel_cache_sha256 = $Config.freetoken.kernel_cache_sha256
+    compatibility_patches = @($AppliedCompatibilityPatches)
+    venv = $FtVenv
+    self_contained = $true
+    python_registry_disabled = $true
+}
 $Provenance | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $Root "state\windows-setup.json")
 Write-Host ""
 Write-Host "[Setup] READY"
@@ -135,4 +188,7 @@ Write-Host "  Harness Python: $HarnessVenv"
 Write-Host "  FreeToken:      $FtVenv"
 Write-Host "  Models:         $(Join-Path $Root 'models')"
 Write-Host "  Caches:         $(Join-Path $Root '.cache')"
+if ($AppliedCompatibilityPatches.Count -gt 0) {
+    Write-Host "  Compatibility:  $($AppliedCompatibilityPatches.Count) verified patch(es) applied"
+}
 Write-Host "  No FreeToken Desktop/AppData/global-Python registration was used."
