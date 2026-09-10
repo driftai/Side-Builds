@@ -7,6 +7,7 @@ This document defines the final gate before copying Local MoE Harness into the p
 - clean checkout can set itself up without pre-existing runtime/model/environment state;
 - Linux/WSL preserves the exact validated FreeToken 8-patch contract;
 - native Windows works without WSL using only project-local environments/runtime state;
+- native Windows applies only hash-pinned, project-approved FreeToken Python compatibility patches;
 - native-Windows GGUF inference does not require an end user to install or activate MSVC/CUDA development tools;
 - private-development GitHub sync machinery is not required by end users;
 - localhost is the public default;
@@ -25,15 +26,32 @@ Use a fresh ordinary Windows directory outside WSL. Require:
 1. `Setup.bat` succeeds without FreeToken Desktop.
 2. `tools/uv`, `tools/python`, `.venv` and `.venvs/freetoken` are under the tool root.
 3. exact wheel hashes in `config/windows-runtime.json` verify before install.
-4. `.venvs/freetoken/Scripts/ft.exe --help` succeeds.
-5. install a trusted qualification model into `models/`.
-6. `Control.bat` starts the native harness on `127.0.0.1:5180`.
-7. FreeToken becomes ready on `127.0.0.1:1919` with exact model identity.
-8. chat, SSE, cancellation, fresh conversation and model-selector UI work.
-9. Qwen3 Coder shows Compatibility blocked.
-10. external port 1919 occupation is refused rather than silently adopted.
-11. Stop terminates only project-owned harness/FreeToken processes.
-12. moving the whole project to another folder/drive does not break startup.
+4. every Windows FreeToken compatibility patch declared in `config/windows-runtime.json` verifies by SHA-256, applies strictly to its approved source scope, and fails closed on source-context mismatch.
+5. `.venvs/freetoken/Scripts/ft.exe --help` succeeds after compatibility patching.
+6. install or externally link a trusted qualification model.
+7. `Control.bat` starts the native harness on `127.0.0.1:5180`.
+8. FreeToken becomes ready on `127.0.0.1:1919` with exact model identity.
+9. chat, SSE, cancellation, fresh conversation and model-selector UI work.
+10. Qwen3 Coder is reported `windows_validated`, is selectable when its checkpoint is present, and completes a Coder -> Qwen3.6 return-path regression.
+11. external port 1919 occupation is refused rather than silently adopted.
+12. Stop terminates only project-owned harness/FreeToken processes.
+13. moving the whole project to another folder/drive does not break startup.
+
+### Native-Windows Qwen3 Coder FP8 gate
+
+The official pinned FreeToken Windows wheel requires the approved Qwen3-MoE block-FP8 adapter correction for `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8`. Windows setup therefore applies the exact `runtime-patches/freetoken/15-qwen3-coder-fp8.patch` bytes declared by `config/windows-runtime.json` after installing the hash-pinned official wheel.
+
+The Windows qualification requires:
+
+1. patch 15 applies to exactly the five approved `freetoken.models.qwen3_moe` Python files with no rejected context;
+2. its block-FP8 imports and adapter hooks import successfully from the resulting project-local Windows venv;
+3. conservative profile KV 2048 / prefill 512 / memory ratio .80 / D2D 0 / graph 0 reaches `/health: ok` with exact `/v1/models` identity;
+4. normal profile KV 4096 / prefill 1024 / memory ratio .88 / D2D 0 / graph 0 also reaches ready state;
+5. short chat, SSE streaming, cancellation, immediate post-cancel generation and `reasoning_effort=none` behavior pass;
+6. a subsequent Qwen3.6 launch and generation pass after the Coder runtime is stopped;
+7. the disposable canary leaves the production environment untouched until promotion is approved.
+
+The reference native-Windows canary passed both profiles using the official FreeToken `0.1.2+g141c31a8d` wheel. The 2K run retained about 0.58 GiB free VRAM after initialization; the 4K run retained about 0.24 GiB. These geometries remain the approved Coder profiles for this reference hardware rather than implying larger contexts are safe.
 
 ## Native-Windows GGUF prebuilt-kernel gate
 
@@ -63,7 +81,7 @@ A release candidate begins in `awaiting_local_build` state. It advances to `vali
 - An installed Visual Studio 2022 MSVC toolchain may be explicitly activated for this one maintainer build. This is an explicit build-time exception, not a public-runtime dependency and it is not redistributed by the tool.
 - Build caches/output remain beneath the project.
 - The produced `.pyd` must be committed only after the no-compiler ordinary-runtime canary passes.
-- Qwen3 Coder stays Windows-blocked unless separately proven on the official Windows runtime.
+- Qwen3 Coder uses the separately hash-pinned Python compatibility path and does not depend on the GGUF build toolchain.
 
 ## Persistence audit
 
