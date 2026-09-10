@@ -12,6 +12,7 @@
     if (value === 'primary') return 'Primary';
     if (value === 'validated') return 'Validated alternate';
     if (value === 'windows_validated') return 'Windows validated';
+    if (value === 'windows_setup_required') return 'Setup refresh required';
     if (value === 'windows_candidate') return 'Windows qualification candidate';
     if (value === 'platform_blocked') return 'Platform blocked';
     if (value === 'experimental') return 'Experimental';
@@ -23,6 +24,7 @@
     if (switching) return {label: 'Switch in progress', enabled: false};
     if (model.active) return {label: 'Active', enabled: false};
     if (model.selectable && model.installed) return {label: 'Switch', enabled: true};
+    if (!model.selectable && model.validation === 'windows_setup_required') return {label: 'Run Setup.bat', enabled: false};
     if (model.installed && !model.selectable) return {label: 'Compatibility blocked', enabled: false};
     if (!model.selectable && model.validation === 'platform_blocked') return {label: 'Compatibility blocked', enabled: false};
     if (model.download_supported) return {label: 'Install from terminal', enabled: false};
