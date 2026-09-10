@@ -11,6 +11,7 @@
   function validationLabel(value) {
     if (value === 'primary') return 'Primary';
     if (value === 'validated') return 'Validated alternate';
+    if (value === 'windows_validated') return 'Windows validated';
     if (value === 'windows_candidate') return 'Windows qualification candidate';
     if (value === 'platform_blocked') return 'Platform blocked';
     if (value === 'experimental') return 'Experimental';
