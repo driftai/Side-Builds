@@ -1,8 +1,8 @@
 # Self-contained tool policy
 
-Local MoE Harness follows Drift's standalone-tool storage rule:
+Local MoE Harness follows a standalone-tool storage rule:
 
-> Project-owned persistent files stay inside the tool folder unless the project was explicitly designed to use an external location.
+> Project-owned persistent files stay inside the tool folder unless the project explicitly defines and validates an external location.
 
 ## Owned paths
 
@@ -11,6 +11,28 @@ Expected owned locations include `.venv/`, `.venvs/`, `runtime/`, `models/`, `.c
 Windows setup redirects AppData/LocalAppData for child setup/runtime processes into `.cache/windows/...`; it never treats the user's real AppData as this project's engine home.
 
 Linux/WSL launchers set their FreeToken, Hugging Face, pip, Torch, Triton, FlashInfer and temporary roots beneath the project.
+
+## User-selected external model-weight exception
+
+Model checkpoint weights are the one end-user storage category intentionally allowed outside the Harness root.
+
+A user may link a trusted registry model to an absolute directory on another local drive, mounted volume, WSL-visible location, or removable/external drive. The machine-local mapping is persisted only in `state/model-locations.json`, which remains inside the Harness root and is ignored by Git.
+
+This exception applies only to the checkpoint files for an existing trusted registry model. It does **not** authorize external locations for:
+
+- Python or FreeToken virtual environments;
+- the FreeToken runtime checkout;
+- application state, logs, or settings;
+- setup/download tooling;
+- package, compiler, Torch, Triton, FlashInfer, or application caches;
+- vendored release artifacts;
+- arbitrary commands or unregistered model definitions.
+
+The model registry still owns model identity, required-file validation, served-model identity, runtime profiles, and platform compatibility. Linking a filesystem path never turns an arbitrary model into a supported registry entry.
+
+A disconnected removable drive is not a failure of the Harness's self-contained runtime. The saved model link remains machine-local and the affected model is treated as unavailable until the path returns.
+
+See `docs/MODEL_STORAGE.md`.
 
 ## External prerequisites
 
@@ -34,10 +56,18 @@ If the prebuilt module is absent or incompatible, native-Windows GGUF must fail 
 
 ## Failure rule
 
-A setup or public-runtime path that requires project-owned persistent state outside the project root is a release blocker. Do not work around it by installing FreeToken Desktop, a global Python environment, a user-global cache, or an undeclared global compiler/toolkit.
+A setup or public-runtime path that requires project-owned persistent state outside the project root is a release blocker **unless it is the explicit user-selected model-weight exception above**. Do not work around failures by installing FreeToken Desktop, a global Python environment, a user-global cache, or an undeclared global compiler/toolkit.
 
 ## Verification
 
-Public qualification must compare user-global persistence locations before and after setup/runtime use and verify that new project-owned files appear only beneath the tool root.
+Public qualification must compare user-global persistence locations before and after setup/runtime use and verify that new project-owned files appear only beneath the tool root, except for model checkpoint files intentionally linked to a user-selected external location.
+
+External-model qualification must verify that:
+
+- the linked path remains machine-local state and does not enter Git-tracked configuration;
+- required checkpoint files are validated at the linked location;
+- an offline/removable path is reported unavailable rather than silently copied or replaced;
+- switching launches the registered served-model identity from the linked path;
+- resetting the link restores the registry's default project-local path.
 
 For the Windows GGUF release path, qualification also verifies the tracked `.pyd` SHA-256, exact FreeToken/Torch/Python compatibility, ordinary-shell inference without `cl.exe`/`nvcc.exe`, and relocation of the complete tool folder.
