@@ -28,15 +28,22 @@ const path = require('path');
     const coderCard = cards.find((text) => text.includes('Qwen3 Coder 30B A3B FP8')) || '';
     if (!coder) throw new Error('Qwen3 Coder registry entry is missing');
     if (coder.host_platform === 'windows') {
-      if (coder.validation !== 'windows_validated') throw new Error('Windows Qwen3 Coder is not marked hardware validated');
-      if (!coder.selectable) throw new Error('Windows Qwen3 Coder must be selectable after native qualification');
-      if (!coderCard.includes('Windows validated')) throw new Error('Windows Qwen3 Coder validation label is missing');
+      if (coder.runtime_compatibility_ready) {
+        if (coder.validation !== 'windows_validated') throw new Error('Windows Qwen3 Coder is not marked hardware validated');
+        if (!coder.selectable) throw new Error('Windows Qwen3 Coder must be selectable after verified setup');
+        if (!coderCard.includes('Windows validated')) throw new Error('Windows Qwen3 Coder validation label is missing');
+      } else {
+        if (coder.validation !== 'windows_setup_required') throw new Error('Unpatched Windows Qwen3 Coder must require setup refresh');
+        if (coder.selectable) throw new Error('Unpatched Windows Qwen3 Coder must not be selectable');
+        if (!coderCard.includes('Setup refresh required')) throw new Error('Windows setup-required validation label is missing');
+        if (!coderCard.includes('Run Setup.bat')) throw new Error('Windows setup-required action is missing');
+      }
     } else {
       if (coder.validation !== 'validated') throw new Error('Linux Qwen3 Coder is not marked validated');
       if (!coder.selectable) throw new Error('Linux Qwen3 Coder is not selectable');
     }
     if (coder.active && !(coderCard.includes('Ready') && coderCard.includes('Active'))) throw new Error('active Qwen3 Coder card state is inconsistent');
-    if (!coder.active && coder.installed && !(coderCard.includes('Installed') && coderCard.includes('Switch'))) throw new Error('installed Qwen3 Coder switch action is missing');
+    if (!coder.active && coder.installed && coder.selectable && !(coderCard.includes('Installed') && coderCard.includes('Switch'))) throw new Error('installed Qwen3 Coder switch action is missing');
 
     const gemma = registry.registry.find((model) => model.id === 'gemma4-26b-q4_0-gguf');
     const gemmaCard = cards.find((text) => text.includes('Gemma 4 26B A4B Q4_0')) || '';
@@ -62,6 +69,6 @@ const path = require('path');
     const screenshotPath = path.join(__dirname, '..', 'output', 'playwright', 'model-selector.png');
     fs.mkdirSync(path.dirname(screenshotPath), {recursive: true});
     await page.screenshot({path: screenshotPath, fullPage: true});
-    console.log('browser-model-switch: PASS (registry, platform policy, labels, actions)');
+    console.log('browser-model-switch: PASS (registry, runtime capability gate, labels, actions)');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack || error); process.exit(1); });
