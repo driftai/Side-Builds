@@ -88,14 +88,21 @@ function Get-OwnedProcess([int]$ProcessId, [string[]]$ExpectedMarkers) {
     if (-not $Command) { return $null }
     $CmdLower = $Command.ToLowerInvariant()
     $RootLower = $Root.ToLowerInvariant()
-    $HasRoot = $CmdLower.Contains($RootLower)
+
+    # PID files are only a hint: Windows can reuse a PID after the original process
+    # exits. Fail closed unless the live process command line is rooted in this exact
+    # Harness checkout. A matching script/module basename alone is never ownership.
+    $HasRootPath = (
+        $CmdLower.Contains($RootLower + "\") -or
+        $CmdLower.Contains($RootLower + "/") -or
+        $CmdLower.Contains('"' + $RootLower + '"') -or
+        $CmdLower.EndsWith($RootLower)
+    )
+    if (-not $HasRootPath) { return $null }
+
     foreach ($Marker in $ExpectedMarkers) {
         $MLower = $Marker.ToLowerInvariant()
-        if ($CmdLower.Contains($MLower)) {
-            if ($HasRoot -or $MLower.EndsWith(".ps1") -or $MLower.EndsWith(".py")) {
-                return $Process
-            }
-        }
+        if ($CmdLower.Contains($MLower)) { return $Process }
     }
     return $null
 }
