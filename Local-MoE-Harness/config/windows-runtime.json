@@ -12,6 +12,14 @@
     "wheel_url": "https://github.com/FlashML-org/FreeToken-Web/releases/download/beta/freetoken-0.1.2%2Bg141c31a8d-cp312-cp312-win_amd64.whl",
     "wheel_sha256": "cb8ef0c1fa27e3bbd5fd6a812684cd025a639b79a4e3bc0169b2ce369b192f69",
     "kernel_cache_url": "https://github.com/FlashML-org/FreeToken-Web/releases/download/beta/freetoken_kernel_cache-0.1.2%2Bcu130.g141c31a8d-py3-none-win_amd64.whl",
-    "kernel_cache_sha256": "fd062129c356ab437d05b608ea443889fad41a74d1478e4f159e4688e69e8435"
+    "kernel_cache_sha256": "fd062129c356ab437d05b608ea443889fad41a74d1478e4f159e4688e69e8435",
+    "compatibility_patches": [
+      {
+        "id": "qwen3-coder-fp8",
+        "file": "runtime-patches/freetoken/15-qwen3-coder-fp8.patch",
+        "sha256": "5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1",
+        "scope": "python/freetoken/models/qwen3_moe/"
+      }
+    ]
   }
 }
