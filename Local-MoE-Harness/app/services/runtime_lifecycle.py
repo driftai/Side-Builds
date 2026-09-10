@@ -26,7 +26,7 @@ class RuntimeLifecycle(_PlatformRuntimeLifecycle):
             self.startup_stage = "waiting_for_model"
             self.last_error = (
                 f"No installed selectable model is ready to start ({selected}). "
-                "Install one of the trusted registry models first."
+                "Install a trusted registry model or link its existing checkpoint location from the local web UI."
             )
             return {
                 **local,
