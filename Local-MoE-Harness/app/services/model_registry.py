@@ -35,7 +35,7 @@ class ModelRegistry(BaseModelRegistry):
 
     def _load_platform_policy(self) -> dict[str, Any]:
         try:
-            data = json.loads(self.platform_policy_path.read_text(encoding="utf-8"))
+            data = json.loads(self.platform_policy_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             return {}
         if not isinstance(data, dict) or data.get("schema_version") != 1:
@@ -45,14 +45,14 @@ class ModelRegistry(BaseModelRegistry):
     @staticmethod
     def _load_json_object(path: Path) -> dict[str, Any]:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             return {}
         return data if isinstance(data, dict) else {}
 
     def _load_location_overrides(self) -> dict[str, str]:
         try:
-            data = json.loads(self.location_state_path.read_text(encoding="utf-8"))
+            data = json.loads(self.location_state_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             return {}
         if not isinstance(data, dict) or data.get("schema_version") != 1:

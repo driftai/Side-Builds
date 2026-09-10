@@ -172,14 +172,25 @@ def choose_model(req_model: str | None, runtime: dict) -> str:
             status_code=409,
             detail="FreeToken is ready but did not report a served model.",
         )
-    if req_model and req_model != model:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "The requested model is not the active FreeToken model. "
-                "Select it through /api/models/select before generation."
-            ),
-        )
+    if req_model:
+        active_id = runtime_lifecycle.active_model_id or model_registry.selected_model_id()
+        allowed = {model, active_id}
+        try:
+            active_record = runtime_lifecycle.active_record()
+            if active_record:
+                allowed.add(active_record.id)
+                if active_record.hf_repo:
+                    allowed.add(active_record.hf_repo)
+        except Exception:
+            pass
+        if req_model not in allowed:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The requested model is not the active FreeToken model. "
+                    "Select it through /api/models/select before generation."
+                ),
+            )
     return model
 
 

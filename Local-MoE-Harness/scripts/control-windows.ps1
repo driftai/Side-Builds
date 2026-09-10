@@ -85,13 +85,29 @@ function Get-OwnedProcess([int]$ProcessId, [string[]]$ExpectedMarkers) {
     $Process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
     if (-not $Process) { return $null }
     $Command = [string]$Process.CommandLine
-    if (-not $Command.ToLowerInvariant().Contains($Root.ToLowerInvariant())) { return $null }
-    foreach ($Marker in $ExpectedMarkers) { if ($Command.ToLowerInvariant().Contains($Marker.ToLowerInvariant())) { return $Process } }
+    if (-not $Command) { return $null }
+    $CmdLower = $Command.ToLowerInvariant()
+    $RootLower = $Root.ToLowerInvariant()
+    $HasRoot = $CmdLower.Contains($RootLower)
+    foreach ($Marker in $ExpectedMarkers) {
+        $MLower = $Marker.ToLowerInvariant()
+        if ($CmdLower.Contains($MLower)) {
+            if ($HasRoot -or $MLower.EndsWith(".ps1") -or $MLower.EndsWith(".py")) {
+                return $Process
+            }
+        }
+    }
     return $null
 }
 function Stop-OwnedTree([string]$IdPath, [string]$Name, [string[]]$Markers) {
     $ProcessId = Read-ManagedId $IdPath
     if (-not $ProcessId) { Remove-Item -Force $IdPath -ErrorAction SilentlyContinue; Write-Host "[Control] $Name is not running under this tool."; return }
+    $LiveProcess = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $LiveProcess) {
+        Remove-Item -Force $IdPath -ErrorAction SilentlyContinue
+        Write-Host "[Control] $Name (PID $ProcessId) is already stopped."
+        return
+    }
     $Owned = Get-OwnedProcess $ProcessId $Markers
     if (-not $Owned) { Write-Warning "Refusing to stop PID $ProcessId because it is not verified as this tool's $Name."; Remove-Item -Force $IdPath -ErrorAction SilentlyContinue; return }
     Write-Host "[Control] Stopping $Name process tree (PID $ProcessId)..."
@@ -143,7 +159,7 @@ function Show-Status {
     Write-Host "FreeToken: $(if ($RuntimeId) { "PID $RuntimeId" } else { "not managed" })"
     try { $Status = Invoke-RestMethod -Uri "$HarnessUrl/api/status" -TimeoutSec 15; Write-Host "HTTP:      online"; Write-Host "Runtime:   $($Status.runtime.health_status)"; if ($Status.runtime.models -and $Status.runtime.models.Count -gt 0) { Write-Host "Model:     $($Status.runtime.models[0].id)" } } catch { Write-Host "HTTP:      offline" }
 }
-function Stop-All { Stop-OwnedTree $RuntimePidPath "FreeToken" @("run-freetoken-windows.ps1", ".venvs\freetoken\scripts\python.exe"); Stop-OwnedTree $HarnessPidPath "harness" @("run-harness-windows.ps1") }
+function Stop-All { Stop-OwnedTree $RuntimePidPath "FreeToken" @("run-freetoken-windows.ps1", ".venvs\freetoken\scripts\python.exe", "windows-freetoken-entry.py", "freetoken"); Stop-OwnedTree $HarnessPidPath "harness" @("run-harness-windows.ps1", ".venv", "uvicorn", "app.main") }
 function Invoke-Action([string]$Name) { switch ($Name) { "start" { Start-Harness }; "status" { Show-Status }; "stop" { Stop-All }; "open" { Start-Process $HarnessUrl }; "logs" { Start-Process explorer.exe $Logs }; default { throw "Unknown action: $Name" } } }
 if ($Action -ne "menu") { Invoke-Action $Action; exit 0 }
 while ($true) {
