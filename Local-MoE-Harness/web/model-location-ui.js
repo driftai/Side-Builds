@@ -1,5 +1,6 @@
 (function attachModelLocationUi() {
   const $ = (id) => document.getElementById(id);
+  let latestRegistry = [];
 
   function statusText(model) {
     if (model.installed) return 'Checkpoint ready';
@@ -10,6 +11,26 @@
 
   function sourceText(model) {
     return model.location_source === 'external' ? 'External location' : 'Harness default';
+  }
+
+  function decorateSwitchCards(models) {
+    const cards = Array.from(document.querySelectorAll('#model-list .model-card'));
+    cards.forEach((card, index) => {
+      const model = models[index];
+      if (!model) return;
+      let row = card.querySelector('.model-card-path');
+      if (!row) {
+        row = document.createElement('code');
+        row.className = 'model-card-path';
+        const note = card.querySelector('.model-note');
+        if (note) card.insertBefore(row, note);
+        else card.appendChild(row);
+      }
+      row.textContent = model.path_visible
+        ? `${sourceText(model)} · ${model.model_path || 'Path unavailable'}`
+        : `${sourceText(model)} · filesystem path hidden`;
+      row.title = model.path_visible ? (model.runtime_path || model.model_path || '') : '';
+    });
   }
 
   async function fetchRegistry() {
@@ -145,6 +166,7 @@
     if (!list) return;
     try {
       const data = await fetchRegistry();
+      latestRegistry = data.registry || [];
       const editable = Boolean(data.location_editable);
       if (notice) {
         notice.textContent = editable
@@ -152,10 +174,11 @@
           : 'Model paths are hidden because this page is not being accessed from the Harness machine itself.';
       }
       const fragment = document.createDocumentFragment();
-      for (const model of data.registry || []) {
+      for (const model of latestRegistry) {
         fragment.appendChild(renderModel(model, editable));
       }
       list.replaceChildren(fragment);
+      decorateSwitchCards(latestRegistry);
     } catch (error) {
       if (notice) notice.textContent = `Could not load model locations: ${error.message}`;
       list.replaceChildren();
@@ -164,6 +187,12 @@
 
   window.LocalMoeModelLocations = {refresh};
   window.addEventListener('DOMContentLoaded', () => {
+    const modelList = $('model-list');
+    if (modelList && typeof MutationObserver !== 'undefined') {
+      new MutationObserver(() => decorateSwitchCards(latestRegistry)).observe(modelList, {
+        childList: true
+      });
+    }
     refresh();
     $('change-model')?.addEventListener('click', () => setTimeout(refresh, 0));
     $('refresh')?.addEventListener('click', () => setTimeout(refresh, 0));
