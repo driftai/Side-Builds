@@ -53,6 +53,16 @@
     return data;
   }
 
+  async function stopLocalModel() {
+    const response = await fetch('/api/runtime/stop', {method: 'POST'});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data.detail?.message || data.detail || `HTTP ${response.status}`;
+      throw new Error(detail);
+    }
+    return data;
+  }
+
   function makeButton(label, className) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -149,7 +159,7 @@
     const hint = document.createElement('p');
     hint.className = 'model-location-hint';
     if (model.active) {
-      hint.textContent = 'This model is active. Stop the local runtime before changing its linked location.';
+      hint.textContent = 'This model is active. Use “Stop local model” above before changing its linked location.';
     } else if (model.location_configured && !model.installed) {
       hint.textContent = 'The link is saved. Connect the drive or restore the required checkpoint files, then refresh.';
     } else {
@@ -163,6 +173,7 @@
   async function refresh() {
     const list = $('model-location-list');
     const notice = $('model-location-notice');
+    const stopRuntime = $('stop-local-model');
     if (!list) return;
     try {
       const data = await fetchRegistry();
@@ -173,6 +184,7 @@
           ? 'Paths are visible only on this machine. Link any supported model to an absolute local, WSL-visible, or removable-drive directory.'
           : 'Model paths are hidden because this page is not being accessed from the Harness machine itself.';
       }
+      if (stopRuntime) stopRuntime.disabled = !editable;
       const fragment = document.createDocumentFragment();
       for (const model of latestRegistry) {
         fragment.appendChild(renderModel(model, editable));
@@ -181,6 +193,7 @@
       decorateSwitchCards(latestRegistry);
     } catch (error) {
       if (notice) notice.textContent = `Could not load model locations: ${error.message}`;
+      if (stopRuntime) stopRuntime.disabled = true;
       list.replaceChildren();
     }
   }
@@ -193,6 +206,30 @@
         childList: true
       });
     }
+
+    const stopRuntime = $('stop-local-model');
+    if (stopRuntime) {
+      stopRuntime.addEventListener('click', async () => {
+        if (!window.confirm('Stop the Harness-managed local model? The web UI will stay open.')) return;
+        const original = stopRuntime.textContent;
+        stopRuntime.disabled = true;
+        stopRuntime.textContent = 'Stopping…';
+        try {
+          await stopLocalModel();
+          stopRuntime.textContent = 'Local model stopped';
+          if (typeof window.refreshStatus === 'function') await window.refreshStatus();
+          await refresh();
+        } catch (error) {
+          if ($('model-location-notice')) $('model-location-notice').textContent = `Could not stop local model: ${error.message}`;
+        } finally {
+          setTimeout(() => {
+            stopRuntime.textContent = original;
+            stopRuntime.disabled = false;
+          }, 900);
+        }
+      });
+    }
+
     refresh();
     $('change-model')?.addEventListener('click', () => setTimeout(refresh, 0));
     $('refresh')?.addEventListener('click', () => setTimeout(refresh, 0));
