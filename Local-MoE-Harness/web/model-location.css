@@ -1,3 +1,15 @@
+.model-card-path {
+  display:block;
+  margin:7px 0 0;
+  padding:6px 7px;
+  border:1px solid #1f2b3e;
+  border-radius:7px;
+  background:#090f17;
+  color:#aebdd0;
+  font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
 .model-storage-section {
   margin-top:16px;
   padding-top:14px;
