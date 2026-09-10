@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Local MoE Harness</title>
-  <link rel="stylesheet" href="/static/style.css?v=20260909.1" />
+  <link rel="stylesheet" href="/static/style.css?v=20260910.1" />
+  <link rel="stylesheet" href="/static/model-location.css?v=20260910.1" />
 </head>
 <body>
   <main class="shell">
@@ -38,7 +39,16 @@
 
     <section class="model-manager" aria-label="Local model selection">
       <div class="model-manager-summary"><div><span class="label">MODEL</span><strong id="selected-model-name">Loading model registry…</strong><p id="selected-model-note">Model changes use a controlled FreeToken restart.</p></div><button type="button" id="change-model">Change model</button></div>
-      <div id="model-panel" class="model-panel hidden"><div class="model-panel-head"><div><strong>Local model library</strong><p>Switching starts a fresh conversation. Available checkpoints are never downloaded automatically.</p></div><button type="button" id="close-model-panel">Close</button></div><div id="model-switch-progress" class="model-switch-progress hidden" role="status"></div><div id="model-list" class="model-list"></div></div>
+      <div id="model-panel" class="model-panel hidden">
+        <div class="model-panel-head"><div><strong>Local model library</strong><p>Switching starts a fresh conversation. Available checkpoints are never downloaded automatically.</p></div><button type="button" id="close-model-panel">Close</button></div>
+        <div id="model-switch-progress" class="model-switch-progress hidden" role="status"></div>
+        <div id="model-list" class="model-list"></div>
+        <section class="model-storage-section" aria-label="Model storage locations">
+          <div class="model-storage-head"><div><strong>Model storage locations</strong><p>Keep the Harness lightweight by linking supported models to another drive, WSL-visible storage, or removable media.</p></div></div>
+          <p id="model-location-notice" class="model-location-notice">Loading model locations…</p>
+          <div id="model-location-list" class="model-location-list"></div>
+        </section>
+      </div>
     </section>
 
     <details class="technical-details">
@@ -68,7 +78,8 @@
       <pre id="bench-output" class="bench hidden"></pre>
     </section>
   </main>
-  <script src="/static/model-ui.js?v=20260909.1"></script>
-  <script src="/static/app.js?v=20260909.1"></script>
+  <script src="/static/model-ui.js?v=20260910.1"></script>
+  <script src="/static/app.js?v=20260910.1"></script>
+  <script src="/static/model-location-ui.js?v=20260910.1"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import time
 from contextlib import asynccontextmanager
@@ -21,7 +22,7 @@ from .services.conversation_memory import (
     merge_memory,
 )
 from .services.gpu_coexistence import GpuCoexistenceManager
-from .services.model_registry import ModelRegistry
+from .services.model_registry import ModelRegistry, ModelRegistryError
 from .services.model_switching import ModelSwitchCoordinator, ModelSwitchError
 from .services.runtime_lifecycle import RuntimeLifecycle
 from .services.system_metrics import system_snapshot
@@ -79,7 +80,7 @@ async def lifespan(_: FastAPI):
         await gpu_coexistence.stop()
 
 
-app = FastAPI(title="Local MoE Harness", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Local MoE Harness", version="0.5.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=ROOT / "web"), name="static")
 
 
@@ -101,6 +102,21 @@ class ChatRequest(BaseModel):
 
 class ModelSelectionRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=80)
+
+
+class ModelLocationRequest(BaseModel):
+    model_id: str = Field(min_length=1, max_length=80)
+    path: str | None = Field(default=None, max_length=4096)
+
+
+def _request_is_loopback(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _conversation_session(request: Request) -> tuple[str, bool]:
@@ -456,7 +472,8 @@ async def api_runtime_start():
 
 
 @app.get("/api/models")
-async def api_models():
+async def api_models(request: Request):
+    local_admin = _request_is_loopback(request)
     try:
         runtime_models = await adapter.models()
     except Exception:
@@ -464,9 +481,57 @@ async def api_models():
     return {
         "data": runtime_models,
         "registry": model_registry.public_models(
-            active_model_id=runtime_lifecycle.active_model_id
+            active_model_id=runtime_lifecycle.active_model_id,
+            include_paths=local_admin,
         ),
         "switch": model_switching.snapshot(),
+        "location_editable": local_admin,
+    }
+
+
+@app.post("/api/models/location")
+async def api_model_location(req: ModelLocationRequest, request: Request):
+    if not _request_is_loopback(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Model filesystem locations can only be changed from the local machine.",
+        )
+
+    lifecycle = runtime_lifecycle.local_status()
+    if (
+        runtime_lifecycle.active_model_id == req.model_id
+        and lifecycle.get("managed_running")
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Stop the active local runtime before changing this model's filesystem "
+                "location. The path can be changed once its files are no longer in use."
+            ),
+        )
+
+    try:
+        if req.path is None or not req.path.strip():
+            model_registry.reset_model_location(req.model_id)
+            action = "reset"
+        else:
+            model_registry.set_model_location(req.model_id, req.path)
+            action = "linked"
+    except ModelRegistryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    model = next(
+        item
+        for item in model_registry.public_models(
+            active_model_id=runtime_lifecycle.active_model_id,
+            include_paths=True,
+        )
+        if item["id"] == req.model_id
+    )
+    return {
+        "action": action,
+        "model": model,
+        "location_editable": True,
     }
 
 

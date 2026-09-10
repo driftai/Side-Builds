@@ -24,24 +24,26 @@ Qwen3 Coder FP8 is intentionally compatibility-blocked on native Windows for now
 
 ## Self-contained storage rule
 
-Persistent files owned by this tool stay beneath the tool root unless the project explicitly documents an exception.
+Persistent runtime/tooling files owned by this tool stay beneath the tool root. Model checkpoint weights are the explicit exception: a user may link a trusted registry model to another local drive, mounted/WSL-visible storage, or removable media.
 
 ```text
 Local-MoE-Harness/
   .venv/                 harness Python environment
   .venvs/freetoken/      FreeToken environment
   runtime/freetoken/     pinned Linux/WSL source runtime
-  models/                model weights and HF cache
+  models/                default model-weight location + HF cache
   .cache/                package, engine, compiler and JIT caches
   .tmp/                  temporary workspace
   tools/                 setup downloads and managed Python/uv
   vendor/windows/        release-qualified native-Windows binary support
   logs/
-  state/
+  state/                  includes ignored machine-local model-location links
   config/
 ```
 
-The tool does not intentionally persist project-owned data in AppData, LocalAppData, `~/.cache`, `~/.config`, `~/.freetoken`, or other user-global locations. External prerequisites such as the NVIDIA driver remain system components.
+External model locations are configured locally from **Change model → Model storage locations**. Each model can use a different absolute path. The mapping stays in ignored `state/model-locations.json`; personal filesystem paths are not written to the public registry. If a removable drive is absent, its model stays linked but is shown unavailable until the path returns. See `docs/MODEL_STORAGE.md`.
+
+The tool does not intentionally persist project-owned runtime/cache data in AppData, LocalAppData, `~/.cache`, `~/.config`, `~/.freetoken`, or other user-global locations. External prerequisites such as the NVIDIA driver remain system components.
 
 A maintainer may explicitly use an installed MSVC Build Tools environment while producing the Windows GGUF release artifact. That build-time exception is not part of the public runtime: users are not expected to install MSVC or a CUDA toolkit.
 
@@ -85,7 +87,7 @@ Install a trusted model if the clean checkout does not already contain one:
 
 ## Model registry and switching
 
-`config/models.json` is the trusted model catalog. Browser/API callers submit only registry IDs, never arbitrary model paths or launch commands. `config/platform-policy.json` applies host-specific compatibility policy without weakening canonical model records.
+`config/models.json` is the trusted model catalog. Browser/API callers switch by registry ID; model-location overrides only change where the files for that known registry entry are loaded from. They do not allow arbitrary launch commands, runtime flags, served identities, or unsupported model definitions. `config/platform-policy.json` applies host-specific compatibility policy without weakening canonical model records.
 
 Current catalog:
 
@@ -128,11 +130,11 @@ Verify with `./scripts/verify-freetoken-runtime.sh --verbose`. Do not clean/rese
 
 ## Network policy
 
-The public default binds the harness to `127.0.0.1:5180` and FreeToken to `127.0.0.1:1919`. LAN exposure is not enabled by default.
+The public default binds the harness to `127.0.0.1:5180` and FreeToken to `127.0.0.1:1919`. LAN exposure is not enabled by default. Absolute model filesystem paths are returned/edited only for loopback clients.
 
 ## Public-release status
 
-Linux/WSL clean-room installation and the established model lifecycle are validated. Native Windows setup, self-containment, model installation, process ownership, persistence isolation, relocation, Qwen3.6 inference, and compiler-free Gemma GGUF inference are validated on the reference machine. Public exports are produced through `scripts/export-public.py`, which excludes model weights, local environments, runtime state, benchmark artifacts, private qualification material, and private development sync machinery.
+Linux/WSL clean-room installation and the established model lifecycle are validated. Native Windows setup, self-containment, model installation, process ownership, persistence isolation, relocation, Qwen3.6 inference, and compiler-free Gemma GGUF inference are validated on the reference machine. Public exports exclude model weights, local environments, runtime state, benchmark artifacts, private qualification material, and private development sync machinery.
 
 ## Third-party software
 
