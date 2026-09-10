@@ -49,17 +49,17 @@ The Harness does not silently copy model weights back into its own directory.
 
 Filesystem-location editing is allowed only from a loopback/local browser session. Remote clients do not receive the absolute model paths through `/api/models` and cannot change the model-location state.
 
-If the model is currently running under the Harness-managed FreeToken runtime, stop the runtime before changing that model's path. This avoids moving or relinking checkpoint files while the inference process may still be using them.
+If the model is currently running under the Harness-managed FreeToken runtime, use **Stop local model** in the storage section before changing that model's path. This stops only the managed model process; the Harness web UI remains available so the location can be changed and the model restarted afterward.
 
 ## Moving an existing model safely
 
-1. Stop the Harness-managed FreeToken runtime.
+1. Open the Harness locally and use **Stop local model** so the managed FreeToken process releases the active checkpoint.
 2. Move or copy the complete checkpoint directory to its new location.
-3. Open the Harness locally.
+3. Keep the Harness web UI open.
 4. Open **Change model → Model storage locations**.
 5. Paste the new absolute path for the matching registered model and choose **Link path**.
 6. Confirm the model shows **Checkpoint ready**.
-7. Start/switch to the model and run a small generation smoke test.
+7. Choose **Start local model** or switch to the model and run a small generation smoke test.
 8. Delete the old duplicate only after the new location has passed the smoke test.
 
 For removable storage, keep the saved link even while the drive is disconnected; the model will become available again when the path returns.
