@@ -14,13 +14,13 @@ The Linux/WSL runtime uses a pinned FreeToken source checkout at `0ab982f10905fa
 
 Native Windows runs the harness and FreeToken directly on Windows. It does **not** require WSL.
 
-`Setup.bat` provisions a project-local Python, harness venv, FreeToken Windows venv, downloads, caches, and runtime support files under this folder. It uses official FreeToken Windows engine wheels pinned in `config/windows-runtime.json`; it does not install FreeToken Desktop and does not use `%LOCALAPPDATA%\FreeToken`.
+`Setup.bat` provisions a project-local Python, harness venv, FreeToken Windows venv, downloads, caches, and runtime support files under this folder. It uses official FreeToken Windows engine wheels pinned in `config/windows-runtime.json` and then applies only the hash-pinned Python compatibility patches declared by that manifest; it does not install FreeToken Desktop and does not use `%LOCALAPPDATA%\FreeToken`.
 
 The official FreeToken Windows GGUF path normally JIT-compiles a CUDA extension on first use. Local MoE Harness deliberately removes that end-user compiler requirement: release builds carry a hash-verified `vendor/windows/freetoken_gguf_kernels.pyd` generated from the exact pinned FreeToken/Torch environment. `scripts/windows-freetoken-entry.py` loads that artifact for GGUF models and fails closed if it is missing or incompatible rather than silently using a global MSVC/CUDA toolchain.
 
-Native-Windows support has completed project qualification on the reference RTX 4050 machine. Gemma 4 Q4_0 GGUF passed the ordinary-shell, compiler-free prebuilt-kernel canary, and Qwen3.6 passed native-Windows inference after a WSL-to-NTFS migration. See `docs/PUBLIC_RELEASE.md` for the release gates.
+Native-Windows support has completed project qualification on the reference RTX 4050 machine. Qwen3.6 passed native-Windows inference after a WSL-to-NTFS migration, Gemma 4 Q4_0 GGUF passed the ordinary-shell compiler-free prebuilt-kernel canary, and Qwen3 Coder FP8 passed native-Windows 2K/4K serving, streaming, cancellation/recovery, and return-to-Qwen qualification. See `docs/PUBLIC_RELEASE.md` for the release gates.
 
-Qwen3 Coder FP8 is intentionally compatibility-blocked on native Windows for now. Its block-FP8 compatibility patch is validated only on the pinned Linux/WSL source runtime. Do not remove that block without a real Windows canary.
+Qwen3 Coder FP8 uses the same approved `15-qwen3-coder-fp8.patch` adapter correction on both supported host paths. On native Windows, setup verifies the exact patch SHA-256 before strictly applying it to the project-local official FreeToken wheel. The patch is confined to `freetoken.models.qwen3_moe`; if the pinned wheel ever stops matching the validated source context, setup fails closed instead of silently enabling an unverified runtime.
 
 ## Self-contained storage rule
 
@@ -92,8 +92,8 @@ Install a trusted model if the clean checkout does not already contain one:
 Current catalog:
 
 - Qwen3.6 35B A3B NVFP4 — general/default reference model; hardware-qualified on native Windows and validated on Linux/WSL
-- Qwen3 Coder 30B A3B FP8 — validated Linux/WSL coding specialist; native-Windows blocked pending qualification
-- GPT-OSS 20B — validated Linux/WSL alternate; too VRAM-tight to be the reference Windows qualification model on the 6 GB RTX 4050
+- Qwen3 Coder 30B A3B FP8 — validated coding specialist and selectable on both Linux/WSL and native Windows
+- GPT-OSS 20B — validated Linux/WSL alternate; native-Windows qualification candidate on the 6 GB RTX 4050 reference machine
 - Gemma 4 26B A4B Q4_0 GGUF — validated Linux/WSL alternate and hardware-qualified native-Windows GGUF reference model
 
 Cold switching requires authoritative `/health` readiness and exact `/v1/models` identity. Failed switches restore the previous usable model. Switching also clears compact in-process conversation memory.
@@ -134,7 +134,7 @@ The public default binds the harness to `127.0.0.1:5180` and FreeToken to `127.0
 
 ## Public-release status
 
-Linux/WSL clean-room installation and the established model lifecycle are validated. Native Windows setup, self-containment, model installation, process ownership, persistence isolation, relocation, Qwen3.6 inference, and compiler-free Gemma GGUF inference are validated on the reference machine. Public exports exclude model weights, local environments, runtime state, benchmark artifacts, private qualification material, and private development sync machinery.
+Linux/WSL clean-room installation and the established model lifecycle are validated. Native Windows setup, self-containment, model installation, process ownership, persistence isolation, relocation, Qwen3.6 inference, Qwen3 Coder FP8 inference/switching, and compiler-free Gemma GGUF inference are validated on the reference machine. Public exports exclude model weights, local environments, runtime state, benchmark artifacts, private qualification material, and private development sync machinery.
 
 ## Third-party software
 
