@@ -2,18 +2,22 @@
 
 ## Status
 
-The compatibility pass is **hardware validated and approved** for the pinned FreeToken runtime.
+The compatibility pass is **hardware validated and approved** on both supported runtime paths:
 
-- Validation harness base: `af52706784d3d5f585d6c412a826f3ef42ba4061`
-- Pinned FreeToken: `0ab982f10905fa775962a4eddcb44caa50065251`
-- Checkpoint: `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8`
-- Checkpoint revision: `dcaee4d4dfc5ee71ad501f01f530e5652438fde0`
-- Approved patch: `runtime-patches/freetoken/15-qwen3-coder-fp8.patch`
-- Approved patch SHA256: `5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1`
+- Linux/WSL: pinned FreeToken source `0ab982f10905fa775962a4eddcb44caa50065251` plus the approved 8-patch contract;
+- native Windows: official pinned FreeToken `0.1.2+g141c31a8d` wheel plus the exact same approved Qwen3-MoE block-FP8 adapter patch.
 
-Nova validated the exact patch bytes on the target RTX 4050 without modifying the live runtime. The candidate copy was then promoted unchanged into the approved runtime contract. The model is now a validated, selectable second Qwen slot; `qwen36-nvfp4` remains the default and ultimate recovery model.
+Checkpoint: `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8`
 
-## Validation evidence
+Checkpoint revision: `dcaee4d4dfc5ee71ad501f01f530e5652438fde0`
+
+Approved patch: `runtime-patches/freetoken/15-qwen3-coder-fp8.patch`
+
+Approved patch SHA256: `5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1`
+
+The model is a validated, selectable second Qwen slot and coding specialist; `qwen36-nvfp4` remains the default and ultimate recovery model.
+
+## Linux / WSL validation evidence
 
 Before hardware qualification:
 
@@ -28,7 +32,7 @@ The failing unexpected state keys were exactly:
 
 The checkpoint contains 18,624 `weight_scale_inv` tensors total: 192 attention scales and 18,432 routed-expert scales. Its quantization configuration reports FP8 E4M3, dynamic activation quantization, and a `[128, 128]` weight block.
 
-After applying the exact compatibility patch only to a disposable FreeToken checkout, Nova reported:
+After applying the exact compatibility patch only to a disposable FreeToken checkout, the reference RTX 4050 qualification reported:
 
 | Profile | Result | Startup | Expert cache | Generation |
 |---|---|---:|---:|---|
@@ -47,6 +51,29 @@ Both hardware profiles resolved:
 - no CUDA/device failure.
 
 The 2K worker used about 29.57 GiB PSS / 29.75 GiB RSS and about 5.45/6.14 GiB VRAM after initialization. The 4K profile is intentionally the normal ceiling on this machine: FreeToken reported only about 0.06 GiB allocator headroom, but the profile still survived generation, a 419-token sustained decode, and the 3,029-token prompt. Busy and recovery therefore remain on the validated 2K geometry rather than inheriting the 4K profile.
+
+## Native Windows qualification
+
+The native-Windows canary used the exact official FreeToken wheel pinned by `config/windows-runtime.json`: `0.1.2+g141c31a8d`. The production venv remained untouched while a disposable copy was patched and exercised.
+
+Patch-port checks passed before hardware launch:
+
+- patch 15 applied to all five target `freetoken.models.qwen3_moe` files with zero rejects or conflicts;
+- the official Windows wheel already contained the required generic block-FP8 kernel, host-bank, expert-bank and quant-linear primitives;
+- `parse_config`, `_fp8_block_quant`, and `setup_offload_expert_banks` imported cleanly after patching.
+
+Native-Windows hardware results on the reference RTX 4050:
+
+| Profile | Health | Free VRAM after init | Short generation | Streaming | Cancellation recovery |
+|---|---|---:|---:|---:|---:|
+| 2K KV / 512 prefill / ratio .80 / graph 0 | PASS | ~0.58 GiB | 4.79 s (`56`) | 11 chunks / 6.57 s | PASS, follow-up `56` in 4.18 s |
+| 4K KV / 1024 prefill / ratio .88 / graph 0 | PASS | ~0.24 GiB | 6.51 s (`56`) | 11 chunks / 6.80 s | PASS, follow-up `56` in 4.78 s |
+
+The 2K run allocated 2,055 KV tokens and the 4K run allocated 4,123. Both returned exact `/health` and `/v1/models` identity for `Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8`. The checkpoint was loaded successfully from an externally linked WSL-visible model location, demonstrating that model-location overrides and the native-Windows compatibility path work together.
+
+After the Coder canary, the standard Qwen3.6 model was launched with the production environment using the validated recovery geometry. Qwen3.6 reached healthy serving and generated successfully, completing the required return-to-default regression.
+
+The Windows installer now records patch 15 in `config/windows-runtime.json`, verifies its SHA-256, and applies it with `scripts/apply-windows-freetoken-patch.py`. That applier uses Python stdlib only, is restricted to the approved Qwen3-MoE source scope, validates every hunk against the pinned wheel source, prepares all changes before writing, and fails closed on hash, path, or source-context mismatch. Native Windows therefore does not gain a Git or compiler requirement from this compatibility layer.
 
 ## Functional qualification
 
@@ -80,7 +107,7 @@ Pinned `qwen3_moe` understands the Qwen3-MoE architecture but its adapter predat
 
 ## Approved correction
 
-The approved patch deliberately changes only the pinned Qwen3-MoE adapter:
+The approved patch deliberately changes only the Qwen3-MoE adapter:
 
 - `config.py`
   - recognizes only `quant_method=fp8` with `weight_block_size=[128,128]`;
@@ -109,6 +136,6 @@ No kernel, engine, sampler, cache, or global model-loader code is changed by pat
 
 ## Promotion contract
 
-The approved runtime now contains eight patches. Patch 15 must retain the exact validated SHA256 above. `tests/test_qwen3_coder_fp8_patch.py` guards the promoted state: it points at the approved patch, verifies the exact hash, reconstructs pinned FreeToken in `/tmp`, checks the exact five-file source reach, runs `git diff --check`, parses every modified Python source file, and checks the expected FP8 adapter hooks.
+The Linux/WSL runtime contains eight approved patches. Patch 15 must retain the exact validated SHA256 above. `tests/test_qwen3_coder_fp8_patch.py` guards the source-runtime promotion state. `tests/test_windows_qwen3_coder_support.py` separately guards the Windows manifest pin, platform selectability, source scope, stdlib patch applier, and fail-closed behavior.
 
-After pulling a promotion commit, a local machine that still has the seven-patch working tree must run the normal contract apply/bootstrap path before the active runtime verifier can pass. The final local promotion gate is: apply the approved eight-patch contract, verify it, switch Qwen3.6 -> Qwen3 Coder through the public harness path, confirm the registry-enforced non-thinking default and basic generation, then switch back to Qwen3.6 and verify the eight-patch runtime remains exact.
+After pulling a promotion commit on Linux/WSL, apply and verify the approved eight-patch contract before switching Qwen3.6 -> Qwen3 Coder -> Qwen3.6. On native Windows, rerun `Setup.bat` after pulling a release that changes the Windows compatibility manifest so the project-local FreeToken venv is recreated from the hash-pinned wheel and the exact approved compatibility patch is applied. The final runtime gate remains exact health/model identity, basic generation, streaming/cancellation recovery, and return to Qwen3.6.
