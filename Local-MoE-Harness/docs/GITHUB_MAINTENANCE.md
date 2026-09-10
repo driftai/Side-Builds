@@ -10,6 +10,21 @@ driftai/Side-Builds/Local-MoE-Harness
 
 The former `Private-Test-Builds/local-moe-harness` staging subtree is retired from active maintenance. Do not recreate or sync back to that private subtree unless the user explicitly requests a private staging copy.
 
+## Legacy sync helper is retired
+
+Older local installations may still contain:
+
+```text
+github-sync.bat
+scripts/github-sync.sh
+```
+
+Those helpers belonged to the retired Private-Test-Builds staging workflow and must not be used for current maintenance. Old copies may contain a retired repository target, private local-path assumptions, or unsafe Git-identity fallbacks.
+
+Do not publish, revive, or modify those legacy helpers as the default workflow. Future GitHub maintenance should use a sparse checkout of `Side-Builds/Local-MoE-Harness` directly as documented below.
+
+If an older local installation still contains the legacy helpers, leave model/runtime state untouched but remove or clearly disable the helpers before relying on that installation for future Git synchronization.
+
 ## Monorepo scope rule
 
 `Side-Builds` contains many independent projects. A Local MoE Harness task does not grant permission to download or materialize sibling projects.
@@ -111,4 +126,4 @@ If the remote moved or a push is rejected, stop and reconcile. Do not force-push
 
 For ordinary Local MoE Harness development, release, maintenance, or documentation work:
 
-> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, and verify the noreply identity in the actual commit object before every public push.
+> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old Private-Test-Builds sync helpers, and verify the noreply identity in the actual commit object before every public push.
