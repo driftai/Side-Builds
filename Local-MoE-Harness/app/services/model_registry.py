@@ -20,6 +20,8 @@ class ModelRegistry(BaseModelRegistry):
         super().__init__(root, **kwargs)
         self.platform_name = "windows" if os.name == "nt" else "linux"
         self.platform_policy_path = self.root / "config" / "platform-policy.json"
+        self.windows_runtime_config_path = self.root / "config" / "windows-runtime.json"
+        self.windows_setup_state_path = self.root / "state" / "windows-setup.json"
         self.location_state_path = self.root / "state" / "model-locations.json"
         self._default_paths = {
             record.id: (record.local_path, record.runtime_path)
@@ -39,6 +41,14 @@ class ModelRegistry(BaseModelRegistry):
         if not isinstance(data, dict) or data.get("schema_version") != 1:
             return {}
         return data
+
+    @staticmethod
+    def _load_json_object(path: Path) -> dict[str, Any]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def _load_location_overrides(self) -> dict[str, str]:
         try:
@@ -149,6 +159,70 @@ class ModelRegistry(BaseModelRegistry):
         self._models[model_id] = restored
         return restored
 
+    def _windows_runtime_patch_ready(self, requirement: dict[str, Any]) -> bool:
+        """Prove the current project-local Windows runtime has the approved patch.
+
+        A policy update alone must never unlock a model against an older unpatched
+        FreeToken venv. Require both setup provenance for the exact pinned wheel and
+        patch hash *and* source markers created by that patch.
+        """
+        if self.platform_name != "windows":
+            return True
+
+        patch_id = requirement.get("id")
+        patch_sha256 = requirement.get("sha256")
+        if not isinstance(patch_id, str) or not patch_id:
+            return False
+        if not isinstance(patch_sha256, str) or len(patch_sha256) != 64:
+            return False
+
+        setup = self._load_json_object(self.windows_setup_state_path)
+        runtime_config = self._load_json_object(self.windows_runtime_config_path)
+        freetoken = runtime_config.get("freetoken")
+        if not isinstance(freetoken, dict):
+            return False
+        expected_wheel_sha = freetoken.get("wheel_sha256")
+        expected_version = freetoken.get("version")
+        if not isinstance(expected_wheel_sha, str) or not expected_wheel_sha:
+            return False
+        if not isinstance(expected_version, str) or not expected_version:
+            return False
+
+        if setup.get("freetoken_wheel_sha256") != expected_wheel_sha:
+            return False
+        if setup.get("freetoken_version") != expected_version:
+            return False
+        applied = setup.get("compatibility_patches")
+        expected_patch = f"{patch_id}:{patch_sha256}"
+        if not isinstance(applied, list) or expected_patch not in applied:
+            return False
+
+        package = (
+            self.root
+            / ".venvs"
+            / "freetoken"
+            / "Lib"
+            / "site-packages"
+            / "freetoken"
+            / "models"
+            / "qwen3_moe"
+        )
+        markers = {
+            "config.py": "def _fp8_block_quant(",
+            "attention.py": "make_col_merged",
+            "moe.py": '"fp8_block"',
+            "weight.py": "def setup_offload_expert_banks(",
+            "__init__.py": "setup_offload_expert_banks",
+        }
+        for filename, marker in markers.items():
+            try:
+                source = (package / filename).read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                return False
+            if marker not in source:
+                return False
+        return True
+
     def _apply_platform_policy(self) -> None:
         policy = self._platform_policy.get(self.platform_name, {})
         if not isinstance(policy, dict):
@@ -166,6 +240,23 @@ class ModelRegistry(BaseModelRegistry):
                 record.data["validation"] = overrides["validation"]
             if isinstance(overrides.get("support"), str):
                 record.data["platform_support"] = overrides["support"]
+
+            runtime_patch = overrides.get("runtime_patch")
+            if self.platform_name == "windows" and isinstance(runtime_patch, dict):
+                ready = self._windows_runtime_patch_ready(runtime_patch)
+                record.data["runtime_compatibility_ready"] = ready
+                record.data["runtime_patch_id"] = runtime_patch.get("id")
+                if not ready:
+                    record.data["selectable"] = False
+                    record.data["validation"] = "windows_setup_required"
+                    record.data["platform_support"] = "setup-refresh-required"
+                    record.data["notes"] = (
+                        "Run Setup.bat after updating this Harness to apply and verify "
+                        "the validated Windows FreeToken compatibility patch before "
+                        "switching to this model. "
+                        + str(record.data.get("notes") or "")
+                    ).strip()
+
             note = overrides.get("note")
             if isinstance(note, str) and note:
                 base_note = str(record.data.get("notes") or "")
@@ -191,6 +282,9 @@ class ModelRegistry(BaseModelRegistry):
             item["platform_support"] = record.data.get(
                 "platform_support",
                 "validated-project-path" if self.platform_name == "linux" else "unknown",
+            )
+            item["runtime_compatibility_ready"] = bool(
+                record.data.get("runtime_compatibility_ready", True)
             )
             item["location_source"] = (
                 "external" if record.id in self._location_overrides else "default"
