@@ -12,10 +12,10 @@
         "note": "Native Windows inference is hardware-qualified on the RTX 4050 reference machine after WSL-to-NTFS migration, including model load, health, chat, SSE streaming, cancellation, conversation reset, browser UI, and owned stop."
       },
       "qwen3-coder-30b-fp8": {
-        "selectable": false,
-        "validation": "platform_blocked",
-        "support": "blocked-until-project-validation",
-        "note": "Native Windows is intentionally compatibility-blocked because the exact Qwen3 Coder block-FP8 fix is currently validated only in the pinned Linux/WSL 8-patch runtime."
+        "selectable": true,
+        "validation": "windows_validated",
+        "support": "validated-project-path",
+        "note": "Native Windows Qwen3 Coder FP8 is hardware-qualified on the RTX 4050 reference machine using the official pinned FreeToken 0.1.2+g141c31a8d wheel plus the hash-pinned Qwen3-MoE block-FP8 compatibility patch. The 2K and 4K profiles passed exact model identity, chat, SSE streaming, cancellation/recovery, and return-to-Qwen verification."
       },
       "gpt-oss-20b": {
         "selectable": true,
