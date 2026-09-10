@@ -31,6 +31,14 @@ The linked path may point to:
 
 For normal multi-file models, link the directory containing the model's required files. For a single-file registered GGUF model, either its containing directory or the exact registered GGUF file may be linked.
 
+## Storage performance
+
+External model locations are a capacity and organization feature; they do not guarantee identical I/O performance on every filesystem.
+
+Keep performance-sensitive model weights on a filesystem that is native to the process reading them when practical. In particular, a native Windows runtime reading model weights from a WSL Linux filesystem through `\\wsl$`, `\\wsl.localhost`, or a mapped drive backed by those paths may have more filesystem overhead than reading the same weights from NTFS. Likewise, Linux tools generally perform best with Linux-side files rather than repeatedly crossing into a mounted Windows filesystem.
+
+When choosing a cross-OS or removable location, validate the exact setup with a real model startup and a short generation/benchmark before deleting the previous copy. If capacity matters more than startup/I/O speed, a slower external location can still be a useful tradeoff.
+
 ## Removable/offline models
 
 A linked path does not have to remain online permanently. If an external drive is disconnected, the Harness remembers the path but marks the model unavailable/not installed. Reconnect the drive and refresh the model panel before switching to it.
