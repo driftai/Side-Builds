@@ -15,6 +15,10 @@
         "selectable": true,
         "validation": "windows_validated",
         "support": "validated-project-path",
+        "runtime_patch": {
+          "id": "qwen3-coder-fp8",
+          "sha256": "5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1"
+        },
         "note": "Native Windows Qwen3 Coder FP8 is hardware-qualified on the RTX 4050 reference machine using the official pinned FreeToken 0.1.2+g141c31a8d wheel plus the hash-pinned Qwen3-MoE block-FP8 compatibility patch. The 2K and 4K profiles passed exact model identity, chat, SSE streaming, cancellation/recovery, and return-to-Qwen verification."
       },
       "gpt-oss-20b": {
