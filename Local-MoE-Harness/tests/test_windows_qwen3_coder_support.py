@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "apply-windows-freetoken-patch.py"
 PATCH = ROOT / "runtime-patches" / "freetoken" / "15-qwen3-coder-fp8.patch"
 PATCH_SHA256 = "5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1"
+WINDOWS_FREETOKEN_VERSION = "0.1.2+g141c31a8d"
+WINDOWS_FREETOKEN_WHEEL_SHA256 = "cb8ef0c1fa27e3bbd5fd6a812684cd025a639b79a4e3bc0169b2ce369b192f69"
 
 
 def load_applier():
@@ -33,16 +35,23 @@ class WindowsQwen3CoderSupportTests(unittest.TestCase):
         config = json.loads(
             (ROOT / "config" / "windows-runtime.json").read_text(encoding="utf-8")
         )
+        self.assertEqual(config["freetoken"]["version"], WINDOWS_FREETOKEN_VERSION)
+        self.assertEqual(
+            config["freetoken"]["wheel_sha256"], WINDOWS_FREETOKEN_WHEEL_SHA256
+        )
         patches = config["freetoken"]["compatibility_patches"]
         self.assertEqual(len(patches), 1)
         patch = patches[0]
         self.assertEqual(patch["id"], "qwen3-coder-fp8")
-        self.assertEqual(patch["file"], "runtime-patches/freetoken/15-qwen3-coder-fp8.patch")
+        self.assertEqual(
+            patch["file"],
+            "runtime-patches/freetoken/15-qwen3-coder-fp8.patch",
+        )
         self.assertEqual(patch["sha256"], PATCH_SHA256)
         self.assertEqual(patch["scope"], "python/freetoken/models/qwen3_moe/")
         self.assertEqual(hashlib.sha256(PATCH.read_bytes()).hexdigest(), PATCH_SHA256)
 
-    def test_windows_qwen3_coder_policy_is_selectable_and_validated(self):
+    def test_windows_qwen3_coder_policy_is_selectable_validated_and_patch_gated(self):
         policy = json.loads(
             (ROOT / "config" / "platform-policy.json").read_text(encoding="utf-8")
         )
@@ -50,14 +59,31 @@ class WindowsQwen3CoderSupportTests(unittest.TestCase):
         self.assertTrue(coder["selectable"])
         self.assertEqual(coder["validation"], "windows_validated")
         self.assertEqual(coder["support"], "validated-project-path")
+        self.assertEqual(coder["runtime_patch"]["id"], "qwen3-coder-fp8")
+        self.assertEqual(coder["runtime_patch"]["sha256"], PATCH_SHA256)
 
-    def test_setup_applies_manifest_patch_and_verifies_imports(self):
+    def test_setup_applies_manifest_patch_and_records_provenance(self):
         setup = (ROOT / "scripts" / "setup-windows.ps1").read_text(encoding="utf-8")
         self.assertIn("compatibility_patches", setup)
         self.assertIn("apply-windows-freetoken-patch.py", setup)
         self.assertIn("Assert-Hash $PatchPath", setup)
         self.assertIn("setup_offload_expert_banks", setup)
         self.assertIn("_fp8_block_quant", setup)
+        self.assertIn("compatibility_patches = @($AppliedCompatibilityPatches)", setup)
+
+    def test_runtime_registry_fails_closed_until_patch_is_proven(self):
+        registry = (ROOT / "app" / "services" / "model_registry.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def _windows_runtime_patch_ready", registry)
+        self.assertIn("windows-setup.json", registry)
+        self.assertIn("freetoken_wheel_sha256", registry)
+        self.assertIn("freetoken_version", registry)
+        self.assertIn("windows_setup_required", registry)
+        self.assertIn("setup-refresh-required", registry)
+        self.assertIn("runtime_compatibility_ready", registry)
+        self.assertIn("def _fp8_block_quant(", registry)
+        self.assertIn("def setup_offload_expert_banks(", registry)
 
     def test_approved_patch_targets_only_validated_qwen3_moe_files(self):
         parsed = self.applier.parse_unified_diff(PATCH.read_text(encoding="utf-8"))
@@ -72,7 +98,7 @@ class WindowsQwen3CoderSupportTests(unittest.TestCase):
             },
         )
 
-    def test_stdlib_applier_applies_matching_patch_atomically(self):
+    def test_stdlib_applier_applies_matching_patch_after_full_validation(self):
         patch_text = (
             "--- a/python/freetoken/models/qwen3_moe/sample.py\n"
             "+++ b/python/freetoken/models/qwen3_moe/sample.py\n"
