@@ -471,6 +471,24 @@ async def api_runtime_start():
     }
 
 
+@app.post("/api/runtime/stop")
+async def api_runtime_stop(request: Request):
+    if not _request_is_loopback(request):
+        raise HTTPException(
+            status_code=403,
+            detail="The local model runtime can only be stopped from the Harness machine.",
+        )
+    if model_switching.snapshot()["status"] == "switching":
+        raise HTTPException(status_code=409, detail="A model switch is currently in progress.")
+    await runtime_lifecycle.stop_managed()
+    runtime_lifecycle.active_model_id = None
+    runtime_lifecycle.active_profile_name = None
+    return {
+        "stopped": True,
+        "lifecycle": runtime_lifecycle.local_status(),
+    }
+
+
 @app.get("/api/models")
 async def api_models(request: Request):
     local_admin = _request_is_loopback(request)
