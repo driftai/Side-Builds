@@ -1,0 +1,47 @@
+# Harness/runtime environments
+.venv/
+.venvs/
+
+# Large model data
+models/
+
+# Generated caches and project-local application homes
+.cache/
+.freetoken/
+.tmp/
+
+# Managed bootstrap/runtime tooling downloaded at setup/build time
+tools/uv/
+tools/python/
+tools/downloads/
+tools/gguf-builder/
+
+# Runtime output
+logs/
+state/
+output/
+
+# Generated handoffs (keep folder tracked via .gitkeep)
+handoffs/*
+!handoffs/.gitkeep
+
+# Future dynamic benchmark runs (keep initial baselines tracked)
+data/benchmarks/benchmark-*.json
+data/benchmarks/verified-performance-*.json
+!data/benchmarks/benchmark-20260822T194939Z.json
+
+# Vendored/upstream FreeToken checkout and build trees
+runtime/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Release-qualified Windows GGUF binary is intentionally tracked.
+!vendor/windows/*.pyd
+!vendor/windows/*.json
+
+# Logs, archives, and temporary files
+*.log
+*.tmp
+*.zip

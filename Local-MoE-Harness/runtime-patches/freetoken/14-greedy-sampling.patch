@@ -1,0 +1,13 @@
+diff --git a/python/freetoken/core.py b/python/freetoken/core.py
+index ef0a539..264b4aa 100644
+--- a/python/freetoken/core.py
++++ b/python/freetoken/core.py
+@@ -28,7 +28,7 @@ class SamplingParams:
+ 
+     @property
+     def is_greedy(self) -> bool:
+-        return (self.temperature <= 0.0 or self.top_k == 1) and self.top_p == 1.0
++        return self.temperature <= 0.0 or self.top_k == 1
+ 
+ 
+ @dataclass(eq=False)

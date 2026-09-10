@@ -1,0 +1,25 @@
+diff --git a/python/freetoken/engine/sample.py b/python/freetoken/engine/sample.py
+index 01d14b1..ac3ca43 100644
+--- a/python/freetoken/engine/sample.py
++++ b/python/freetoken/engine/sample.py
+@@ -27,12 +27,7 @@ def sample_impl(
+     top_k: torch.Tensor | int | None,
+     top_p: torch.Tensor | float | None,
+ ) -> torch.Tensor:
+-    from freetoken.kernel.backend import is_flashinfer_installed
+-
+-    if is_flashinfer_installed():
+-        import flashinfer.sampling as sampling
+-    else:
+-        import freetoken.kernel.triton.sampling as sampling
++    import freetoken.kernel.triton.sampling as sampling
+ 
+     probs = sampling.softmax(logits, temperatures, enable_pdl=is_sm90_supported())
+     if top_k is None and top_p is None:
+@@ -77,4 +72,4 @@ class Sampler:
+         with torch.cuda.nvtx.range("Sampler"):
+             if args.temperatures is None:  # greedy sampling
+                 return torch.argmax(logits, dim=-1)
+-            return sample_impl(logits.float(), args.temperatures, args.top_k, args.top_p)
++            return sample_impl(logits.float(), args.temperatures, args.top_k, args.top_p)
+\ No newline at end of file

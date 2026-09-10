@@ -1,0 +1,135 @@
+diff --git a/python/freetoken/attention/fi.py b/python/freetoken/attention/fi.py
+index c9e5853..d3b60c9 100644
+--- a/python/freetoken/attention/fi.py
++++ b/python/freetoken/attention/fi.py
+@@ -60,6 +60,9 @@ class FIMetadata(BaseAttnMetadata):
+     dtype:              torch.dtype
+     wrapper:            BatchPrefillWithPagedKVCacheWrapper | BatchDecodeWithPagedKVCacheWrapper
+     initialized:        bool = False
++    cu_seqlens_k_gpu:   torch.Tensor | None = None
++    prefix_lens:        torch.Tensor | None = None
++    max_q_len:          int = 1
+     # fmt: on
+ 
+     def __post_init__(self) -> None:
+@@ -144,6 +147,35 @@ class FlashInferBackend(BaseAttnBackend):
+         self.last_event = torch.cuda.Event()
+         self.last_event.record()
+ 
++        # Warm and load Triton extend_paged_attention kernel into CUDA driver before graph capture
++        from freetoken.kernel.triton.attention import extend_paged_attention
++        try:
++            _dummy_q = torch.zeros((1, self.qo_head_local, self.config.head_dim), dtype=self.kvcache.dtype, device=self.device)
++            _dummy_k = torch.zeros((1, self.kv_head_local, self.config.head_dim), dtype=self.kvcache.dtype, device=self.device)
++            _dummy_v = torch.zeros((1, self.kv_head_local, self.config.head_dim), dtype=self.kvcache.dtype, device=self.device)
++            _dummy_k_cache = torch.zeros((1, self.kv_head_local, self.config.head_dim), dtype=self.kvcache.dtype, device=self.device)
++            _dummy_v_cache = torch.zeros((1, self.kv_head_local, self.config.head_dim), dtype=self.kvcache.dtype, device=self.device)
++            _dummy_qo_indptr = torch.tensor([0, 1], dtype=torch.int32, device=self.device)
++            _dummy_kv_indptr = torch.tensor([0, 1], dtype=torch.int32, device=self.device)
++            _dummy_indices = torch.tensor([0], dtype=torch.int32, device=self.device)
++            _dummy_prefix_lens = torch.tensor([0], dtype=torch.int32, device=self.device)
++            extend_paged_attention(
++                q=_dummy_q,
++                k_cache=_dummy_k_cache,
++                v_cache=_dummy_v_cache,
++                qo_indptr=_dummy_qo_indptr,
++                kv_indptr=_dummy_kv_indptr,
++                kv_indices=_dummy_indices,
++                prefix_lens=_dummy_prefix_lens,
++                max_q_len=1,
++                sm_scale=self.config.head_dim ** -0.5,
++                k_extend=_dummy_k,
++                v_extend=_dummy_v,
++            )
++            torch.cuda.synchronize(self.device)
++        except Exception:
++            pass
++
+     def _initialize_metadata_once(self, metadata: FIMetadata) -> None:
+         if metadata.initialized:
+             return
+@@ -211,16 +243,42 @@ class FlashInferBackend(BaseAttnBackend):
+             # silently would attend with the wrong scale or an unbounded window.
+             raise ValueError("The fi backend does not support per-call AttentionSpec.")
+ 
+-        def _flatten_cache(cache: torch.Tensor) -> torch.Tensor:  # treat page = 1
+-            return cache.view(-1, 1, cache.shape[2], cache.shape[3])
+-
+         metadata = batch.attn_metadata
+         assert isinstance(metadata, FIMetadata)
+-        self._initialize_metadata_once(metadata)
+         self.kvcache.store_kv(k, v, batch.out_loc, layer_id)
+-        kv_cache = (self.kvcache.k_cache(layer_id), self.kvcache.v_cache(layer_id))
+-        kv_cache = (_flatten_cache(kv_cache[0]), _flatten_cache(kv_cache[1]))
+-        return metadata.wrapper.run(q=q, paged_kv_cache=kv_cache)
++
++        if batch.is_decode:
++            def _flatten_cache(cache: torch.Tensor) -> torch.Tensor:  # treat page = 1
++                return cache.view(-1, 1, cache.shape[2], cache.shape[3])
++
++            self._initialize_metadata_once(metadata)
++            kv_cache = (self.kvcache.k_cache(layer_id), self.kvcache.v_cache(layer_id))
++            kv_cache = (_flatten_cache(kv_cache[0]), _flatten_cache(kv_cache[1]))
++            return metadata.wrapper.run(q=q, paged_kv_cache=kv_cache)
++
++        # Prefill: robust pure Triton extend_paged_attention
++        from freetoken.kernel.triton.attention import extend_paged_attention
++
++        k_raw = self.kvcache.k_cache(layer_id)
++        v_raw = self.kvcache.v_cache(layer_id)
++        kv_heads, head_dim = k_raw.shape[-2], k_raw.shape[-1]
++        k_cache = k_raw.view(-1, kv_heads, head_dim)
++        v_cache = v_raw.view(-1, kv_heads, head_dim)
++        scale = q.shape[-1] ** -0.5
++
++        return extend_paged_attention(
++            q=q,
++            k_cache=k_cache,
++            v_cache=v_cache,
++            qo_indptr=metadata.cu_seqlens_q_gpu,
++            kv_indptr=metadata.cu_seqlens_k_gpu,
++            kv_indices=metadata.indices,
++            prefix_lens=metadata.prefix_lens,
++            max_q_len=metadata.max_q_len,
++            sm_scale=scale,
++            k_extend=k.view(q.shape[0], kv_heads, head_dim),
++            v_extend=v.view(q.shape[0], kv_heads, head_dim),
++        )
+ 
+     def prepare_metadata(self, batch: Batch) -> None:
+         reqs = batch.padded_reqs
+@@ -235,18 +293,24 @@ class FlashInferBackend(BaseAttnBackend):
+         device = self.device
+         seq_len_cpu = torch.tensor(seqlens_k, **CPU_KWARGS)
+         cu_seqlens_k_cpu = torch.tensor([0] + seqlens_k, **CPU_KWARGS).cumsum_(dim=0)
++        cu_seqlens_k_gpu = cu_seqlens_k_cpu.to(device, non_blocking=True)
+         if max_seqlen_q == 1:  # decode with all extend_len = 1
+             cu_seqlens_q_cpu = torch.arange(0, padded_size + 1, **CPU_KWARGS)
++            cu_seqlens_q_gpu = cu_seqlens_q_cpu.to(device, non_blocking=True)
+         elif all(l == 0 for l in cached_lens):  # prefill with no cache hit
+             cu_seqlens_q_cpu = cu_seqlens_k_cpu
++            cu_seqlens_q_gpu = cu_seqlens_k_gpu
+         else:  # normal extend prefill, with partial cache hit
+             cu_seqlens_q_cpu = torch.tensor([0] + seqlens_q, **CPU_KWARGS).cumsum_(dim=0)
++            cu_seqlens_q_gpu = cu_seqlens_q_cpu.to(device, non_blocking=True)
+ 
++        prefix_lens = torch.tensor(cached_lens, dtype=torch.int32, device=device)
+         page_table = get_global_ctx().page_table
+         batch.attn_metadata = FIMetadata(
+             cu_seqlens_q_cpu=cu_seqlens_q_cpu,
+             cu_seqlens_k_cpu=cu_seqlens_k_cpu,
+-            cu_seqlens_q_gpu=cu_seqlens_q_cpu.to(device, non_blocking=True),
++            cu_seqlens_q_gpu=cu_seqlens_q_gpu,
++            cu_seqlens_k_gpu=cu_seqlens_k_gpu,
+             indices=torch.cat([page_table[req.table_idx, : req.device_len] for req in reqs]),
+             last_page_len_cpu=self._get_ones_cpu(padded_size),
+             num_qo_heads=self.qo_head_local,
+@@ -257,6 +321,8 @@ class FlashInferBackend(BaseAttnBackend):
+             seq_lens_cpu=seq_len_cpu,
+             dtype=self.kvcache.dtype,
+             wrapper=self.decode_wrappers if batch.is_decode else self.prefill_wrapper,
++            prefix_lens=prefix_lens,
++            max_q_len=max_seqlen_q,
+         )
+ 
+     def reset_capture(self) -> None:

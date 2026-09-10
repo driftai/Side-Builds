@@ -1,0 +1,14 @@
+{
+  "freetoken": {
+    "source_path": "runtime/freetoken",
+    "version": "0.1.2",
+    "source_commit": "0ab982f10905fa775962a4eddcb44caa50065251",
+    "patch_contract": "expected-dirty",
+    "patch_manifest": "runtime-patches/freetoken/manifest.json",
+    "install_mode": "editable",
+    "venv_path": ".venvs/freetoken",
+    "pytorch_version": "2.11.0+cu130",
+    "pytorch_cuda_version": "13.0",
+    "nvcc_version": "12.8.61"
+  }
+}

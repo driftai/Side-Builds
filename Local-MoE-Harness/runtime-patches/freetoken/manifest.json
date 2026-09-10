@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "upstream_sha": "0ab982f10905fa775962a4eddcb44caa50065251",
+  "patches": [
+    {
+      "file": "01-triton-sampling.patch",
+      "sha256": "49b01e78867fb03c7473b7ccb191a27c83378c0687bcd4c36b64025d99027a94",
+      "purpose": "Use the Triton sampling backend for WSL2-compatible model-native sampling."
+    },
+    {
+      "file": "02-fi-triton-prefill.patch",
+      "sha256": "60d0ee8b64b638de704f18ba2e5ea4ee35d8ac06a58951e181ca7755d46259df",
+      "purpose": "Keep FlashInfer decode while using the validated Triton paged-attention prefill path."
+    },
+    {
+      "file": "06-triton-activation.patch",
+      "sha256": "b4e95b0ab57f75329a5ba5e94ebbf3d8be1e98242f7b1591afbe5fd6c7ac2331",
+      "purpose": "Route model activation dispatch through the local Triton compatibility layer."
+    },
+    {
+      "file": "07-activation-pytorch.patch",
+      "sha256": "4a68283d8b2d94aa659fb49c1c9abc178ae81edeea293717e9b8ad6209167999",
+      "purpose": "Use validated PyTorch activation-and-multiply operations behind the local layer."
+    },
+    {
+      "file": "08-engine-warmup.patch",
+      "sha256": "3ca5a3d0405ce187038e22be3a56b5aaee39a7c45ce12e25ce7a4f0b07f628b2",
+      "purpose": "Release load-time allocations and retain the validated low-memory warmup geometry."
+    },
+    {
+      "file": "13-fp8-scaled-mm.patch",
+      "sha256": "6502b435b12cdcae4934111a04b40114ee7719d49c4e818c647eb3d198c268cc",
+      "purpose": "Use the validated FP8 GEMV/GEMM dispatch and contiguous scale layout."
+    },
+    {
+      "file": "14-greedy-sampling.patch",
+      "sha256": "39318843124755b88e22ba77d3912db6b546e4505230cd4b71b8c49b72d86a4c",
+      "purpose": "Treat zero-temperature requests as greedy with model-native top-p defaults."
+    },
+    {
+      "file": "15-qwen3-coder-fp8.patch",
+      "sha256": "5d7d34e1fdf2c041e3eab9fbf8a9c086d51005374ad83b87f8c5387d35e2ece1",
+      "purpose": "Add validated native 128x128 block-FP8 Qwen3-MoE attention and expert-bank wiring for Qwen3 Coder on the pinned FreeToken runtime."
+    }
+  ],
+  "rejected_patches": [
+    "04-offload-kernels-pt.patch",
+    "05-offload-cache-step-dim.patch",
+    "09-gdn-prefill-native.patch",
+    "10-gdn-gemv.patch",
+    "12-offload-cache-dma.patch"
+  ]
+}

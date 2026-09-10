@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "linux": {
+    "models": {}
+  },
+  "windows": {
+    "models": {
+      "qwen36-nvfp4": {
+        "selectable": true,
+        "validation": "windows_validated",
+        "support": "validated-project-path",
+        "note": "Native Windows inference is hardware-qualified on the RTX 4050 reference machine after WSL-to-NTFS migration, including model load, health, chat, SSE streaming, cancellation, conversation reset, browser UI, and owned stop."
+      },
+      "qwen3-coder-30b-fp8": {
+        "selectable": false,
+        "validation": "platform_blocked",
+        "support": "blocked-until-project-validation",
+        "note": "Native Windows is intentionally compatibility-blocked because the exact Qwen3 Coder block-FP8 fix is currently validated only in the pinned Linux/WSL 8-patch runtime."
+      },
+      "gpt-oss-20b": {
+        "selectable": true,
+        "validation": "windows_candidate",
+        "support": "upstream-supported-unvalidated",
+        "note": "Available as a native-Windows qualification candidate; Linux/WSL validation does not automatically imply Windows project validation."
+      },
+      "gemma4-26b-q4_0-gguf": {
+        "selectable": true,
+        "validation": "windows_validated",
+        "support": "validated-project-path",
+        "note": "Native Windows GGUF inference is hardware-qualified with the tracked prebuilt kernel and compiler-free runtime path."
+      }
+    }
+  }
+}

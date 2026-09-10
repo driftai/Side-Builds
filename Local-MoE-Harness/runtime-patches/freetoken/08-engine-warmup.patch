@@ -1,0 +1,37 @@
+diff --git a/python/freetoken/engine/engine.py b/python/freetoken/engine/engine.py
+index ff3c985..079878b 100644
+--- a/python/freetoken/engine/engine.py
++++ b/python/freetoken/engine/engine.py
+@@ -321,6 +321,9 @@ class Engine:
+         with torch.device("meta"), torch_dtype(config.dtype):
+             self.model = create_model(config.model_config)
+         self.model.load_state_dict(self._load_weight_state_dict(config))
++        import gc
++        gc.collect()
++        torch.cuda.empty_cache()
+         post_weights_free = self._sync_get_memory()[0]
+         self._weights_bytes = self._baseline_free - post_weights_free
+         # Pool-budget baseline for the desktop cache sliders: free VRAM after the weights are
+@@ -418,9 +421,8 @@ class Engine:
+             dummy_req=self.dummy_req,
+             moe_offload_cache=self.moe_offload_cache,
+         )
+-        if config.attention_backend.split(",")[0] == "triton":
+-            # Prefill runs on the first comma part; warm its autotune cache.
+-            self._warmup_prefill()
++        # Prefill path warms up naturally on first user request
++        # self._warmup_prefill()
+ 
+     def _init_communication(self, config: EngineConfig) -> torch.distributed.ProcessGroup:
+         if config.tp_info.size == 1 or config.use_pynccl:
+@@ -894,9 +896,7 @@ class Engine:
+         if self.max_seq_len < 2:
+             return
+ 
+-        warmup_lens = [min(80, self.max_seq_len)]
+-        if self.max_seq_len >= 128:
+-            warmup_lens.append(128)
++        warmup_lens = [min(16, self.max_seq_len)]
+         warmup_lens = sorted({length for length in warmup_lens if length >= 2})
+         if not warmup_lens:
+             return

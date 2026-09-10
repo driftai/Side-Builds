@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "default_model_id": "qwen36-nvfp4",
+  "disk_reserve_gb": 30,
+  "models": [
+    {
+      "id": "qwen36-nvfp4",
+      "display_name": "Qwen3.6 35B A3B NVFP4",
+      "hf_repo": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+      "revision": null,
+      "served_model_name": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+      "local_path": "models/ftw/Qwen3.6-35B-A3B-NVFP4",
+      "architecture": "Qwen3_5MoeForConditionalGeneration",
+      "kind": "moe",
+      "quantization": "NVFP4 / FTW",
+      "validation": "primary",
+      "selectable": true,
+      "download": null,
+      "required_files": ["config.json", "freetoken_weight.json", "freetoken-00000.ftw"],
+      "notes": "Current validated default, general-purpose Qwen, and ultimate recovery model.",
+      "default_reasoning_effort": "none",
+      "profiles": {
+        "normal": {"label": "Balanced 12K", "kv_tokens": 12288, "prefill_tokens": 2048, "d2d": 1, "memory_ratio": 0.92, "graph": 1, "moe_slots": 569, "startup_timeout": 150, "request_timeout": 300},
+        "busy": {"label": "Fast 8K", "kv_tokens": 8192, "prefill_tokens": 2048, "d2d": 1, "memory_ratio": 0.92, "graph": 1, "moe_slots": 736, "startup_timeout": 150, "request_timeout": 1200},
+        "recovery": {"label": "Recovery 4K", "kv_tokens": 4096, "prefill_tokens": 1024, "d2d": 0, "memory_ratio": 0.90, "graph": 0, "moe_slots": 736, "startup_timeout": 150, "request_timeout": 1200}
+      }
+    },
+    {
+      "id": "qwen3-coder-30b-fp8",
+      "display_name": "Qwen3 Coder 30B A3B FP8",
+      "hf_repo": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+      "revision": "dcaee4d4dfc5ee71ad501f01f530e5652438fde0",
+      "served_model_name": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+      "local_path": "models/hf/Qwen--Qwen3-Coder-30B-A3B-Instruct-FP8",
+      "architecture": "Qwen3MoeForCausalLM",
+      "kind": "moe",
+      "quantization": "FP8 block 128x128",
+      "validation": "validated",
+      "selectable": true,
+      "download": {
+        "expected_bytes": 31200000000,
+        "files": [
+          "chat_template.jinja",
+          "config.json",
+          "generation_config.json",
+          "merges.txt",
+          "model-00001-of-00004.safetensors",
+          "model-00002-of-00004.safetensors",
+          "model-00003-of-00004.safetensors",
+          "model-00004-of-00004.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json",
+          "vocab.json"
+        ]
+      },
+      "required_files": [
+        "chat_template.jinja",
+        "config.json",
+        "generation_config.json",
+        "merges.txt",
+        "model-00001-of-00004.safetensors",
+        "model-00002-of-00004.safetensors",
+        "model-00003-of-00004.safetensors",
+        "model-00004-of-00004.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.json"
+      ],
+      "notes": "Validated second Qwen slot and coding specialist on this RTX 4050 / 52 GB WSL machine using the approved block-FP8 compatibility patch. Runtime compatibility, 2K/4K context, near-4K prompt handling, streaming, tool calls, cancellation, debugging, multi-file reasoning, and iterative correction passed. Instruction following is useful but not perfect on strict brevity/constraint-heavy prompts, so coding outputs should still be verified with tests. Keep reasoning_effort=none enforced for ordinary non-thinking output.",
+      "default_reasoning_effort": "none",
+      "profiles": {
+        "normal": {"label": "Coder 4K", "kv_tokens": 4096, "prefill_tokens": 1024, "d2d": 0, "memory_ratio": 0.88, "graph": 0, "moe_slots": null, "startup_timeout": 300, "request_timeout": 600},
+        "busy": {"label": "Coder Busy 2K", "kv_tokens": 2048, "prefill_tokens": 512, "d2d": 0, "memory_ratio": 0.80, "graph": 0, "moe_slots": null, "startup_timeout": 360, "request_timeout": 1200},
+        "recovery": {"label": "Coder Recovery 2K", "kv_tokens": 2048, "prefill_tokens": 512, "d2d": 0, "memory_ratio": 0.80, "graph": 0, "moe_slots": null, "startup_timeout": 360, "request_timeout": 1200}
+      }
+    },
+    {
+      "id": "gpt-oss-20b",
+      "display_name": "GPT-OSS 20B",
+      "hf_repo": "openai/gpt-oss-20b",
+      "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+      "served_model_name": "openai/gpt-oss-20b",
+      "local_path": "models/hf/openai--gpt-oss-20b",
+      "architecture": "GptOssForCausalLM",
+      "kind": "moe",
+      "quantization": "MXFP4",
+      "validation": "validated",
+      "selectable": true,
+      "download": {
+        "expected_bytes": 13800000000,
+        "files": [
+          "chat_template.jinja",
+          "config.json",
+          "generation_config.json",
+          "model-00000-of-00002.safetensors",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "special_tokens_map.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ]
+      },
+      "required_files": ["config.json", "model-00000-of-00002.safetensors", "model-00001-of-00002.safetensors", "model-00002-of-00002.safetensors", "tokenizer.json"],
+      "notes": "Validated alternate on this RTX 4050 / 52 GB WSL machine. Harmony parsing remains owned by FreeToken.",
+      "default_reasoning_effort": "low",
+      "profiles": {
+        "normal": {"label": "GPT-OSS Safe 4K", "kv_tokens": 4096, "prefill_tokens": 1024, "d2d": 0, "memory_ratio": 0.90, "graph": 0, "moe_slots": null, "startup_timeout": 240, "request_timeout": 600},
+        "busy": {"label": "GPT-OSS Busy 4K", "kv_tokens": 4096, "prefill_tokens": 1024, "d2d": 0, "memory_ratio": 0.86, "graph": 0, "moe_slots": null, "startup_timeout": 300, "request_timeout": 1200},
+        "recovery": {"label": "GPT-OSS Recovery 2K", "kv_tokens": 2048, "prefill_tokens": 512, "d2d": 0, "memory_ratio": 0.90, "graph": 0, "moe_slots": null, "startup_timeout": 300, "request_timeout": 1200}
+      }
+    },
+    {
+      "id": "gemma4-26b-q4_0-gguf",
+      "display_name": "Gemma 4 26B A4B Q4_0",
+      "hf_repo": "google/gemma-4-26B-A4B-it-qat-q4_0-gguf",
+      "revision": "d1c082be9cf3c8a514acf63b8761f4b41935842e",
+      "served_model_name": "google/gemma-4-26B-A4B-it-qat-q4_0-gguf",
+      "local_path": "models/gguf/google--gemma-4-26B-A4B-it-qat-q4_0-gguf",
+      "serve_file": "gemma-4-26B_q4_0-it.gguf",
+      "architecture": "Gemma4ForConditionalGeneration",
+      "kind": "moe",
+      "quantization": "QAT Q4_0 GGUF",
+      "validation": "validated",
+      "selectable": true,
+      "download": {
+        "expected_bytes": 14439363584,
+        "files": ["gemma-4-26B_q4_0-it.gguf"]
+      },
+      "required_files": ["gemma-4-26B_q4_0-it.gguf"],
+      "notes": "Validated text-only alternate on this RTX 4050 / 52 GB WSL machine using FreeToken's native Gemma-4 Q4_0 offload path.",
+      "default_reasoning_effort": null,
+      "profiles": {
+        "normal": {"label": "Gemma Q4_0 Safe 4K", "kv_tokens": 4096, "prefill_tokens": 1024, "d2d": 0, "memory_ratio": 0.90, "graph": 0, "moe_slots": null, "startup_timeout": 300, "request_timeout": 600},
+        "busy": {"label": "Gemma Q4_0 Busy 2K", "kv_tokens": 2048, "prefill_tokens": 512, "d2d": 0, "memory_ratio": 0.82, "graph": 0, "moe_slots": null, "startup_timeout": 360, "request_timeout": 1200},
+        "recovery": {"label": "Gemma Q4_0 Recovery 2K", "kv_tokens": 2048, "prefill_tokens": 512, "d2d": 0, "memory_ratio": 0.82, "graph": 0, "moe_slots": null, "startup_timeout": 360, "request_timeout": 1200}
+      }
+    }
+  ]
+}

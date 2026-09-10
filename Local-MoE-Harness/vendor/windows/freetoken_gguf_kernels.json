@@ -1,0 +1,19 @@
+{
+    "schema_version": 1,
+    "artifact": "freetoken_gguf_kernels.pyd",
+    "sha256": "80f6d6996e6ef811bdcb41a24b2b4217b04dd2eba586f27884c1edd0ae67cac3",
+    "module_name": "freetoken_gguf_kernels",
+    "python_major_minor": "3.12",
+    "freetoken_version": "0.1.2+g141c31a8d",
+    "torch_version": "2.11.0+cu130",
+    "torch_cuda": "13.0",
+    "cuda_nvcc_version": "13.0.48",
+    "cuda_nvvm_version": "13.0.48",
+    "ninja_version": "1.13.2.git.kitware.jobserver-pipe-1",
+    "torch_cuda_arch_list": "8.0;8.6;8.9+PTX",
+    "maintainer_msvc": "Microsoft (R) C/C++ Optimizing Compiler Version 19.44.35228 for x64",
+    "maintainer_msvc_installation": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+    "source": "FreeToken official Windows wheel GGUF JIT source",
+    "public_runtime_requires_compiler": false,
+    "built_at_utc": "2026-09-10T01:00:20.6602211+00:00"
+}

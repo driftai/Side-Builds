@@ -1,0 +1,32 @@
+diff --git a/python/freetoken/kernel/triton/activation.py b/python/freetoken/kernel/triton/activation.py
+index 2c38b53..f0c146c 100644
+--- a/python/freetoken/kernel/triton/activation.py
++++ b/python/freetoken/kernel/triton/activation.py
+@@ -141,15 +141,24 @@ def _act_and_mul(
+ 
+ 
+ def silu_and_mul(x: torch.Tensor, out: torch.Tensor | None = None) -> torch.Tensor:
+-    return _act_and_mul(SILU, x, out)
++    gate, up = x.chunk(2, dim=-1)
++    if out is not None:
++        return torch.mul(torch.nn.functional.silu(gate), up, out=out)
++    return torch.nn.functional.silu(gate) * up
+ 
+ 
+ def gelu_and_mul(x: torch.Tensor, out: torch.Tensor | None = None) -> torch.Tensor:
+-    return _act_and_mul(GELU, x, out)
++    gate, up = x.chunk(2, dim=-1)
++    if out is not None:
++        return torch.mul(torch.nn.functional.gelu(gate), up, out=out)
++    return torch.nn.functional.gelu(gate) * up
+ 
+ 
+ def gelu_tanh_and_mul(x: torch.Tensor, out: torch.Tensor | None = None) -> torch.Tensor:
+-    return _act_and_mul(GELU_TANH, x, out)
++    gate, up = x.chunk(2, dim=-1)
++    if out is not None:
++        return torch.mul(torch.nn.functional.gelu(gate, approximate="tanh"), up, out=out)
++    return torch.nn.functional.gelu(gate, approximate="tanh") * up
+ 
+ 
+ def swigluoai_and_mul(

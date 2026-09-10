@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Local MoE Harness</title>
+  <link rel="stylesheet" href="/static/style.css?v=20260909.1" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <p class="eyebrow">LOCAL INFERENCE LAB</p>
+          <h1>Local MoE Harness</h1>
+          <p class="sub">Chat, probe and benchmark a self-contained local FreeToken runtime on Linux/WSL or native Windows.</p>
+        </div>
+        <div id="runtime-pill" class="pill">Checking runtime…</div>
+      </div>
+      <section class="system-console" aria-label="Live inference state">
+        <div class="system-console-head"><div><span class="system-kicker">LIVE SYSTEM STATE</span><span class="system-caption">The active context, GPU sharing state and request geometry at a glance.</span></div><span class="system-refresh-note">Auto-refreshes while idle</span></div>
+        <div class="system-grid">
+          <div class="system-cell"><span>Context</span><strong id="context-state">Loading…</strong></div>
+          <div class="system-cell"><span>GPU</span><strong id="gpu-state">Loading…</strong></div>
+          <div class="system-cell"><span>Mode</span><strong id="gpu-mode">Loading…</strong></div>
+          <div class="system-cell"><span>MoE cache</span><strong id="moe-state">Loading…</strong></div>
+          <div class="system-cell"><span>Request</span><strong id="request-state">Loading…</strong></div>
+        </div>
+      </section>
+    </header>
+
+    <section class="grid metrics" id="metrics" aria-label="Runtime overview">
+      <article><span>Runtime</span><strong id="runtime">—</strong></article>
+      <article><span>Model</span><strong id="model">—</strong></article>
+      <article><span>RAM used / total</span><strong id="ram">—</strong></article>
+      <article><span>Tool storage free</span><strong id="disk">—</strong></article>
+    </section>
+
+    <section class="model-manager" aria-label="Local model selection">
+      <div class="model-manager-summary"><div><span class="label">MODEL</span><strong id="selected-model-name">Loading model registry…</strong><p id="selected-model-note">Model changes use a controlled FreeToken restart.</p></div><button type="button" id="change-model">Change model</button></div>
+      <div id="model-panel" class="model-panel hidden"><div class="model-panel-head"><div><strong>Local model library</strong><p>Switching starts a fresh conversation. Available checkpoints are never downloaded automatically.</p></div><button type="button" id="close-model-panel">Close</button></div><div id="model-switch-progress" class="model-switch-progress hidden" role="status"></div><div id="model-list" class="model-list"></div></div>
+    </section>
+
+    <details class="technical-details">
+      <summary><span class="details-label">Behind the scenes</span><span class="details-hint">Latency, tool/runtime storage, context limits, output policy and GPU transition state</span></summary>
+      <div class="technical-grid">
+        <div><span>Runtime API latency</span><strong id="runtime-latency">—</strong></div>
+        <div><span>Startup GPU mode</span><strong id="startup-mode">—</strong></div>
+        <div><span>GPU telemetry</span><strong id="telemetry-source">—</strong></div>
+        <div><span>Request timeout</span><strong id="request-timeout">—</strong></div>
+        <div><span>Tool volume</span><strong id="host-volume">—</strong></div>
+        <div><span>Runtime filesystem</span><strong id="wsl-virtual-disk">—</strong></div>
+        <div><span>Virtual-disk detail</span><strong id="wsl-vhdx-size">—</strong></div>
+        <div><span>RAM available</span><strong id="wsl-ram-available">—</strong></div>
+        <div><span>FreeToken RSS / PSS</span><strong id="freetoken-memory">—</strong></div>
+        <div><span>Context margin</span><strong id="context-margin">—</strong></div>
+        <div><span>Raw history limit</span><strong id="history-limit">—</strong></div>
+        <div><span>Compact memory</span><strong id="memory-limit">—</strong></div>
+        <div><span>Output policy</span><strong id="output-policy">—</strong></div>
+        <div><span>GPU transition</span><strong id="gpu-transition">—</strong></div>
+      </div>
+    </details>
+
+    <section class="panel">
+      <div class="panel-head"><div><span class="label">CHAT SANDBOX</span><h2>Talk to the local model</h2></div><div class="actions panel-actions"><button type="button" id="clear-conversation">New conversation</button><button type="button" id="start-runtime">Start local model</button><button type="button" id="refresh">Refresh status</button></div></div>
+      <div id="chat" class="chat"></div>
+      <form id="chat-form"><textarea id="prompt" placeholder="Ask the local model something…" required></textarea><div class="actions composer-actions"><button type="button" id="stop-btn" class="danger hidden">Stop Generation</button><button type="button" id="benchmark">Benchmark prompt</button><button type="submit" id="send-btn" class="primary">Send</button></div></form>
+      <pre id="bench-output" class="bench hidden"></pre>
+    </section>
+  </main>
+  <script src="/static/model-ui.js?v=20260909.1"></script>
+  <script src="/static/app.js?v=20260909.1"></script>
+</body>
+</html>

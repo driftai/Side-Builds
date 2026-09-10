@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "validated",
+  "artifact_path": "vendor/windows/freetoken_gguf_kernels.pyd",
+  "artifact_manifest_path": "vendor/windows/freetoken_gguf_kernels.json",
+  "module_name": "freetoken_gguf_kernels",
+  "python_major_minor": "3.12",
+  "freetoken_version": "0.1.2+g141c31a8d",
+  "torch_version": "2.11.0+cu130",
+  "build_arch_list": "8.0;8.6;8.9+PTX",
+  "jit_fallback_allowed": false,
+  "public_runtime_requires_compiler": false,
+  "notes": "The binary artifact is generated and hardware-qualified locally before public promotion. Native Windows GGUF must fail closed while the artifact is absent."
+}

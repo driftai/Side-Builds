@@ -1,0 +1,318 @@
+--- a/python/freetoken/models/qwen3_moe/config.py
++++ b/python/freetoken/models/qwen3_moe/config.py
+@@ -3,6 +3,24 @@
+ from typing import Any
+ 
+ from freetoken.models.config import ModelConfig, RotaryConfig
++
++
++def _fp8_block_quant(hf_config: Any) -> tuple[str, tuple[int, int] | None]:
++    """Detect DeepSeek-V3-style 128x128 block-FP8 Qwen3-MoE checkpoints."""
++    quant = getattr(hf_config, "quantization_config", None)
++    if quant is None:
++        return "none", None
++    get = quant.get if isinstance(quant, dict) else (lambda k, d=None: getattr(quant, k, d))
++    method = str(get("quant_method") or get("quant_algo") or "").lower()
++    block = get("weight_block_size")
++    if method != "fp8" or not block:
++        return "none", None
++    block_size = tuple(int(x) for x in block)
++    if block_size != (128, 128):
++        raise ValueError(
++            f"qwen3_moe only supports 128x128 block-FP8 checkpoints, got {block_size}"
++        )
++    return "fp8_block", block_size
+ 
+ 
+ def parse_config(hf_config: Any) -> ModelConfig:
+@@ -19,6 +37,7 @@
+     rope_theta = getattr(hf_config, "rope_theta", None)
+     if rope_theta is None and rope_scaling is not None:
+         rope_theta = rope_scaling["rope_theta"]
++    expert_quant, weight_block_size = _fp8_block_quant(hf_config)
+ 
+     return ModelConfig(
+         num_layers=hf_config.num_hidden_layers,
+@@ -48,6 +67,8 @@
+         norm_topk_prob=bool(getattr(hf_config, "norm_topk_prob", False)),
+         model_type=getattr(hf_config, "model_type", "qwen3_moe"),
+         architectures=getattr(hf_config, "architectures", ["Qwen3MoeForCausalLM"]),
++        expert_quant=expert_quant,
++        weight_block_size=weight_block_size,
+     )
+ 
+ 
+--- a/python/freetoken/models/qwen3_moe/attention.py
++++ b/python/freetoken/models/qwen3_moe/attention.py
+@@ -6,6 +6,7 @@
+ from freetoken.distributed import get_tp_info
+ from freetoken.layers import BaseOP, LinearOProj, LinearQKVMerged, RMSNorm
+ from freetoken.layers.rotary import get_rope
++from freetoken.models.quant_linear import make_col_merged, make_replicated
+ from freetoken.utils import div_even, nvtx_annotate
+ 
+ if TYPE_CHECKING:
+@@ -31,13 +32,28 @@
+         self.qo_attn_dim = self.num_qo_heads * head_dim
+         self.kv_attn_dim = self.num_kv_heads * head_dim
+         self.head_dim = head_dim
+-        self.qkv_proj = LinearQKVMerged(
+-            hidden_size=config.hidden_size,
+-            head_dim=config.head_dim,
+-            num_qo_heads=config.num_qo_heads,
+-            num_kv_heads=config.num_kv_heads,
+-            has_bias=has_attn_bias,
+-        )
++        block_fp8 = getattr(config, "expert_quant", "none") == "fp8_block"
++        if block_fp8:
++            if tp_size != 1:
++                raise NotImplementedError("qwen3_moe block-FP8 attention currently supports TP=1 only")
++            self.qkv_proj = make_col_merged(
++                config,
++                config.hidden_size,
++                [
++                    config.num_qo_heads * head_dim,
++                    config.num_kv_heads * head_dim,
++                    config.num_kv_heads * head_dim,
++                ],
++                has_bias=has_attn_bias,
++            )
++        else:
++            self.qkv_proj = LinearQKVMerged(
++                hidden_size=config.hidden_size,
++                head_dim=config.head_dim,
++                num_qo_heads=config.num_qo_heads,
++                num_kv_heads=config.num_kv_heads,
++                has_bias=has_attn_bias,
++            )
+         if has_qk_norm:
+             self.q_norm = RMSNorm(head_dim, eps=config.rms_norm_eps)
+             self.k_norm = RMSNorm(head_dim, eps=config.rms_norm_eps)
+@@ -55,11 +71,19 @@
+                 else None
+             ),
+         )
+-        self.o_proj = LinearOProj(
+-            head_dim * config.num_qo_heads,
+-            config.hidden_size,
+-            has_bias=False,
+-        )
++        if block_fp8:
++            self.o_proj = make_replicated(
++                config,
++                head_dim * config.num_qo_heads,
++                config.hidden_size,
++                has_bias=False,
++            )
++        else:
++            self.o_proj = LinearOProj(
++                head_dim * config.num_qo_heads,
++                config.hidden_size,
++                has_bias=False,
++            )
+ 
+     @nvtx_annotate("MHA")
+     def forward(self, x: torch.Tensor) -> torch.Tensor:
+--- a/python/freetoken/models/qwen3_moe/moe.py
++++ b/python/freetoken/models/qwen3_moe/moe.py
+@@ -12,7 +12,14 @@
+ 
+ class Qwen3MoeMLP(BaseOP):
+     def __init__(self, config: ModelConfig, layer_id: int | None = None):
+-        self.experts = make_moe_layer(config, layer_id=layer_id)
++        weight_format = (
++            "fp8_block" if getattr(config, "expert_quant", "none") == "fp8_block" else "bf16"
++        )
++        self.experts = make_moe_layer(
++            config,
++            layer_id=layer_id,
++            weight_format=weight_format,
++        )
+         self.gate = LinearReplicated(
+             config.hidden_size,
+             config.num_experts,
+--- a/python/freetoken/models/qwen3_moe/weight.py
++++ b/python/freetoken/models/qwen3_moe/weight.py
+@@ -117,4 +117,166 @@
+     )
+ 
+ 
+-__all__ = ["iter_weights", "iter_weights_parallel"]
++_FP8_PACKED_EXPERT_PATTERN = re.compile(
++    r"^model\.layers\.(?P<layer>\d+)\.mlp\.experts\."
++    r"(?P<name>gate_up_proj|gate_up_proj\.weight_scale_inv|down_proj|down_proj\.weight_scale_inv)$"
++)
++
++
++def _build_fp8_expert_banks(
++    model_path: str,
++    model_config,
++    *,
++    dummy: bool,
++    parallel: bool,
++    workers: int,
++    chunk: int,
++    layer_sink=None,
++) -> dict[str, list[torch.Tensor]]:
++    """Build native block-FP8 offload banks from the existing Qwen3 expert iterator."""
++    if get_tp_info().size > 1:
++        raise NotImplementedError("qwen3_moe block-FP8 expert banks currently support TP=1 only")
++
++    from freetoken.kernel.triton.fp8_block_linear import FP8
++    from freetoken.moe.host_banks import LayerCompletionTracker, PinPipeline, alloc_layer_banks
++
++    block = 128
++    num_layers = model_config.num_layers
++    num_experts = model_config.num_experts
++    hidden = model_config.hidden_size
++    intermediate = model_config.moe_intermediate_size
++    if hidden % block or intermediate % block:
++        raise ValueError(
++            "qwen3_moe block-FP8 expert dimensions must be divisible by 128: "
++            f"hidden={hidden}, intermediate={intermediate}"
++        )
++
++    specs = {
++        "gate_up": ((num_experts, 2 * intermediate, hidden), FP8),
++        "gate_up_scale": (
++            (num_experts, 2 * intermediate // block, hidden // block),
++            torch.bfloat16,
++        ),
++        "down": ((num_experts, hidden, intermediate), FP8),
++        "down_scale": (
++            (num_experts, hidden // block, intermediate // block),
++            torch.bfloat16,
++        ),
++    }
++    host_banks = alloc_layer_banks(specs, num_layers)
++    sources = {
++        name: [bank.tensor for bank in host_banks[name]]
++        for name in specs
++    }
++
++    if dummy:
++        for layer in range(num_layers):
++            sources["gate_up"][layer].view(torch.uint8).random_(0, 16)
++            sources["down"][layer].view(torch.uint8).random_(0, 16)
++            sources["gate_up_scale"][layer].fill_(1.0)
++            sources["down_scale"][layer].fill_(1.0)
++        if torch.cuda.is_available():
++            from freetoken.moe.host_banks import pin_banks
++
++            pin_banks(host_banks)
++        return sources
++
++    def place(name: str, tensor: torch.Tensor) -> int:
++        match = _FP8_PACKED_EXPERT_PATTERN.match(name)
++        if match is None:
++            raise ValueError(f"Unexpected qwen3_moe block-FP8 expert weight key: {name}")
++        layer = int(match.group("layer"))
++        if layer < 0 or layer >= num_layers:
++            raise ValueError(f"Unexpected qwen3_moe expert layer {layer}")
++        packed_name = match.group("name")
++        if packed_name == "gate_up_proj":
++            bank_name = "gate_up"
++        elif packed_name == "gate_up_proj.weight_scale_inv":
++            bank_name = "gate_up_scale"
++        elif packed_name == "down_proj":
++            bank_name = "down"
++        else:
++            bank_name = "down_scale"
++        expected = tuple(sources[bank_name][layer].shape)
++        if tuple(tensor.shape) != expected:
++            raise ValueError(
++                f"Unexpected {bank_name} shape {tuple(tensor.shape)}; expected {expected}"
++            )
++        sources[bank_name][layer].copy_(tensor)
++        return layer
++
++    iterator = iter_weights_parallel if parallel else iter_weights
++    kwargs = {
++        "include_moe_experts": True,
++        "include_non_moe": False,
++    }
++    if parallel:
++        kwargs.update(workers=workers, chunk=chunk)
++    tensors = iterator(model_path, torch.device("cpu"), **kwargs)
++
++    def load(sink) -> None:
++        tracker = LayerCompletionTracker(4, host_banks, sink)
++        seen: dict[int, int] = {}
++        for name, tensor in tensors:
++            layer = place(name, tensor)
++            seen[layer] = seen.get(layer, 0) + 1
++            tracker.note(layer)
++        expected = {layer: 4 for layer in range(num_layers)}
++        if seen != expected:
++            raise ValueError(f"Incomplete qwen3_moe block-FP8 expert banks: {seen}")
++
++    if layer_sink is not None:
++        load(layer_sink)
++    else:
++        with PinPipeline() as pins:
++            load(pins)
++    return sources
++
++
++def setup_offload_expert_banks(
++    model_path: str,
++    model_config,
++    *,
++    device: torch.device,
++    dtype: torch.dtype,
++    dummy: bool = False,
++    parallel: bool = False,
++    workers: int = 8,
++    chunk: int = 8 << 20,
++    decode_target: str = "gpu",
++    layer_sink=None,
++):
++    """Model-owned bank setup for Qwen3 block-FP8; defer all existing formats unchanged."""
++    expert_quant = getattr(model_config, "expert_quant", "none")
++    if expert_quant != "fp8_block":
++        from freetoken.moe.expert_banks import _PROVIDERS
++
++        return _PROVIDERS[expert_quant](
++            model_path,
++            model_config,
++            device,
++            dtype,
++            dummy,
++            parallel=parallel,
++            workers=workers,
++            chunk=chunk,
++            decode_target=decode_target,
++            layer_sink=layer_sink,
++        )
++
++    from freetoken.moe.expert_banks import ExpertBanks
++
++    sink = None if dummy else layer_sink
++    sources = _build_fp8_expert_banks(
++        model_path,
++        model_config,
++        dummy=dummy,
++        parallel=parallel,
++        workers=workers,
++        chunk=chunk,
++        layer_sink=sink,
++    )
++    return ExpertBanks("fp8_block", sources, streamed=sink is not None)
++
++
++__all__ = ["iter_weights", "iter_weights_parallel", "setup_offload_expert_banks"]
+--- a/python/freetoken/models/qwen3_moe/__init__.py
++++ b/python/freetoken/models/qwen3_moe/__init__.py
+@@ -1,10 +1,11 @@
+ from .config import parse_config
+ from .model import Qwen3MoeForCausalLM
+-from .weight import iter_weights, iter_weights_parallel
++from .weight import iter_weights, iter_weights_parallel, setup_offload_expert_banks
+ 
+ __all__ = [
+     "Qwen3MoeForCausalLM",
+     "parse_config",
+     "iter_weights",
+     "iter_weights_parallel",
++    "setup_offload_expert_banks",
+ ]

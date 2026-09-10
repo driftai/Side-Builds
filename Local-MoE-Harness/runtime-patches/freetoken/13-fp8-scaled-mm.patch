@@ -1,0 +1,29 @@
+diff --git a/python/freetoken/kernel/triton/fp8_pertensor_linear.py b/python/freetoken/kernel/triton/fp8_pertensor_linear.py
+index 28a54c9..df17263 100644
+--- a/python/freetoken/kernel/triton/fp8_pertensor_linear.py
++++ b/python/freetoken/kernel/triton/fp8_pertensor_linear.py
+@@ -244,7 +244,7 @@ def _scaled_mm(
+     return torch._scaled_mm(
+         qa, wt,
+         scale_a=input_scale.reshape(1, 1).expand(a.shape[0], 1).contiguous(),
+-        scale_b=weight_scale.reshape(1, -1),
++        scale_b=weight_scale.reshape(1, -1).contiguous(),
+         out_dtype=out_dtype,
+     )
+ 
+@@ -266,14 +266,7 @@ def fp8_pertensor_linear(
+     SGLang likewise run one scheme across all M on any GPU with FP8 tensor cores."""
+     *lead, K = x.shape
+     N = weight.shape[0]
+-    if _USE_REF:  # numeric-reference fallback (debug / A-B)
+-        w = weight.to(x.dtype) * weight_scale.to(x.dtype)[:, None]
+-        out = (x.reshape(-1, K) @ w.t()).reshape(*lead, N)
+-    elif input_scale is not None and e4m3_native():
+-        out = _scaled_mm(
+-            x.reshape(-1, K), weight, weight_scale, input_scale, uniform_scale, x.dtype,
+-        ).reshape(*lead, N)
+-    elif x.numel() // K == 1:
++    if x.numel() // K == 1:
+         out = _gemv(x.reshape(K), e4m3_kernel_view(weight), weight_scale, x.dtype).reshape(*lead, N)
+     else:
+         out = _gemm(
