@@ -52,6 +52,21 @@ git diff --cached --name-only
 
 Every staged project path must be inside `Local-MoE-Harness/`, except an explicitly requested shared root policy file such as `AGENTS.md`.
 
+## Existing local workspace containers
+
+A directory that merely contains several independent project folders is not automatically a safe place to turn into a Side-Builds Git root.
+
+If a target parent directory already contains another live project with local/uncommitted work, do **not** initialize or clone Side-Builds at that parent merely to obtain Local MoE Harness. Doing so can make Git start tracking, hiding, or otherwise interacting with the sibling project's files.
+
+Instead:
+
+1. leave the existing sibling project untouched;
+2. use a disposable blobless/sparse Side-Builds checkout elsewhere to obtain or update `Local-MoE-Harness`;
+3. copy/synchronize only the Harness source subtree into its intended standalone local folder;
+4. delete the disposable checkout after verification.
+
+This keeps local workspace organization independent from monorepo ownership and prevents an unrelated live project from becoming collateral Git state.
+
 ## Public Git identity privacy gate
 
 Before creating a commit from any local, temporary, sparse, or release checkout, configure repository-local identity:
@@ -110,6 +125,8 @@ Repository maintenance must not treat local runtime state as source files. Keep 
 
 Their absence from GitHub is intentional and must not be interpreted as permission to delete a user's local copies.
 
+Model checkpoint weights may be intentionally linked outside the Harness root through the model-location feature. Those external checkpoint directories are still local runtime data and must never be staged merely because they are reachable from the Harness.
+
 ## Push discipline
 
 Before push:
@@ -126,4 +143,4 @@ If the remote moved or a push is rejected, stop and reconcile. Do not force-push
 
 For ordinary Local MoE Harness development, release, maintenance, or documentation work:
 
-> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old Private-Test-Builds sync helpers, and verify the noreply identity in the actual commit object before every public push.
+> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old Private-Test-Builds sync helpers, avoid turning shared local workspace containers into monorepo roots, and verify the noreply identity in the actual commit object before every public push.
