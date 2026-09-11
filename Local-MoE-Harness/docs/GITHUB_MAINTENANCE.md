@@ -8,7 +8,7 @@ The active GitHub source of truth for Local MoE Harness is:
 driftai/Side-Builds/Local-MoE-Harness
 ```
 
-The former `Private-Test-Builds/local-moe-harness` staging subtree is retired from active maintenance. Do not recreate or sync back to that private subtree unless the user explicitly requests a private staging copy.
+Any former private staging subtree is retired from active maintenance. Do not recreate or sync back to a retired private mirror unless the user explicitly requests a private staging copy.
 
 ## Legacy sync helper is retired
 
@@ -19,7 +19,7 @@ github-sync.bat
 scripts/github-sync.sh
 ```
 
-Those helpers belonged to the retired Private-Test-Builds staging workflow and must not be used for current maintenance. Old copies may contain a retired repository target, private local-path assumptions, or unsafe Git-identity fallbacks.
+Those helpers belonged to the retired staging workflow and must not be used for current maintenance. Old copies may contain a retired repository target, machine-local path assumptions, or unsafe Git-identity fallbacks.
 
 Do not publish, revive, or modify those legacy helpers as the default workflow. Future GitHub maintenance should use a sparse checkout of `Side-Builds/Local-MoE-Harness` directly as documented below.
 
@@ -143,4 +143,4 @@ If the remote moved or a push is rejected, stop and reconcile. Do not force-push
 
 For ordinary Local MoE Harness development, release, maintenance, or documentation work:
 
-> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old Private-Test-Builds sync helpers, avoid turning shared local workspace containers into monorepo roots, and verify the noreply identity in the actual commit object before every public push.
+> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old staging sync helpers, avoid turning shared local workspace containers into monorepo roots, and verify the noreply identity in the actual commit object before every public push.

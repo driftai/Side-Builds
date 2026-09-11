@@ -26,10 +26,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      "*": [
-        "node_modules/*",
-        "C:/Users/alvin/Documents/Unidex File/Useful-WebpagesHolder/Otherstuff/node-modules-holder/node_modules/*"
-      ]
+      "*": ["node_modules/*"]
     }
   }
 }

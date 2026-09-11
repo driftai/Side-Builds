@@ -94,10 +94,10 @@ def test_safe_child_path_traversal_prevention(tmp_path: Path):
     root = tmp_path / "nuvio_dist"
     root.mkdir()
     (root / "index.html").write_text("ok", encoding="utf-8")
-    
+
     # Valid child
     assert server.safe_child(root, "index.html") == (root / "index.html").resolve()
-    
+
     # Traversal attempts
     assert server.safe_child(root, "../secret.txt") is None
     assert server.safe_child(root, "../../Windows/System32/calc.exe") is None
@@ -108,7 +108,7 @@ def test_safe_child_path_traversal_prevention(tmp_path: Path):
 def test_wrapper_relative_default_nuvio_path():
     default_path = server.ROOT / "nuvio"
     assert default_path.is_relative_to(server.ROOT)
-    assert not str(default_path).startswith("C:\\Users\\alvin\\Downloads\\Private-Test-Builds\\nuvio")
+    assert default_path.parent == server.ROOT
     assert default_path.name == "nuvio"
 
 

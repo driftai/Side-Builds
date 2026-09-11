@@ -27,7 +27,7 @@ NuvioWeb is the upstream Nuvio TV web application for Samsung Tizen, LG webOS, a
 
 ## Installation location
 
-The wrapper never assumes a specific parent directory such as `Downloads\\Private-Test-Builds`.
+The wrapper never assumes a specific parent directory or machine-local development workspace.
 
 By default, the Nuvio installation lives relative to the wrapper itself:
 

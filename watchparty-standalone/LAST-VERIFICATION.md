@@ -4,12 +4,14 @@
 
 ## Build identity
 
-- Repository: `driftai/Private-Test-Builds`
+- Repository: `driftai/Side-Builds`
+- Project path: `watchparty-standalone`
 - Branch: `main`
-- Exact Commit SHA: `512f8a2e474cb3eb63b90af82227b891d0288e35`
-- Base Integration Commit: `512f8a2` (Merge PR #3: Media engine and external provider support)
-- Status: **CERTIFIED PASS**
-- Automated certification: **PASSED (Astro full exact-HEAD run)**
+- Historical tested source SHA: `512f8a2e474cb3eb63b90af82227b891d0288e35`
+- Historical Base Integration Commit: `512f8a2` (Merge PR #3: Media engine and external provider support)
+- Status: **CERTIFIED PASS (historical pre-promotion run)**
+- Automated certification: **PASSED (Astro full exact-HEAD run before public promotion)**
+- Public-head requalification: **REQUIRED after migration before treating this file as current-head certification**
 
 ## Current change scope
 

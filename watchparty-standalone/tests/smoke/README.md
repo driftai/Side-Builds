@@ -63,11 +63,11 @@ A live YouTube failure should be reported as an integration failure with bounded
 
 ## Local checkout synchronization / definition of done
 
-GitHub `main` is the canonical WatchParty source. Astro uses the local Windows checkout only as the executable verification environment.
+GitHub `main` is the canonical WatchParty source. Astro uses a local Windows checkout only as the executable verification environment.
 
 Local checkout:
 
-`C:\Users\alvin\Downloads\Private-Test-Builds\watchparty-standalone`
+Use any clean local clone or sparse checkout containing `Side-Builds/watchparty-standalone`; do not hardcode a user-specific filesystem path.
 
 After completing a code or test-harness change:
 

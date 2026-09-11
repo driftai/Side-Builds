@@ -74,4 +74,4 @@ The active GitHub source for Local MoE Harness is:
 Side-Builds/Local-MoE-Harness
 ```
 
-Do not recreate or depend on a `Private-Test-Builds/local-moe-harness` staging subtree during ordinary maintenance. Work directly against this public subtree with the sparse-checkout and Git-identity rules above.
+Do not recreate or depend on retired private staging mirrors during ordinary maintenance. Work directly against this public subtree with the sparse-checkout and Git-identity rules above.

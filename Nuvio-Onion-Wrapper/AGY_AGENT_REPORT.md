@@ -4,21 +4,21 @@
 
 This is a local Windows browser wrapper around NuvioTVSmart.
 
-User workspace:
+Example local workspace layout:
 
 ```text
-C:\Users\alvin\Downloads\temp\
+<workspace>\
 ├── nuvio\
-└── Nuvio-Onion-Wrapper-v16\
+└── Nuvio-Onion-Wrapper\
 ```
 
 The wrapper must load the built Nuvio browser app from:
 
 ```text
-C:\Users\alvin\Downloads\temp\nuvio\dist\
+<workspace>\nuvio\dist\
 ```
 
-Do **not** assume Nuvio is physically inside the wrapper. The launcher supports both `.nuvio` and `..nuvio` and `NUVIO_PATH`.
+Do **not** assume Nuvio is physically inside the wrapper. The launcher supports wrapper-relative and sibling `nuvio` layouts as well as `NUVIO_PATH`.
 
 ## Known-good behavior
 
@@ -67,7 +67,7 @@ onPointerActivate(target) {
 
 and detail controls are rendered as `.focusable` elements with `data-action`, for example `playDefault`, `toggleLibrary`, `toggleWatched`, etc.
 
-v16 includes a wrapper-side pointer bridge. Test whether it actually invokes the expected detail action rather than merely changing CSS focus.
+The wrapper includes a wrapper-side pointer bridge. Test whether it actually invokes the expected detail action rather than merely changing CSS focus.
 
 ### Bug B — no streams found
 
@@ -129,28 +129,27 @@ There was also a postMessage origin mismatch involving `https://www.youtube.com`
 
 ## How to start the wrapper
 
-Open CMD or PowerShell:
+Open CMD or PowerShell in the wrapper directory:
 
 ```bat
-cd /d C:\Users\alvin\Downloads\temp\Nuvio-Onion-Wrapper-v16
+cd /d <path-to>\Nuvio-Onion-Wrapper
 START_WRAPPER.bat
 ```
 
-Expected console:
+Expected console uses local resolved paths, for example:
 
 ```text
 Nuvio Wrapper running at http://127.0.0.1:8797/
-Nuvio root: C:\Users\alvin\Downloads\temp\nuvio
-Inner app: C:\Users\alvin\Downloads\temp\nuvio\dist\index.html
+Nuvio root: <resolved-nuvio-path>
+Inner app: <resolved-nuvio-path>\dist\index.html
 QR config: READY via discovery
 ```
 
 ## Automated smoke test
 
-With the server running, open another CMD:
+With the server running, open another CMD in the wrapper directory:
 
 ```bat
-cd /d C:\Users\alvin\Downloads\temp\Nuvio-Onion-Wrapper-v16
 SMOKE_TESTS.bat
 ```
 
