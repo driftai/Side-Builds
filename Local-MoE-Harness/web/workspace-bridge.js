@@ -38,14 +38,14 @@
     return String(node?.querySelector?.('.message-content')?.textContent || '').trim();
   }
 
-  function lastAssistantNode(chat) {
-    const nodes = chat?.querySelectorAll?.('.message.assistant') || [];
-    return nodes.length ? nodes[nodes.length - 1] : null;
+  function assistantNotice(node) {
+    const notice = node?.querySelector?.('.stream-notice:not(.hidden)');
+    return String(notice?.textContent || '').trim();
   }
 
-  function currentAssistantHistoryText() {
+  function assistantHistoryTextSince(startIndex) {
     try {
-      for (let index = conversationHistory.length - 1; index >= 0; index -= 1) {
+      for (let index = conversationHistory.length - 1; index >= startIndex; index -= 1) {
         const item = conversationHistory[index];
         if (item?.role === 'assistant') return String(item.content || '');
       }
@@ -141,23 +141,38 @@
           });
           return;
         }
-        const historyText = currentAssistantHistoryText();
-        const finalText = historyText || state.lastPartial || assistantText(state.assistantNode);
-        if (finalText) {
-          finish('final', { text: finalText });
-        } else {
-          finish('error', {
-            code: 'LOCAL_MOE_WORKSPACE_EMPTY',
-            error: 'Local MoE completed without a visible response.'
-          });
+
+        // A Nexus turn is successful only when the normal Chat Sandbox pipeline committed
+        // a new assistant item after this request began. Never reuse a reply from an older
+        // conversation turn just because it is still the latest assistant in history.
+        const historyText = assistantHistoryTextSince(state.historyLengthBefore);
+        if (historyText) {
+          finish('final', { text: historyText });
+          return;
         }
+
+        const notice = assistantNotice(state.assistantNode);
+        if (notice) {
+          finish('error', {
+            code: 'LOCAL_MOE_WORKSPACE_STREAM_ERROR',
+            error: notice.replace(/^\[|\]$/g, '') || 'The shared Local MoE turn failed before it was committed.'
+          });
+          return;
+        }
+
+        finish('error', {
+          code: 'LOCAL_MOE_WORKSPACE_UNCOMMITTED',
+          error: state.lastPartial
+            ? 'Local MoE produced partial text but the shared Search Monitor conversation did not commit the turn.'
+            : 'Local MoE completed without committing a response to the shared Search Monitor conversation.'
+        });
         return;
       }
 
       if (performance.now() - state.startedAt > START_TIMEOUT_MS) {
         const assistants = chat.querySelectorAll('.message.assistant');
         const newest = assistants.length > state.assistantCountBefore ? assistants[assistants.length - 1] : null;
-        const message = assistantText(newest) || 'Local MoE did not start the shared Search Monitor turn.';
+        const message = assistantText(newest) || assistantNotice(newest) || 'Local MoE did not start the shared Search Monitor turn.';
         finish('error', { code: 'LOCAL_MOE_WORKSPACE_NOT_STARTED', error: message });
       }
     }, POLL_MS);
