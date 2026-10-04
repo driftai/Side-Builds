@@ -66,12 +66,14 @@ If incorrect, stop before pushing and amend/recreate the commit. If a bad commit
 
 Git identity privacy is a release gate, not a cleanup task.
 
-## Local MoE Harness source of truth
+## Local MoE Harness standalone source
 
-The active GitHub source for Local MoE Harness is:
+The standalone/public GitHub source for Local MoE Harness is:
 
 ```text
-Side-Builds/Local-MoE-Harness
+Side-Builds/Local-MoE-Harness-Standalone
 ```
 
-Do not recreate or depend on retired private staging mirrors during ordinary maintenance. Work directly against this public subtree with the sparse-checkout and Git-identity rules above.
+This subtree is **not** the default place for EveOS-integrated Local MoE or Nexus work. Make EveOS integration changes in `driftai/EveOS` unless the standalone Harness itself must change for the requested behavior.
+
+Do not recreate or depend on retired private staging mirrors during ordinary standalone maintenance. Work directly against this public standalone subtree with the sparse-checkout and Git-identity rules above.
