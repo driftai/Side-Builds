@@ -1,12 +1,14 @@
-# Local MoE Harness — GitHub Maintenance Workflow
+# Local MoE Harness - Standalone — GitHub Maintenance Workflow
 
 ## Source of truth
 
-The active GitHub source of truth for Local MoE Harness is:
+The active GitHub source of truth for the standalone/public Local MoE Harness is:
 
 ```text
-driftai/Side-Builds/Local-MoE-Harness
+driftai/Side-Builds/Local-MoE-Harness-Standalone
 ```
+
+This subtree is not the default location for EveOS-integrated Local MoE or Nexus development. Make EveOS integration changes in `driftai/EveOS` unless the standalone Harness itself must change.
 
 Any former private staging subtree is retired from active maintenance. Do not recreate or sync back to a retired private mirror unless the user explicitly requests a private staging copy.
 
@@ -21,19 +23,19 @@ scripts/github-sync.sh
 
 Those helpers belonged to the retired staging workflow and must not be used for current maintenance. Old copies may contain a retired repository target, machine-local path assumptions, or unsafe Git-identity fallbacks.
 
-Do not publish, revive, or modify those legacy helpers as the default workflow. Future GitHub maintenance should use a sparse checkout of `Side-Builds/Local-MoE-Harness` directly as documented below.
+Do not publish, revive, or modify those legacy helpers as the default workflow. Future GitHub maintenance should use a sparse checkout of `Side-Builds/Local-MoE-Harness-Standalone` directly as documented below.
 
 If an older local installation still contains the legacy helpers, leave model/runtime state untouched but remove or clearly disable the helpers before relying on that installation for future Git synchronization.
 
 ## Monorepo scope rule
 
-`Side-Builds` contains many independent projects. A Local MoE Harness task does not grant permission to download or materialize sibling projects.
+`Side-Builds` contains many independent projects. A Local MoE Harness standalone task does not grant permission to download or materialize sibling projects.
 
 When a local Git checkout is required, default to a blobless partial clone plus sparse checkout:
 
 ```bash
 git clone --filter=blob:none --sparse --no-tags https://github.com/driftai/Side-Builds.git <workdir>
-git -C <workdir> sparse-checkout set --cone Local-MoE-Harness
+git -C <workdir> sparse-checkout set --cone Local-MoE-Harness-Standalone
 ```
 
 Keep sparse checkout enabled. Do not run `git sparse-checkout disable` or expand scope to sibling projects unless the task genuinely requires them.
@@ -41,7 +43,7 @@ Keep sparse checkout enabled. Do not run `git sparse-checkout disable` or expand
 For a single-project change, stage only the harness subtree:
 
 ```bash
-git add -- Local-MoE-Harness
+git add -- Local-MoE-Harness-Standalone
 ```
 
 Do not use `git add -A` or `git add .` for a Local MoE Harness-only task. Before committing, inspect:
@@ -50,7 +52,7 @@ Do not use `git add -A` or `git add .` for a Local MoE Harness-only task. Before
 git diff --cached --name-only
 ```
 
-Every staged project path must be inside `Local-MoE-Harness/`, except an explicitly requested shared root policy file such as `AGENTS.md`.
+Every staged project path must be inside `Local-MoE-Harness-Standalone/`, except an explicitly requested shared root policy file such as `AGENTS.md`.
 
 ## Existing local workspace containers
 
@@ -61,7 +63,7 @@ If a target parent directory already contains another live project with local/un
 Instead:
 
 1. leave the existing sibling project untouched;
-2. use a disposable blobless/sparse Side-Builds checkout elsewhere to obtain or update `Local-MoE-Harness`;
+2. use a disposable blobless/sparse Side-Builds checkout elsewhere to obtain or update `Local-MoE-Harness-Standalone`;
 3. copy/synchronize only the Harness source subtree into its intended standalone local folder;
 4. delete the disposable checkout after verification.
 
@@ -141,6 +143,6 @@ If the remote moved or a push is rejected, stop and reconcile. Do not force-push
 
 ## Rule for agents
 
-For ordinary Local MoE Harness development, release, maintenance, or documentation work:
+For ordinary standalone Local MoE Harness development, release, maintenance, or documentation work:
 
-> Work directly against `Side-Builds/Local-MoE-Harness`, keep Git scope sparse, preserve local runtime state, retire old staging sync helpers, avoid turning shared local workspace containers into monorepo roots, and verify the noreply identity in the actual commit object before every public push.
+> Work directly against `Side-Builds/Local-MoE-Harness-Standalone`, keep Git scope sparse, preserve local runtime state, retire old staging sync helpers, avoid turning shared local workspace containers into monorepo roots, and verify the noreply identity in the actual commit object before every public push. EveOS-integrated provider work belongs in `driftai/EveOS` unless the standalone Harness itself must change.
