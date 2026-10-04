@@ -1,6 +1,8 @@
-# Local MoE Harness
+# Local MoE Harness - Standalone
 
 A self-contained browser control center for running large local models through FreeToken on either **Linux/WSL2** or **native Windows**.
+
+> **Standalone copy:** this Side-Builds subtree is the standalone/public Harness. EveOS-integrated Local MoE and Nexus work belongs in `driftai/EveOS` unless the standalone Harness itself must change.
 
 The harness provides trusted model registration, guarded model switching, GPU-pressure-aware startup profiles, conversation handling, streaming, cancellation, performance telemetry, and a browser UI. Model weights are never downloaded automatically.
 
@@ -27,7 +29,7 @@ Qwen3 Coder FP8 uses the same approved `15-qwen3-coder-fp8.patch` adapter correc
 Persistent runtime/tooling files owned by this tool stay beneath the tool root. Model checkpoint weights are the explicit exception: a user may link a trusted registry model to another local drive, mounted/WSL-visible storage, or removable media.
 
 ```text
-Local-MoE-Harness/
+Local-MoE-Harness-Standalone/
   .venv/                 harness Python environment
   .venvs/freetoken/      FreeToken environment
   runtime/freetoken/     pinned Linux/WSL source runtime
